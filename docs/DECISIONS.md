@@ -24376,3 +24376,374 @@ Built with every theorem in place, emitted from a fresh binary, restored and `cm
 figure equals its VEX memory-form total — dav1d 8,957 · ffmpeg 18,510 · x264 2,872 — so the VEX table's modelled memory-form figure is
 **38,392 of 38,392** (+138 from `a2bcb36`'s 38,254; x264's +127 is 28 below the predicted +155, for the reason stated there).
 **Prediction 4 (kernel cost): HELD.** Read from the gate's own K2 output on katmai (`kernel_delta.py --base 847c23e --head 7c476af --repeats 6`, base = D358's ledger-row commit): `X86.Vex` base 37.1 ms, head 37.5 ms, delta column +0.4 ms (+1.1 %); `X86.Syntax` base 717.0 ms, head 721.5 ms, delta column +4.5 ms (+0.6 %). Each is under the predicted +10 %; every unit `ok`, no NEW unit; ms delta gate CLEAN, ARM A′ CLEAN. The measured head `7c476af` is on no ref since the re-stack onto #167's docs-only `a2bcb36`; on the branch it is `f040a15`, whose tree differs from it by docs only, so no reading input moved.
+## D360 — The census's model side cannot see 51 of the processor-probe forms: `shuf_ops.S`'s `OP(…)` lines and `sse_ops.S`'s `LOAD4` lines (predictions before any code)
+
+**Why.** STATUS row 18 proposed a hwprobe wave for the legacy-SSE memory forms of `pshufb` and `palignr`, sized at 462 + 223
+user-space instructions. **The premise is false, and the measurement that refutes it is the model's own.** D336 (V1b) already
+models both memory forms (`.vshufbm`, `.valignrm`), runs them on silicon (`s_pshufb_rm`, three `s_palignr_rm_*` functions;
+`rows 220 disagreements 0` on an AMD EPYC 7763 and an Intel Core i7-8700B, hwprobe run 38108854973) and pins every row by
+`decide`. What cannot see them is D352's MODELLED figure: `forms_inputs` reads a probe form only from the line after an
+`AT(…)` label or a bare `LOAD`, and two files declare their forms otherwise.
+- `hwprobe/shuf_ops.S` declares all **41** of its forms inline, `OP(name, instr)` (`#define OP(name, ...) FN(name) PRE;
+  FN(name##_at) __VA_ARGS__; POST`). Measured at `9d8fa6e`: `forms_inputs` returns **0** probe forms from that file, against
+  41 `OP(` lines (`pshufb` rr/rm, `palignr` rr ×13 / rm ×3, `pinsrd` r32 ×7 / m32 ×2, `pinsrq` ×4, `pextrd` ×6, `pextrq` ×4).
+- `hwprobe/sse_ops.S` uses `LOAD` before 27 forms and `LOAD4` before **10** (`mulps` `mulpd` `addps` `addpd` `subps` …). The
+  test is `t == "LOAD"`, so the ten are missed. They are register forms of differentially tested mnemonics, so no printed
+  figure moves for them; the population is wrong all the same.
+⇒ The probe-form population is **312, not 261** (261 + 41 + 10). The name a gate looks for is a LITERAL, and a file written in
+another idiom is not "a file with no forms": it is a file the gate cannot read, reporting agreement.
+
+**The repair.** `forms_inputs` reads all three idioms (`AT(` / `LOAD…` then the next line; `OP(name, instr)` inline), and
+**REFUSES** when any `hwprobe/*_ops.S` yields ZERO forms, naming the file — the shape that hid 41 forms. `--selftest` gains a
+fixture with each idiom and a red arm: a file in a fourth, unknown idiom is refused by name, not counted as empty.
+**Limit, declared:** the zero-forms refusal catches a WHOLE file in an unknown idiom; it cannot catch a file that mixes a known
+idiom with an unknown one (as `sse_ops.S` did). That case is caught here only because this entry counted each file's idioms
+by hand; nothing re-counts them.
+
+**Predictions (each wrong if the named reading differs):**
+1. **Red first.** The new zero-forms refusal, run against `9d8fa6e`'s parser, refuses naming `shuf_ops.S` and no other file.
+2. **Population.** After the repair: vectors **1383** (unchanged), probe forms **261 → 312**; the forms stamp's sha moves, so
+   `demand_census.py --check` reads STALE on the repaired tree before regeneration and CLEAN after.
+3. **Census, regenerated from `~/x86lean-corpus`.** Only `silicon_mem_modelled` moves, and only upward. Every corpus's
+   `total`, `covered`, `silicon`, `vex`, `covered_mem`, `silicon_mem`, `vex_mem`, `covered_mem_modelled` and `vex_mem_modelled`
+   are unchanged (the 51 forms are silicon or differential mnemonics already credited by name, and the ten `LOAD4` forms are
+   register forms). `cc1` `coreutils` `vlc-codec` `vlc-video_chroma` `vmlinux-kernel` do not move (their silicon memory gap is
+   already 0).
+4. **The size.** The silicon memory gap (`silicon_mem − silicon_mem_modelled`) summed over the corpora falls from **1,277** by
+   the SSE-legacy memory demand of `pshufb`, `palignr` and `pinsrd`: row 18's 685 for the first two, plus at most 5 for
+   `pinsrd` (x264's whole `pinsrd` demand) ⇒ **to between 587 and 592**. Per corpus the gap falls in glibc, dav1d, ffmpeg, vpx
+   and x264, and in none of them to zero unless that corpus's whole gap was these three mnemonics. `pshufb`/`palignr` in the
+   MMX bucket (ffmpeg 38 + 44, x264 22 + 17) stay unmodelled: the model has no MMX forms.
+**Not claimed:** any model, probe or vector change; the remaining gap's mnemonics (named from the regenerated census, not
+predicted). STATUS row 18 is retired by this entry if prediction 4 holds; row 19 (the VEX silicon memory remainder) is
+re-measured against the regenerated census before it is designed.
+**Result (2026-10-25, yukon, census regenerated from `~/x86lean-corpus`): all four predictions HELD.**
+1. **Red first:** the zero-forms refusal on `9d8fa6e`'s parser: `--check` rc 1, naming `shuf_ops.S` and no other file.
+2. **Population:** `1383 vectors + 312 probe forms` (261 + 41 `OP(` + 10 `LOAD4`); `forms_unread` empty; `--check` read STALE
+   (261 → 312, sha `d1c41879c5bfd0ea` → `d3b0b51087faa726`) before regeneration and CLEAN after. `--selftest` PASS, 243 arms,
+   the three D360 arms included (each idiom read; an unknown-idiom file refused by name; this tree has no unread file).
+3. **Census:** `silicon_mem_modelled` is the ONLY field that moved, in exactly glibc, dav1d, ffmpeg, vpx and x264, each upward.
+   Every other field of every corpus, `_asm_pooled` and `_controls` is byte-identical in the JSON; the document's diff is the
+   forms stamp and five silicon lines.
+4. **Size:** the silicon memory gap fell **1,277 → 590**, closing **687** (inside 685 … 690):
+   glibc 134 → 14 · dav1d 216 → 81 · ffmpeg 374 → 337 · vpx 160 → 37 · x264 393 → 121; none reached zero.
+⇒ **STATUS row 18 is RETIRED: the forms it would have built a wave for were modelled and on silicon since D336.** The remaining
+590 are other mnemonics' memory forms; row 19 re-measures them from this census before it is designed.
+**The 590, by (roster name, bucket)** — measured the same day by a scratch driver that imports this tree's
+`demand_census` unmodified (`census`, `_decide`, `model_forms`) over the same corpus. It sums to **590**, the published
+gap, by a second path. VEX-128: `vpshufb` 220 · `vmulps` 93 · `vpunpckhwd` 24 · `vaddps` 20 · `vpsrad` 16 · `vpalignr` 9 ·
+`vsubps` 4. VEX.256: `vmulps` 167 · `vaddps` 9 · `vpsrad` 8 · `vsubps` 5 · `vpunpcklbw` 4. Legacy SSE: `pextrd` 9 · `pinsrq` 2.
+⇒ **579 of 590 are VEX memory forms of silicon rows (STATUS row 19).** The legacy 11 are forms D336 never took: `pextrd` with
+an m32 DESTINATION, and `pinsrq` from m64. MMX `pshufb`/`palignr` are not in the silicon class (the model has no MMX forms),
+so they are not in the 590.
+⚠️ **Re-carry correction (2026-11-04, paper's read of #169).** Every figure in this entry's Result was measured on 2026-10-25 at
+base `9d8fa6e` (stamp `vectors=1383 probes=261`). Re-carried, it ships on D359's tree, where D354 … D359 have added vectors and
+probe forms. **At the shipped tree** (the census generated in this PR, and the same driver re-run here): `1502 vectors + 336 probe
+forms` (285 + 41 `OP(` + 10 `LOAD4`, the same +51); the gap falls **1,267 → 580**, closing the same **687**: glibc 134 → 14 ·
+dav1d **208 → 73** · ffmpeg 374 → 337 · vpx 160 → 37 · x264 **391 → 119**; `--selftest` PASS, **253** arms. The (name, bucket)
+split, re-measured by the scratch driver (it imports this tree's `demand_census` unmodified: `model_forms`, `census`, `_decide`),
+sums to **580**, matching the JSON per corpus. Two keys moved: VEX-128 `vpshufb` **211** (not 220) and `vpalignr` **8** (not 9);
+the other eleven keys are as above. ⇒ **569 of 580 are VEX memory forms of silicon rows** (row 19); the legacy 11 are unchanged.
+The predictions and the 10-25 Result are left as written; their ranges (685 … 690 closed, none at zero) hold at both bases.
+
+## D361 — V10: the VEX memory forms of the silicon rows (`vpshufb` `vpalignr` `vmulps` `vaddps` `vsubps` `vpsrad` and two unpacks), refereed by silicon (predictions before any model, row or hardware work)
+
+**Why these.** D360's regenerated census leaves **590** silicon memory-form instructions unmodelled, and its by-name split
+(D360, last paragraph) puts **579** of them on the VEX memory forms of rows the model already has as VEX REGISTER forms:
+VEX.128 `vpshufb` 220 · `vmulps` 93 · `vpunpckhwd` 24 · `vaddps` 20 · `vpsrad` 16 · `vpalignr` 9 · `vsubps` 4; VEX.256 `vmulps`
+167 · `vaddps` 9 · `vpsrad` 8 · `vsubps` 5 · `vpunpcklbw` 4. (The other 11 are legacy `pextrd m32` and `pinsrq m64`, not here.)
+
+**The referee, measured before anything was designed (P1, 2026-10-25, yukon, a scratch driver that
+imports `oracle_availability.py` unmodified and calls its `measure()`, bytes from its `encode_forms`).** All **16** encodings REFUSE at 88 of 88: the
+eight mnemonics above at `(%rbx)`, VEX.128 and VEX.256 each. In the same run `CONTROL:mov` and V4's `vpxor (%rbx), %xmm2, %xmm0`
+executed at 88/88, which places the refusals on the opcodes and not on a VEX memory access. ⇒ **a silicon wave with memory
+operands, V8c's shape** (`hwprobe/vexsilc`, D350).
+
+**The model (six new VEX constructors and one set widened; no new arithmetic).** Each memory twin is its register twin's function
+with ModRM.rm read from memory, VEX.128 through `setXmmVex128`, VEX.256 through `setYmm`, no alignment check (VEX Exception Type 4,
+`vexbinm`'s rule since D342):
+- `vexshufbm dst src1 ea` — `vshufbApply (getXmm src1) (readMem128 a)`. The memory operand is the CONTROL, never the data.
+- `vexalignrm dst src1 ea imm` — `valignrApply (getXmm src1) (readMem128 a) imm`. The memory operand is the LOW half of the
+  concatenation, as `src` is.
+- `vexparithm op` / `vexparithm256 op` — `vparithAll` with `readMem128 a` (and, at VEX.256, `readMem128 (a + 16)` for the high
+  lane); the SIMD flags are the OR over both lanes, as `vexparith256`'s. `div` stays refused, as for the register twins.
+- `vexsraxm w` / `vexsraxm256 w` — the count is the LOW 64 BITS OF THE m128 AT `a` AT BOTH WIDTHS. ⛔ The VEX.256 form's count
+  operand is `xmm3/m128` (SDM Vol. 2B, PSRAW/PSRAD/PSRAQ, VEX.256 encoding), so it reads 16 bytes, never 32; a count whose
+  upper qword is nonzero is still the low qword's count.
+- `VBinKind.vexSilMemTaken` gains the four `vexSilTaken` unpack/pack kinds (`unpcklb` `unpcklw` `unpckhw` `packuswb`): their
+  register twins are silicon-refereed (D345) and `vexbinm`/`vexbinm256` already carry the memory rule.
+
+**Predictions (each wrong if the named reading differs):**
+1. **Silicon.** Every row agrees on every processor read, on both vendors, each named by the processor. Every memory row is read
+   at an UNALIGNED offset as well as an aligned one, so the no-fault rule is read, not assumed. Memory is never written, and the
+   pins read the whole buffer back.
+2. **Generator, before any processor.** A textbook per form reproduces every row, and `--refuse-wrong` refuses each of these on a
+   named row:
+   - (a) `vpshufb` from memory with the operands swapped (memory as the data, `src1` as the control);
+   - (b) a VEX.256 `vmulps` from m256 whose high lane reads bytes 15:0 again instead of 31:16;
+   - (c) VEX.256 `vpsrad` from memory reading its count from all 128 bits (an upper qword ≠ 0 saturates the shift);
+   - (d) VEX.256 `vaddps` from m256 dropping a flag raised in the high lane only;
+   - (e) `vpalignr` from memory with memory as the HIGH half of the concatenation.
+3. **Model.** Six constructors under `Op.vex`; all rows pinned by `decide` in a NEW metered unit (`Tests/AnchorsVexSilE.lean`).
+   **Red backwards** on the model: (b)'s mutant reds exactly the `…256_m` `vparith` theorems; (c)'s exactly the VEX.256
+   `vpsrad` memory theorems; (a)'s exactly the `vpshufb` memory theorems.
+4. **Census.** The silicon memory gap falls **590 → 11**, every remaining instruction a legacy `pextrd m32` or `pinsrq m64`
+   (D360's split); `silicon_mem_modelled` is the only field that moves, in exactly the corpora whose split names these mnemonics
+   (dav1d, ffmpeg, vpx, x264, glibc's VEX rows if any). Every other figure is unchanged.
+5. **Kernel cost.** The NEW unit is registered in BOTH registries before the katmai row. `X86.Syntax` grows with six VEX
+   constructors: V8c's four cost +23.5 ms at katmai against a prediction of < +15 (D350, not held), so predict **under +40 ms**,
+   the point estimate read at K1 and recorded either way.
+**Not claimed:** EVEX/zmm; VEX.256 `vpshufb`/`vpalignr` (the census has no VEX.256 demand for them, and the model has no VEX.256
+register form of either); `vdivps`; the legacy `pextrd m32` / `pinsrq m64` (11 instructions, a separate item).
+**Price.** V8c's shape plus two constructors: generator + probe (one day), model + anchors (one day), K1/K2 on katmai and the census.
+Lands after D360, one PR, on kent's board.
+**Result, prediction 2 (generator, step (a), `a7ce936`): HELD.** 356 rows over 22 functions (D345's FP and VPSRAD cases
+THINNED for the memory twin: every flag row, one rounding mode per FP case group, two random FP cases, VPSRAD's sixteen edge
+counts; the arithmetic is D345's, pinned there under every mode). Every one of the 178 memory cases runs at offset 0 and at
+an odd offset, expecting the same result. `--selftest` passes: three hand cases (VPSHUFB reversal from m128 at offset 13;
+VPALIGNR $5 with memory as the LOW half; VPSRAD ymm with count 4 and junk in bits 127:64), a 3,000-case sweep, both mutants
+on exactly the rows they reach (192, 140). `--refuse-wrong` refuses 5 of 5 on named rows: (a) `vpshufb128_m_ident_a` ·
+(b) `vmulps256_m_hionly_IE_a` · (c) `vpsrad256_m_c0_edge_a` · (d) `vaddps256_m_hionly_IE_a` · (e) `vpalignr128_m_i0_p0_a`.
+Under Rosetta 2 (a translation, not silicon, `ROSETTA_ADVERTISE_AVX=1`): 356/356, each plant on its own row.
+**Result, prediction 1 (silicon, hwprobe runs 40190842502 (push) and 40191605877 (re-dispatch for an AMD leg), `41ef1d7`):
+HELD on four legs, both vendors, each NAMED by `/proc/cpuinfo` or the brand string.** Intel Core i7-8700B: 356/356 on both
+runs. **Intel Xeon Platinum 8573C** (ubuntu-latest, the first run, so that run had no AMD leg): 356/356. **AMD EPYC 7763**
+(ubuntu-latest, the re-dispatch, CPUID.01.ECX `feda3203`): 356/356. On every leg: plant rc 1 on its row, badop rc 2
+(`REFUSED x_vpshufb128_m`), hi rc 1 on its row. No memory row faulted at an odd offset on any processor.
+**Result, prediction 3 (model, step (b)): HELD.** Six constructors under `Op.vex` (`vexshufbm` `vexalignrm` `vexparithm`
+`vexparithm256` `vexsraxm` `vexsraxm256`) and `vexSilMemTaken` += the four unpack/pack kinds. `Tests/AnchorsVexSilE.lean`
+(NEW unit) pins all 356 rows in 22 theorems, plus six frame theorems proving the new constructors never write memory (the
+unpack kinds' `vexbinm`/`vexbinm256` frames are V8c's). saltbuild EXIT=0, 0 tagged errors, 0 warnings in the new unit; full
+build of X86, Tests and x86lean-diff likewise. **Red backwards, on the model**, each mutant built and `X86/Semantics.lean`
+restored (`cmp`-verified): (b) the VEX.256 FP high lane read from `a` reds exactly `v10_vaddps256_m_pins`,
+`v10_vsubps256_m_pins`, `v10_vmulps256_m_pins`; (c) the VEX.256 VPSRAD count from all 128 bits reds exactly
+`v10_vpsrad256_m_pins`; (a) VPSHUFB's operands swapped reds exactly `v10_vpshufb128_m_pins`.
+**Result, prediction 4 (census, regenerated from `~/x86lean-corpus`): HELD exactly.** The silicon memory gap 590 → **11**, the
+11 being `pextrd` 9 and `pinsrq` 2 (legacy SSE), by the same second-path split as D360's. `silicon_mem_modelled` is the ONLY
+field that moved, upward, in glibc (122 → 136), dav1d (4,216 → 4,297), ffmpeg (8,225 → 8,556), vpx (4,307 → 4,342) and
+x264 (942 → 1,060). `docs/COVERAGE.md` regenerated (200 rows; the ten mnemonics' shapes gain `x,x,m`).
+⚠️ **Re-carry correction (2026-11-04, the class paper found on #168/#169, applied before this entry's PR).** The census figures in
+**Why**, prediction 4 and this Result were measured at the 10-25 base. **At the shipped tree** (`docs/DEMAND-CENSUS.md.json`
+at D360's `61a0838` against this branch): the silicon memory gap falls **580 → 11** (D360's corrected split puts **569** of the 580
+on the VEX memory forms named here, `vpshufb` 211 and `vpalignr` 8 being the two keys that moved); the 11 are as stated, here
+ffmpeg 6 · vpx 2 · x264 3. `silicon_mem_modelled` is still the only field that moves, upward, in the same five corpora: glibc
+122 → 136 · dav1d **4,034 → 4,107** · ffmpeg **8,211 → 8,542** · vpx 4,307 → 4,342 · x264 **938 → 1,054**. The forms stamp reads
+`vectors=1502 probes=358`. The K1 reading of prediction 5 (`738411c` → `709af7c`, both now on no ref) is the 10-25 base's; the
+shipped-base reading is the K2 row. Predictions and the 10-25 Results are left as written.
+**Result, prediction 5 (kernel cost, K1 on katmai, `738411c` → `709af7c`, `--repeats 6`, both arms): HELD.** `X86.Syntax`
+673.0 → 697.0 ms (**+24.0**, band ±10.2, ok), under the +40 ms predicted for six constructors. The NEW unit is the only
+refusal on either arm, as designed: `Tests.AnchorsVexSilE` 14,450 ms (kernel_delta) and 6,163,927 unfoldings (ku_delta a′),
+each REFUSED as NEW and registered from the line its tool printed: `Tests.AnchorsVexSilE 43350 @on katmai` and
+`Tests.AnchorsVexSilE @ku 6163927`. ⚠️ **Not predicted, and the largest price in this entry:** the unit costs about 2.5× V9b's
+`Tests.AnchorsVexSilD` (5,810 ms at katmai) for 2.8× its rows (356 against 126); D361 named no figure for it. No yukon ceiling
+is registered (no yukon K1 was run); the runner's line comes from the PR's own kernel-delta refusal, as V9a's and V9b's did.
+**Prediction 5 at the shipped base (K2, 2026-11-04, katmai, `kernel_delta.py --base 02d3712 --head 89d5fee --repeats 6`):
+HELD.** `X86.Syntax` 721.0 → 756.0 ms (**+35.0**, ±11.8, ok), under the +40 predicted; the base moved, so this is 11.0 ms above
+the 10-25 K1's +24.0. `Tests.AnchorsVexSilE` NEW at 14,450 ms against its 43,350 @on katmai: ok. ms delta gate CLEAN.
+⚠️ **ARM A′ first REFUSED** the NEW unit at **6,163,945** unfoldings over its 10-25 registration of 6,163,927 (+18). The unit's
+file is unchanged since `bc8e21a`, and this entry's one later `.lean` change is to `Tests/AnchorsVexSilC.lean`. On yukon,
+`deterministic_cost.measure` reads **6,163,927** at the registration's own K1 head `709af7c` and **6,163,945** at this branch,
+equal to katmai's both times. ⇒ the count rose by 18 BELOW the unit, between `738411c` and `61a0838`, and is not localised to a
+commit. **Re-registered** at 6163945 from K2's `--json` head_ku (`e17d6ed`, the helm's ruling: no bisect before landing; the
+non-author read reproduces both readings). A′ re-run on the same pair against that registry: **CLEAN**, and the row lands on
+the ms verdict (D251).
+⚠️ **Two shas above are on no ref since the re-carry, declared rather than re-keyed** (a run is cited at the commit it ran at):
+prediction 1's hwprobe runs ran at `41ef1d7`. On the branch the probe step is `8b243b7`, and the three files those runs consumed
+(`hwprobe/mk_vexsile_rows.py`, `vexsile_ops.S`, `vexsile_probe.c`) are blob-identical at `41ef1d7` and at this entry's tip.
+Prediction 2's `a7ce936` is `05bd5f8` on the branch, its one file blob-identical. This branch's own hwprobe run re-reads the silicon.
+
+## D362 — the legacy silicon memory remainder: `pextrd`/`pextrq` to memory and `pinsrq` from m64, refereed by silicon (predictions and price before any model, row or hardware work)
+
+**Why these.** After D361 the census's silicon memory gap is **11** instructions, all legacy SSE: `pextrd` with an m32
+DESTINATION (9) and `pinsrq` from m64 (2), the forms D336 did not take (D360/D361's by-name split).
+**The referee, measured before anything was designed (P1, 2026-10-25, yukon, `oracle_availability.measure()` unmodified through a
+scratch driver, bytes from its `encode_forms`; the seat's P1 record, kept with its driver).** All four
+encodings REFUSE at 88 of 88 — `pextrd $1, %xmm0, (%rbx)` · `pextrd $3, %xmm2, (%rbx)` · `pinsrq $1, (%rbx), %xmm0` · `pinsrq $0,
+(%rbx), %xmm2` — while `CONTROL:mov` and V4's `vpxor (%rbx), %xmm2, %xmm0` executed at 88/88. ⇒ a silicon wave on D336's `shuf`
+path.
+
+**The model (no new constructor).** `pinsrq` from m64 is ALREADY modelled: `.vinsr`'s source is an `Operand` (D336), and `.q` reads
+it with `readOperand .q`. It lacks only silicon rows. `pextrd`/`pextrq` to memory is not: `.vextr`'s destination is a `GPR`. It is
+WIDENED to an `Operand`, `.vinsr`'s own idiom, rather than given a memory twin, because `X86.Syntax`'s kernel cost tracks `Op`'s
+constructor count (D343) and a field's type is nearly free there:
+- `vextr (sz : Size) (dst : Operand) (src : XmmReg) (imm : BitVec 8)`; semantics `s.writeOperand sz nr dst (vextrApply sz …)`,
+  which is `setReg sz r v false` at a register (the shipped meaning) and `writeMem sz a v` at memory, `sz.bits / 8` bytes,
+  Type 5 (no alignment requirement); an immediate destination halts as `writeOperand` already does.
+- `memOperands` names `[dst]`; `lockIllegal` is `dst.locked` (the SDM lists no lock form; a locked memory operand is `#UD`,
+  as for `.vinsr`).
+- `step_vextr` is restated at `.reg r`; a new `step_vextr_mem` states the memory write; `Tests/AnchorsShuf.lean`'s ten
+  `pextrd`/`pextrq` pins are regenerated with `(.reg .rax)` and keep their rows. `X86/Coverage.lean`: `pextrd` and `pextrq`
+  gain `m,x,i`, `pinsrq` gains `x,m,i`.
+
+**⛔ The blind spot this must not ship (D358's class).** In `shuf_ops.S` RBX = `&p->b` and XMM1 = `b`, so `pextrd $0, %xmm1,
+(%rbx)` stores b's own low dword over itself and a dropped store agrees with a performed one. ⇒ **every store row extracts from
+XMM0 = `a`**, and the two `(a, b)` pairs differ in every dword (checked by the generator, which refuses a store row whose
+expected memory equals its pre-state memory).
+
+**The rows (14 functions, 56 rows; `mk_shuf_rows.py`, expectations derived from the rules, never typed).**
+`pextrd $i, %xmm0, (%rbx)` at i ∈ {0, 1, 2, 3, 5, 0xff} · `pextrq $i, %xmm0, (%rbx)` at {0, 1, 3, 0x80} · `pinsrq $i, (%rbx),
+%xmm0` at {0, 1, 2, 0xff} — each × the two `(a, b)` pairs × the two flag sets. **Every row of the program (all 276) now also
+compares the 16 bytes at RBX after the instruction** (the probe re-reads `p->b`, as `sha_probe`/`simda_probe` do), so the 220
+D336 rows are asked not to write memory and a store is compared over all 16 bytes, never only the ones it should write.
+
+**Predictions (each wrong if the named reading differs):**
+1. **Generator, before any processor.** A new `--refuse-wrong` refuses each of these on a named row: (a) `pextrd` to memory
+   storing 8 bytes (the lane zero-extended, as the register write is); (b) a dropped store; (c) `pextrd` selecting by `imm[2:0]`
+   (i = 5 then names no lane); (d) `pinsrq` from memory reading 4 bytes; (e) `pextrq` selecting by `imm[1:0]` (i = 3 then names a
+   dword lane). The store-row blind-spot check refuses a row built from XMM1.
+2. **Silicon.** `rows 276 disagreements 0` on every leg, both vendors, each processor NAMED; the three D336 controls behave as
+   before, and a fourth, `--plant-mem` (bit 0 of the expected memory flipped in one `pextrd` store row), gives exactly that row
+   `DIFF`, rc 1.
+3. **Model.** All 56 rows pinned by `decide` in a NEW metered unit, `Tests/AnchorsShufM.lean` (AnchorsShuf's ku allowance is
+   23.3 % × 511,292 ≈ 119k, and 56 rows at its ~2,300 ku per row would exceed it), each pin reading back RAX, XMM0 and the
+   16 bytes at 0x2000. **Red backwards on the model:** (a)'s mutant (`.d` store at `.q` width) reds exactly the `pextrd` memory
+   pins; (b)'s (memory destination writes nothing) exactly the `pextrd` and `pextrq` memory pins; (d)'s (`.vinsr .q` from memory
+   reading `.d`) exactly the `pinsrq` memory pins. The D336 pins build unchanged in meaning.
+4. **Census.** The silicon memory gap **11 → 0**; `silicon_mem_modelled` is the only field that moves, upward by 11, in
+   exactly the corpora whose split names these two mnemonics. `docs/COVERAGE.md` regenerates with the three shapes above.
+5. **Kernel cost.** `X86.Syntax` |Δ| < 10 ms at katmai (one field's type, no constructor). The NEW unit is priced from
+   AnchorsShuf's rate (1,050 ms and 511,292 ku for 220 rows): **150–600 ms at katmai and 80k–300k ku** (a store pin reads
+   memory back, so the per-row rate may be higher than D336's); registered in both registries from the lines the tools print.
+**Not claimed:** `pextrb`/`pextrw`/`pinsrb`/`pinsrw` (other mnemonics); VEX `vpextrd`/`vpinsrq` (no census demand);
+`pextrd` to a memory operand that faults (no row maps an unmapped page).
+**Price.** One day: model + the generator's new rows and `--refuse-wrong` (half), probe + hwprobe dispatch + pins + mutants (half);
+then K1/K2 on katmai and the census. Lands after D361 on the stack, one PR; the runner's ceiling line for the NEW unit rides in
+the next script-only PR (row 21's), not a PR of its own.
+**Result, prediction 1 (generator, step (a), `465c2cb`): HELD.** 276 rows over 55 functions (220 D336 rows unchanged field
+for field, each now also expecting the 16 bytes at [RBX] untouched; 56 new). `--refuse-wrong` refuses 6 of 6 on named rows:
+(a) `pextrd_mr_i0_p1` (24 rows) · (b) dropped store, `pextrd_mr_i0_p1` (24) and `pextrq_mr_i0_p1` (16) · (c) `pextrd_mr_i5_p1`
+(8) · (d) `pinsrq_rm_i0_p1` (16) · (e) `pextrq_mr_i1_p1` (8). No store row equals its pre-state memory (the generator's own
+refusal did not fire). Under Rosetta 2 (a translation, not silicon): 276/0, each of the four controls on its row.
+**Result, prediction 2 (silicon, hwprobe runs 40267603865 (push) and 40267766296 (re-dispatch for an AMD leg), `b45a6a8`):
+HELD on four legs, both vendors, each NAMED by `/proc/cpuinfo` or the brand string.** Intel Core i7-8700B: 276/0 on both runs.
+Intel Xeon Platinum 8573C (ubuntu-latest, the push run, so it had no AMD leg): 276/0. **AMD EPYC 7763** (the re-dispatch,
+CPUID.01.ECX `feda3203`): 276/0. On every leg: plant rc 1 on `pshufb_rr_a1_ident`, badop rc 2, zx rc 1 on `pextrd_rr_i1_p1`,
+**mem rc 1 on exactly `pextrd_mr_i1_p1`**, and `--refuse-wrong` 6 of 6.
+**Result, prediction 3 (model, `b848c4f`): HELD, with one thing the prediction did not name.** `.vextr`'s destination is an
+`Operand`; `step_vextr` restated at `.reg`, `step_vextr_mem` added; no new constructor. `Tests/AnchorsShufM.lean` (NEW unit)
+pins all 56 rows in 14 theorems; the 220 D336 pins keep their rows (only the ten `pextr` instruction spellings moved to
+`(.reg .rax)`). Full build of X86, Tests and x86lean-diff: the wrapper's audit line reads `EXIT=0`, 0 tagged errors, no warning
+on a changed line. **Red backwards**, each mutant built and `X86/Semantics.lean` restored (`cmp`-verified): ⭐ **not predicted:
+(a) and (b) are each caught FIRST by `step_vextr_mem`**, which states the store's width and bytes, so with the theorem in place
+the build never reaches the pins. To measure the pins on their own, that one proof was set to `sorry` inside the mutant only
+(restored with it): (a) the `.d` store at `.q` width reds exactly the six `pextrd` memory pin theorems; (b) the dropped store
+the six `pextrd` and four `pextrq` ones; (d) `pinsrq` from memory reading `.d` (theorem untouched) exactly the four `pinsrq`
+ones. No D336 pin reds under any of them. ⚠️ A harvest defect on the way: the first mutant pass counted ZERO red pins under
+(d), because its parser matched only the `path: error` order and lake prints `error: path` (the fleet map's two-order trap);
+the build's rc 1 is what showed the parser was wrong.
+**Result, prediction 4 (census, regenerated from `~/x86lean-corpus` with its debug tree): HELD exactly.** Against D361's census
+exactly three fields change, all `silicon_mem_modelled`: ffmpeg 8,556 → 8,562, vpx 4,342 → 4,344, x264 1,060 → 1,063 (+11, the
+whole gap); probe forms 358 → 372. `--check` CLEAN; `docs/COVERAGE.md` changes in the `pinsrq`, `pextrd` and `pextrq` rows only.
+⚠️ A first regeneration without `--debug` zeroed every attribution column; it was discarded, not committed.
+**Result, prediction 5 (kernel cost, K1 on katmai, `06ca21f` → `b45a6a8`, `--repeats 6`, both arms): NOT HELD on either price.**
+⛔ **The NEW unit costs more than predicted, on both arms:** `Tests.AnchorsShufM` **721 ms** (kernel_delta, ± 21.2) against
+150–600 predicted, and **352,020 ku** (ku_delta a′) against 80k–300k. Per row that is ~6,290 ku against AnchorsShuf's 2,324,
+about 2.7×: the 16-byte read-back each pin adds is most of a pin's cost, and the prediction's "may be higher" named the
+direction without pricing it. Each refusal is the NEW-unit refusal, as designed, and the unit is registered from the lines the
+tools printed: `Tests.AnchorsShufM 2163 @on katmai` and `Tests.AnchorsShufM @ku 352020`. ⚠️ `X86.Syntax` reads **+27.0 ms,
+± 38.9 at K = its band**, verdict ok, against a predicted |Δ| < 10: the point estimate is outside the prediction and the
+measurement cannot separate it from zero, so the prediction is NOT CONFIRMED rather than refuted. Its ku reading is +15 of an
+allowance of 8,654 (one field's type, no constructor), which is the sharper instrument here. Every other unit ok on both arms;
+`Tests.AnchorsShuf` +40 ms ± 36.3 and +360 ku (the ten `pextr` spellings). No yukon ceiling is registered (no yukon K1 was
+run); the runner's line comes from the PR's own kernel-delta refusal and rides in the next script-only PR.
+⚠️ **Re-carry correction (2026-11-04, the figure class paper found on #168/#169, applied before this entry's PR).** Result 4's
+three fields are the 10-25 base's. **At the shipped tree** (`docs/DEMAND-CENSUS.md.json` at D361's `bc1f722` and at this branch):
+ffmpeg **8,542 → 8,548** · vpx 4,342 → 4,344 · x264 **1,054 → 1,057**, still +11 in exactly those three fields, and the gap
+still **11 → 0**. The census is regenerated here WITHOUT the debug tree, and it reproduces the branch's committed document with
+nothing moving. **Off-ref shas, declared:** prediction 2's hwprobe runs ran at `b45a6a8`, and the four probe files they consumed
+(`hwprobe/mk_shuf_rows.py`, `mk_shuf_anchors.py`, `shuf_ops.S`, `shuf_probe.c`) are blob-identical there and at this tip.
+`465c2cb` is `dc75332` on the branch (its files identical); `b848c4f` and `b45a6a8` are `e5be8da` and `8493634`, the same commits
+re-carried, whose shared files also carry the moved base. K1's `06ca21f` → `b45a6a8` is the 10-25 base's; the shipped-base
+kernel reading is the K2 row. Predictions and the 10-25 Results are left as written.
+**Prediction 5 at the shipped base (K2, 2026-11-05, katmai): NOT HELD, as at K1, and by the same margins.** The first K2
+(`kernel_delta.py --base bc1f722 --head abff07d --repeats 6`) read the ms gate **UNMEASURABLE**: `Tests.Vectors` 11.6 → 18.2
+(+6.6, ±7.0) against a 12.1 budget, with the box quiet. Per the tool, the budget was not widened; repeats were bought. At
+`--repeats 12` on the same pair, the gate is **CLEAN**: `Tests.Vectors` 19.9 → 18.4 (−1.5, ±4.7), so the first reading was noise in
+a ~15 ms unit. `X86.Syntax` −7.0 (±5.7) and `X86.Semantics` +0.2. The NEW `Tests.AnchorsShufM` is **699.5 ms** against the
+150–600 predicted (its 2,163 @on katmai ceiling: ok) and **352,020 ku** against 80k–300k, exactly its K1 registration (A′
+CLEAN, no drift below it). The row is recorded from the repeats-12 ms file and K2's A′ file (D251).
+
+## D371 — VEX `vmovd`/`vmovq` between an XMM register and a GPR or memory: the VEX twins of D356, refereed by silicon (STATUS row 27; predictions and price before any model work)
+
+**Why.** 6,939 instructions in the census residue (`vmovq` 3,922 · `vmovd` 3,017, all VEX.128: dav1d 2,551 · ffmpeg 1,848 ·
+x264 1,314 · glibc 815 · vpx 406 · coreutils 4 · vmlinux 1), read at D356's head `569b100`. These are the VEX encodings of
+D356's `vmovgld`/`vmovgst` and of the register forms the model has as `vmovg`.
+**The referee, measured before anything was designed (P1, 2026-10-30, yukon, a scratch driver that imports
+`oracle_availability.py` unmodified and calls its `measure()`, bytes from its `encode_forms`).** All **8** encodings REFUSE at
+88 of 88: `vmovd`/`vmovq` GPR→xmm (`c5f96ec1` `c4e1f96ec1`), xmm→GPR (`c5f97ec1` `c4e1f97ec1`), load (`c5f96e03`; `vmovq`
+load assembles as F3 0F 7E, `c5fa7e03`) and store (`c5f97e03`; `vmovq` store as 66 0F D6, `c5f9d603`). In the same run
+`CONTROL:mov` and V4's `vpxor (%rbx), %xmm2, %xmm0` executed at 88/88, which places the refusals on the opcodes and not on a VEX
+memory access. ⇒ **a silicon wave with register and memory operands, D361's shape.** (The driver's first two runs printed `None`
+for both controls: it looked the results up by mnemonic, and `measure()` keys them by `tag_of`, which maps `:` to `_`. The third
+run reads them by tag. A refusal table whose controls read `None` is uninterpretable, so the readings above are from that third
+run alone.)
+**The model (four VEX constructors; no new arithmetic).** Each is its legacy twin's value with the VEX.128 write rule: an XMM
+destination is written through `setXmmVex128`, so bits 255:128 of the YMM register are zeroed, where the legacy form leaves them.
+- `vexmovgx sz dst r` — GPR→xmm: the low 32 or 64 bits of `r`, zero-extended to 128 (VEX.W picks the width).
+- `vexmovxg sz r src` — xmm→GPR: the low 32 or 64 bits of `src`; a 32-bit write zero-extends into the 64-bit register.
+- `vexmovgld sz dst ea` — load: 4 or 8 bytes at `a`, zero-extended to 128 (no merge: the x86isa legacy `movd`-load merge D356
+  declared is not this form's question, since the referee is silicon).
+- `vexmovgst sz ea src` — store: exactly 4 or 8 bytes written, nothing else in memory or in the registers moved.
+VEX.L = 1 is `#UD` for all four (SDM Vol. 2B, MOVD/MOVQ), so there is no VEX.256 twin.
+**Predictions (each wrong if the named reading differs):**
+1. **Silicon.** Every row agrees on every processor read, on both vendors, each named by the processor. The YMM upper half is
+   SEEDED NONZERO before every row, so the VEX zeroing is read, not assumed. Every memory row is read at an UNALIGNED offset as
+   well as an aligned one, and the store rows read the whole buffer back.
+2. **Generator, before any processor.** A textbook per form reproduces every row, and `--refuse-wrong` refuses each of these
+   on a named row: (a) a VEX form that leaves YMM 255:128 untouched (the legacy rule); (b) a `vmovd` load that merges bits
+   127:32 instead of zeroing them; (c) a `vmovq` store that writes 16 bytes; (d) a `vmovd` xmm→r32 that leaves bits 63:32 of
+   the GPR.
+3. **Model.** Four constructors under `Op.vex`, all rows pinned by `decide` in a NEW metered unit. **Red backwards:** (a)'s
+   mutant reds exactly the four constructors' upper-zeroing theorems, and (c)'s reds exactly the store rows.
+4. **Census.** The VEX column rises by the `vmovd`/`vmovq` spellings these four shapes cover, and nothing else moves.
+   ⚠️ **Not 6,939 by construction:** the census counts by mnemonic, and VEX `vmovq xmm, xmm` (F3 0F 7E, register form) carries
+   the same name and is not one of these four shapes. Its share is UNMEASURED here. The census's form split (branch
+   `paris/census-shape-split`) or a by-spelling count at build time decides it, and the residue is printed, not assumed zero.
+**Price.** One silicon wave (two vendors), one generator, four constructors, one metered anchor unit, one census regeneration.
+D361 is the comparable. The branch stacks on D362, the stack's tip (D356's constructors included), so it lands after the
+D356–D362 stack.
+**Readings (2026-10-30, `paris/d371-vex-movdq`):**
+1. **HELD** on both vendors, hwprobe run 41041988507 at `761159d`: AMD EPYC 7763 (`ubuntu-latest`) and Intel Core i7-8700B
+   (`macos-15-intel`), each `rows 72 disagreements 0`. On each leg `--plant` reds exactly `vmovd_ld_ones_a`, `--plant-hi`
+   exactly `vmovq_gx_ones_r`, `--plant-mem` exactly `vmovd_st_ones_u`, and `--plant-op` refuses `x_vmovd_gx` (rc 2). The
+   `--plant-mem` control is new here: it shows the buffer comparison can fail, which V8c's and V10's probes never showed.
+2. **HELD.** Selftest 17 arms; `--refuse-wrong` refuses (a)-(d), each on its named row (`vmovd_gx_zero_r`,
+   `vmovd_ld_zero_a`, `vmovq_st_zero_a`, `vmovd_xg_zero_r`). Reach: (a) 36 rows, (b) 12, (c) 12, (d) 6. Two mutants of the
+   references themselves (the textbook's store one byte short; a `vmovd` r → xmm keeping 128 bits) each red the selftest.
+3. **HELD, with one design change declared.** THREE constructors under `Op.vex`, not four: `vexmovg toXmm sz x r`
+   mirrors the legacy `vmovg` (one constructor for both GPR directions), with `vexmovgld` and `vexmovgst`. All 72 rows are
+   pinned by `decide` in the NEW unit `Tests/AnchorsVexSilF.lean` (`mk_vexsilf_anchors.py --check`). A store row also
+   reads back the qwords it spans. The frame theorems `vf_frame_movg` and `vf_frame_movgld` state `mem` unchanged, with
+   axioms `propext` and `Quot.sound`. **Red backwards on the model:** the load written through `setXmm` (the legacy
+   upper rule) reds exactly `vf_vmovd_ld_pins` and `vf_vmovq_ld_pins`; the store writing 16 bytes reds exactly
+   `vf_vmovd_st_pins` and `vf_vmovq_st_pins`. `siliconTable` gains `vmovd` and `vmovq`, and `Tests.Coverage`'s
+   mnemonic gate gains both.
+4. **HELD, exactly, and the ⚠️ resolved.** The census's silicon column rises by **6,939**: coreutils 4 · glibc 815 ·
+   dav1d 2,551 · ffmpeg 1,848 · vpx 406 · x264 1,314 · vmlinux 1, plus `_asm_pooled` +6,119. Compared key by key against
+   the JSON before regeneration, only the silicon keys move: `silicon`, `silicon_all`, `silicon_pct`, and `silicon_mem` =
+   `silicon_mem_modelled` (glibc +464, which is its M,X 176 + 218 and X,M 34 + 36). `total`, `covered`, `vex` and every miss
+   figure are unchanged. The census credits silicon BY NAME, so the by-shape question was measured directly (`objdump -d` over the same
+   corpus, operands classed): `vmovd` M,X 1,017 · R,X 912 · X,M 715 · X,R 373; `vmovq` M,X 2,199 · R,X 101 · X,M 1,388 ·
+   X,R 234 = 6,939. **VEX `vmovq xmm, xmm` occurs ZERO times**, so here the by-name credit and the by-shape credit
+   are equal. If a later corpus carries that form, the census will credit it by name while the model lacks it. This
+   paragraph is the record of that limit.
+   P2-ROSTER.md regenerated (`vmovd` now reads silicon-refereed).
+⚠️ `check_readme_snapshot` reds on this branch as it already does on D362's tip (README 108,240 against the record's
+109,208). It belongs to the D356–D362 stack's rebase, not to D371.
+**K1 (a reading; no kernel prediction was sealed), katmai, 733f8f2 → 914ab1c, 6 repeats:** both arms REFUSED only the NEW
+unit, as a K1 does. `Tests.AnchorsVexSilF` reads 490.5 ms and 220,986 unfoldings; both registration lines are copied
+from the tools' own output. Every existing unit reads `ok`; `X86.Syntax` +6.0 ms (756.5 → 762.5, budget 141.5) for the
+three constructors. (A first K1 was stopped at 04:2x to free katmai for #142's re-key; it is not the reading.)
+⚠️ **Re-carry correction (2026-11-05, the figure class paper found on #168/#169, applied before this entry's PR).** Result 4's
+rise was read at the 10-24 base. **At the shipped tree** (`docs/DEMAND-CENSUS.md.json`, `silicon`, at D362's `9b66f3c` against
+this branch) the silicon column rises by **6,599**: coreutils 4 · glibc **784** · dav1d **2,311** · ffmpeg **1,846** · vpx 406 ·
+x264 **1,247** · vmlinux 1, plus `_asm_pooled` **+5,810**. The by-shape split (`vmovd`/`vmovq` M,X · R,X · X,M · X,R) and "VEX
+`vmovq xmm, xmm` occurs ZERO times" are the 10-24 reading and are NOT re-measured here. The ⚠️ about `check_readme_snapshot` is
+discharged: it is rc 0 on this branch, since the D356–D362 re-carry moved README's count. **Off-ref shas, declared:** the
+Why's `569b100` (D356's record commit before the re-carry) was re-carried as `ed8749f`, now on master; `761159d` is the probe step `c842ce8` on this branch (its
+files identical). K1's `733f8f2` → `914ab1c` is the 10-24 base's; the shipped-base kernel reading is the K2 row. The
+predictions and the 10-24 Results are left as written.
+**K2 at the shipped base (a reading, as K1 was; 2026-11-05, katmai, `kernel_delta.py --base 9b66f3c --head e795506 --repeats 6`,
+both arms):** ms delta gate CLEAN, ARM A′ CLEAN, so the row lands on the ms verdict (D251). `X86.Syntax` 746.5 → 765.5 (+19.0,
+±8.4; K1 read +6.0 at its base), `X86.Semantics` +0.4, `X86.Vex` +0.1. The NEW `Tests.AnchorsVexSilF` reads 488.5 ms against its
+1,472 @on katmai and **220,986 ku, exactly its K1 registration**.

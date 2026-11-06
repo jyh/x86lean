@@ -220,6 +220,39 @@ run). ⚠️ **x86isa executes every fault row's encoding (D354 P1) and so does 
 | `mk_vexsild_rows.py` | the rows, the rule and the textbook (alignment from two expressions); five plants; `--summary`, `--reach`, `--refuse-wrong`, `--selftest` |
 | `vexsild_probe.c` | runs each row under a signal catch and compares YMM1-3, RAX, MXCSR, RFLAGS, the 64-byte buffer, and fault vs run |
 
+**The VEX memory forms of the silicon rows (D361, V10)** are a twelfth program on V8c's memory path, restated:
+`vexsile_ops.S` (22 functions: VPSHUFB and VPALIGNR imm8 ∈ {0, 5, 16, 20, 33} at `(%rbx),%xmm1,%xmm3`; VADDPS VSUBPS
+VMULPS VPSRAD VPUNPCKLWD VPUNPCKHWD VPUNPCKLBW VPACKUSWB at VEX.128 and VEX.256), `mk_vexsile_rows.py` (356 rows) and
+`vexsile_probe.c` (V8c's probe with its header and rows changed). The register rules and their textbooks are D345's
+(`mk_vexsil_rows.py`) and D342's (`mk_aes_rows.py`, PSHUFB/PALIGNR, given a byte-list textbook here); the memory operand
+is extracted twice, and every memory case runs at offset 0 and at an odd offset. **VPSRAD's memory operand is its COUNT,
+16 bytes at both lengths** (the VEX.256 form's count operand is `xmm3/m128`). D345's FP and VPSRAD cases are THINNED
+for the memory twin: one rounding mode per FP case group, every flag row, and VPSRAD's edge counts. `--refuse-wrong`
+refuses D361's five wrong rules on named rows. x86isa refuses all 16 encodings measured (D361 P1). Controls: `--plant`
+(`vmulps256_m_hionly_IE_a`), `--plant-op`, `--plant-hi` (`vpshufb128_m_ident_a`). ⚠️ The buffer comparison has no planted
+control, as V8c's.
+
+| file | role |
+|---|---|
+| `vexsile_ops.S` | one function per form, length and imm8; RBX = `&mem[off]` |
+| `mk_vexsile_rows.py` | the rows; the memory operand extracted two ways; `--plant` / `--plant-op` / `--plant-hi`; `--summary`, `--reach`, `--refuse-wrong`, `--selftest` |
+| `vexsile_probe.c` | runs each row and compares YMM1-3, RAX, MXCSR, RFLAGS and the 64-byte buffer |
+
+**VEX `vmovd`/`vmovq` between an XMM register and a GPR or memory (D371)** are a thirteenth program on V10's path:
+`vexsilf_ops.S` (8 functions: r → xmm, xmm → r, m → xmm, xmm → m, at 32 and 64 bits, all VEX.128),
+`mk_vexsilf_rows.py` (72 rows) and `vexsilf_probe.c`. Every value is derived twice (an integer rule, a byte-list
+textbook); YMM3's upper half is seeded nonzero so the VEX zeroing is read; every memory case runs at offset 0 and at an
+odd offset. **The probe compares the buffer with an EXPECTED buffer**, because the two store forms write it, and
+`--plant-mem` flips a bit just past one store's bytes: the buffer comparison's own control, which V8c's and V10's lack.
+`--refuse-wrong` refuses D371's four wrong rules on named rows. x86isa refuses all 8 encodings (D371 P1). Controls:
+`--plant` (`vmovd_ld_ones_a`), `--plant-op`, `--plant-hi` (`vmovq_gx_ones_r`), `--plant-mem` (`vmovd_st_ones_u`).
+
+| file | role |
+|---|---|
+| `vexsilf_ops.S` | one function per form and width; RBX = `&mem[off]` |
+| `mk_vexsilf_rows.py` | the rows, both references; four plants; `--summary`, `--reach`, `--refuse-wrong`, `--selftest` |
+| `vexsilf_probe.c` | runs each row and compares YMM1-3, RAX, MXCSR, RFLAGS and the buffer against the expected buffer |
+
 Locally, on an x86-64 machine:
 
 ```

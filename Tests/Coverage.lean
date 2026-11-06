@@ -76,7 +76,7 @@ theorem silicon_rows_name_ast_mnemonics :
       -- D336 (V1b): PSHUFB, PALIGNR, and PINSR/PEXTR at each width (one row per mnemonic).
       (Op.vshufb .x0 .x1).mnemonic, (Op.valignr .x0 .x1 0).mnemonic,
       (Op.vinsr .d .x0 (.reg .rcx) 0).mnemonic, (Op.vinsr .q .x0 (.reg .rcx) 0).mnemonic,
-      (Op.vextr .d .rax .x1 0).mnemonic, (Op.vextr .q .rax .x1 0).mnemonic,
+      (Op.vextr .d (.reg .rax) .x1 0).mnemonic, (Op.vextr .q (.reg .rax) .x1 0).mnemonic,
       -- D335 (V1a): one `VBinKind` kind per row, on `Op.vbin`.
       (Op.vbin .maddwd .x0 .x1).mnemonic, (Op.vbin .maddubsw .x0 .x1).mnemonic,
       (Op.vbin .mullw .x0 .x1).mnemonic, (Op.vbin .mulhrsw .x0 .x1).mnemonic,
@@ -100,6 +100,8 @@ theorem silicon_rows_name_ast_mnemonics :
       (Op.vex (.vexbin .unpcklw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .unpckhw .x3 .x1 .x2)).mnemonic,
       (Op.vex (.vexbin .unpcklb .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .packuswb .x3 .x1 .x2)).mnemonic,
       (Op.vex (.vexmovmskb .rax .x1)).mnemonic,
+      -- D371: VEX vmovd/vmovq, one row per mnemonic (the table's order).
+      (Op.vex (.vexmovg true .d .x3 .rax)).mnemonic, (Op.vex (.vexmovg true .q .x3 .rax)).mnemonic,
       -- D348 (V8b): four D335 kinds' VEX twins, one row per mnemonic.
       (Op.vex (.vexbin .maddwd .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .mulhrsw .x3 .x1 .x2)).mnemonic,
       (Op.vex (.vexbin .maddubsw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .packssdw .x3 .x1 .x2)).mnemonic,
@@ -1149,7 +1151,13 @@ def isMemDestVector (v : Vec) : Bool :=
       | .vexddupm .. | .vexddupm256 .. => false
       | .vexstore .. | .vexstore256 .. => true
       -- D369, in the SAME COMMIT as the constructor: vzeroupper writes the YMM upper halves, never memory.
-      | .vexzeroupper => false)
+      | .vexzeroupper => false
+      -- V10 (D361): the silicon rows' memory twins READ memory and write a vector register.
+      | .vexshufbm .. | .vexalignrm .. | .vexparithm .. | .vexparithm256 .. | .vexsraxm .. | .vexsraxm256 .. => false
+      -- D371, in the SAME COMMIT as the constructors: the VEX movd/movq STORE is a memory destination; the GPR and
+      -- load forms are not.
+      | .vexmovg .. | .vexmovgld .. => false
+      | .vexmovgst .. => true)
     | .vaes .. => false
     -- ⭐ P2 BATCH 22 — `prefetch` names an address and WRITES NOTHING, so it is
     -- not a memory destination.  It is the first form here that names an `Ea` it
