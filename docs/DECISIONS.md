@@ -24874,3 +24874,7 @@ moved. The extension split (4,195 ymm · 2,827 VEX-128 · 1,586 AVX-512) is the 
 spellings account for the 250 between 7,022 and 6,772 is not stated here. K1's `f5d9ffa` → `f0364d8` is the 10-30 base's (`f5d9ffa` is D373's pre-re-carry model step); the
 shipped-base kernel reading is the K2 row. Prediction 1's hwprobe run ran at `4016ac2`, which is the probe step `9652185` on this
 branch; its files are blob-identical there and at this tip. Predictions and the 10-30 Results are left as written.
+**K2 at the shipped base (2026-11-05, katmai, `kernel_delta.py --base ca713e5 --head 38d52f7 --repeats 6`, both arms):** ms delta
+gate CLEAN, ARM A′ CLEAN, so the row lands on the ms verdict (D251). `X86.Syntax` −3.0 (±7.9), `X86.Semantics` −0.2, `Tests.Coverage`
++400 (±349, budget 2,862). The NEW `Tests.AnchorsVexSilG` reads 11,800 ms against its 36,000 @on katmai and **5,371,473 ku, exactly
+its K1 registration**.
