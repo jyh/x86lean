@@ -9,12 +9,17 @@ against another model; that is `lake exe x86lean-diff` and the ACL2 side.
 import Tests.Anchors
 import Tests.AnchorsBmi
 import Tests.AnchorsShuf
+import Tests.AnchorsShufM
 import Tests.AnchorsSimd
+import Tests.AnchorsSimdB
 import Tests.AnchorsSha
 import Tests.AnchorsAes
 import Tests.AnchorsVexSil
 import Tests.AnchorsVexSilB
 import Tests.AnchorsVexSilC
+import Tests.AnchorsVexSilE
+import Tests.AnchorsVexSilF
+import Tests.AnchorsVexSilG
 import Tests.AnchorsVex
 import Tests.Nonvacuity
 import Tests.Vectors

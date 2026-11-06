@@ -105,10 +105,16 @@ jobs:
           python3 mk_shuf_rows.py --plant > shuf_rows_plant.h
           python3 mk_shuf_rows.py --plant-op > shuf_rows_badop.h
           python3 mk_shuf_rows.py --plant-zx > shuf_rows_zx.h
+          python3 mk_shuf_rows.py --plant-mem > shuf_rows_mem.h
+          python3 mk_shuf_rows.py --refuse-wrong
           python3 mk_simda_rows.py --reach
           python3 mk_simda_rows.py > simda_rows.h
           python3 mk_simda_rows.py --plant > simda_rows_plant.h
           python3 mk_simda_rows.py --plant-op > simda_rows_badop.h
+          python3 mk_simda_rows.py --set-b --reach
+          python3 mk_simda_rows.py --set-b > simdb_rows.h
+          python3 mk_simda_rows.py --set-b --plant > simdb_rows_plant.h
+          python3 mk_simda_rows.py --set-b --plant-op > simdb_rows_badop.h
           python3 mk_sha_rows.py --selftest
           python3 mk_sha_rows.py --reach
           python3 mk_sha_rows.py > sha_rows.h
@@ -150,6 +156,27 @@ jobs:
           for v in plant plant-op plant-nf plant-a0 plant-f; do
             python3 mk_vexsild_rows.py --$v > vexsild_rows_$v.h
           done
+          python3 mk_vexsile_rows.py --selftest
+          python3 mk_vexsile_rows.py --refuse-wrong
+          python3 mk_vexsile_rows.py --reach
+          python3 mk_vexsile_rows.py > vexsile_rows.h
+          python3 mk_vexsile_rows.py --plant > vexsile_rows_plant.h
+          python3 mk_vexsile_rows.py --plant-op > vexsile_rows_badop.h
+          python3 mk_vexsile_rows.py --plant-hi > vexsile_rows_hi.h
+          python3 mk_vexsilg_rows.py --selftest
+          python3 mk_vexsilg_rows.py --reach
+          python3 mk_vexsilg_rows.py > vexsilg_rows.h
+          python3 mk_vexsilg_rows.py --plant > vexsilg_rows_plant.h
+          python3 mk_vexsilg_rows.py --plant-op > vexsilg_rows_badop.h
+          python3 mk_vexsilg_rows.py --plant-hi > vexsilg_rows_hi.h
+          python3 mk_vexsilf_rows.py --selftest
+          python3 mk_vexsilf_rows.py --refuse-wrong
+          python3 mk_vexsilf_rows.py --reach
+          python3 mk_vexsilf_rows.py > vexsilf_rows.h
+          python3 mk_vexsilf_rows.py --plant > vexsilf_rows_plant.h
+          python3 mk_vexsilf_rows.py --plant-op > vexsilf_rows_badop.h
+          python3 mk_vexsilf_rows.py --plant-hi > vexsilf_rows_hi.h
+          python3 mk_vexsilf_rows.py --plant-mem > vexsilf_rows_mem.h
 
       - name: Build
         working-directory: hwprobe
@@ -176,7 +203,7 @@ jobs:
             gcc -O1 -o bitstr_probe_$v bitstr_probe_$v.c bitstr_ops.S
           done
           gcc -O1 -o shuf_probe shuf_probe.c shuf_ops.S
-          for v in plant badop zx; do
+          for v in plant badop zx mem; do
             sed "s/\"shuf_rows.h\"/\"shuf_rows_$v.h\"/" shuf_probe.c > shuf_probe_$v.c
             gcc -O1 -o shuf_probe_$v shuf_probe_$v.c shuf_ops.S
           done
@@ -184,6 +211,11 @@ jobs:
           for v in plant badop; do
             sed "s/\"simda_rows.h\"/\"simda_rows_$v.h\"/" simda_probe.c > simda_probe_$v.c
             gcc -O1 -o simda_probe_$v simda_probe_$v.c simda_ops.S
+          done
+          # D373: set B runs the SAME probe source against its own rows header and its own .S.
+          for v in "" _plant _badop; do
+            sed "s/\"simda_rows.h\"/\"simdb_rows$v.h\"/" simda_probe.c > simdb_probe$v.c
+            gcc -O1 -o simdb_probe$v simdb_probe$v.c simdb_ops.S
           done
           gcc -O1 -o sha_probe sha_probe.c sha_ops.S
           for v in plant badop wk; do
@@ -214,6 +246,21 @@ jobs:
           for v in plant plant-op plant-nf plant-a0 plant-f; do
             sed "s/\"vexsild_rows.h\"/\"vexsild_rows_$v.h\"/" vexsild_probe.c > vexsild_probe_$v.c
             gcc -O1 -o vexsild_probe_$v vexsild_probe_$v.c vexsild_ops.S
+          done
+          gcc -O1 -o vexsile_probe vexsile_probe.c vexsile_ops.S
+          for v in plant badop hi; do
+            sed "s/\"vexsile_rows.h\"/\"vexsile_rows_$v.h\"/" vexsile_probe.c > vexsile_probe_$v.c
+            gcc -O1 -o vexsile_probe_$v vexsile_probe_$v.c vexsile_ops.S
+          done
+          # D374: D361's probe source, compiled against the VEX-twin rows and their own .S.
+          for v in "" _plant _badop _hi; do
+            sed "s/\"vexsile_rows.h\"/\"vexsilg_rows$v.h\"/" vexsile_probe.c > vexsilg_probe$v.c
+            gcc -O1 -o vexsilg_probe$v vexsilg_probe$v.c vexsilg_ops.S
+          done
+          gcc -O1 -o vexsilf_probe vexsilf_probe.c vexsilf_ops.S
+          for v in plant badop hi mem; do
+            sed "s/\"vexsilf_rows.h\"/\"vexsilf_rows_$v.h\"/" vexsilf_probe.c > vexsilf_probe_$v.c
+            gcc -O1 -o vexsilf_probe_$v vexsilf_probe_$v.c vexsilf_ops.S
           done
 
       # B5: the packed half has its own pair. A plant in a SCALAR row proves nothing about the 128-bit comparison,
@@ -327,9 +374,10 @@ jobs:
           ./shuf_probe_plant > sh_plant.out; rc_plant=$?
           ./shuf_probe_badop > sh_badop.out; rc_badop=$?
           ./shuf_probe_zx > sh_zx.out; rc_zx=$?
+          ./shuf_probe_mem > sh_mem.out; rc_mem=$?
           set -e
-          head -1 sh_plant.out; grep '^DIFF' sh_plant.out; cat sh_badop.out; grep '^DIFF' sh_zx.out
-          echo "shuf plant rc=$rc_plant (want 1) · badop rc=$rc_badop (want 2) · zx rc=$rc_zx (want 1)"
+          head -1 sh_plant.out; grep '^DIFF' sh_plant.out; cat sh_badop.out; grep '^DIFF' sh_zx.out; grep '^DIFF' sh_mem.out
+          echo "shuf plant rc=$rc_plant (want 1) · badop rc=$rc_badop (want 2) · zx rc=$rc_zx (want 1) · mem rc=$rc_mem (want 1)"
           test "$rc_plant" = 1
           test "$(grep -c '^DIFF' sh_plant.out)" = 1
           grep -q '^DIFF pshufb_rr_a1_ident ' sh_plant.out
@@ -338,6 +386,10 @@ jobs:
           test "$rc_zx" = 1
           test "$(grep -c '^DIFF' sh_zx.out)" = 1
           grep -q '^DIFF pextrd_rr_i1_p1 ' sh_zx.out
+          # D362: one bit of a PEXTRD STORE row's expected memory flipped: the 16 bytes at [RBX] are compared, not assumed.
+          test "$rc_mem" = 1
+          test "$(grep -c '^DIFF' sh_mem.out)" = 1
+          grep -q '^DIFF pextrd_mr_i1_p1 ' sh_mem.out
 
       - name: Shuffle referee
         working-directory: hwprobe
@@ -348,6 +400,7 @@ jobs:
           head -1 shuf.out; grep -v '^ok  ' shuf.out || true
           echo "shuf rc=$rc"
           test "$rc" = 0
+          grep -q '^rows 276 disagreements 0$' shuf.out
 
       # D335: THE PACKED-INTEGER ARITHMETIC PATH (PMADDWD … PACKSSDW, xmm and m128), with its OWN pair of controls — a plant
       # in any other path says nothing about this 128-bit comparison. A wrong expectation (bit 64, the HIGH quadword, of row
@@ -376,6 +429,27 @@ jobs:
           head -1 simda.out
           grep -v '^ok  ' simda.out || true
           echo "simda rc=$rc"
+          test "$rc" = 0
+
+      # D373: set B (PMINSW PMULHW PMULHUW PAVGB), the same controls and the same referee as set A.
+      - name: Packed-integer set B controls and referee (D373)
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./simdb_probe_plant > simdb_plant.out; rc_plant=$?
+          ./simdb_probe_badop > simdb_badop.out; rc_badop=$?
+          ./simdb_probe > simdb.out; rc=$?
+          set -e
+          head -1 simdb_plant.out; grep '^DIFF' simdb_plant.out; tail -1 simdb_plant.out; cat simdb_badop.out
+          echo "simdb plant rc=$rc_plant (want 1) · simdb badop rc=$rc_badop (want 2)"
+          test "$rc_plant" = 1
+          test "$(grep -c '^DIFF' simdb_plant.out)" = 1
+          grep -q '^DIFF pminsw_xx_edge0 ' simdb_plant.out
+          test "$rc_badop" = 2
+          grep -q '^REFUSED v_pminsw_xx:' simdb_badop.out
+          head -1 simdb.out
+          grep -v '^ok  ' simdb.out || true
+          echo "simdb rc=$rc"
           test "$rc" = 0
 
       # D338: THE SHA-NI PATH (SHA256MSG1, SHA256MSG2, SHA256RNDS2, xmm and m128). ⚠️ NOT EVERY LEG HAS THE EXTENSION:
@@ -618,6 +692,97 @@ jobs:
           grep -v '^ok  ' vexsild.out || true
           grep -c '^ok .*faulted' vexsild.out || true
           echo "vexsild rc=$rc"
+
+      - name: V10 VEX-memory controls (D361) (each plant reds exactly its row; a wrong instruction refuses the run)
+        working-directory: hwprobe
+        run: |
+          ./vexsile_probe --cpuid
+          set +e
+          ./vexsile_probe_plant > vexsile_plant.out; rc_plant=$?
+          ./vexsile_probe_badop > vexsile_badop.out; rc_badop=$?
+          ./vexsile_probe_hi > vexsile_hi.out; rc_hi=$?
+          set -e
+          head -1 vexsile_plant.out; grep '^DIFF' vexsile_plant.out; cat vexsile_badop.out; grep '^DIFF' vexsile_hi.out
+          echo "vexsile plant rc=$rc_plant (want 1) · badop rc=$rc_badop (want 2) · hi rc=$rc_hi (want 1)"
+          test "$rc_plant" = 1
+          test "$(grep -c '^DIFF' vexsile_plant.out)" = 1
+          grep -q '^DIFF vmulps256_m_hionly_IE_a ' vexsile_plant.out
+          test "$rc_badop" = 2
+          grep -q '^REFUSED x_vpshufb128_m:' vexsile_badop.out
+          test "$rc_hi" = 1
+          test "$(grep -c '^DIFF' vexsile_hi.out)" = 1
+          grep -q '^DIFF vpshufb128_m_ident_a ' vexsile_hi.out
+
+      - name: V10 VEX-memory referee (D361)
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./vexsile_probe > vexsile.out; rc=$?
+          set -e
+          head -1 vexsile.out
+          grep -v '^ok  ' vexsile.out || true
+          echo "vexsile rc=$rc"
+          test "$rc" = 0
+
+      # D374: the VEX twins of eleven modelled packed-integer kinds, D361's probe and controls.
+      - name: D374 VEX-twin controls and referee (each plant reds exactly its row; a wrong instruction refuses the run)
+        working-directory: hwprobe
+        run: |
+          ./vexsilg_probe --cpuid
+          set +e
+          ./vexsilg_probe_plant > vexsilg_plant.out; rc_plant=$?
+          ./vexsilg_probe_badop > vexsilg_badop.out; rc_badop=$?
+          ./vexsilg_probe_hi > vexsilg_hi.out; rc_hi=$?
+          ./vexsilg_probe > vexsilg.out; rc=$?
+          set -e
+          head -1 vexsilg_plant.out; grep '^DIFF' vexsilg_plant.out; cat vexsilg_badop.out; grep '^DIFF' vexsilg_hi.out
+          echo "vexsilg plant rc=$rc_plant (want 1) · badop rc=$rc_badop (want 2) · hi rc=$rc_hi (want 1)"
+          test "$rc_plant" = 1
+          test "$(grep -c '^DIFF' vexsilg_plant.out)" = 1
+          grep -q '^DIFF vpaddsw256_r_p0 ' vexsilg_plant.out
+          test "$rc_badop" = 2
+          grep -q '^REFUSED x_vpaddsw128_r:' vexsilg_badop.out
+          test "$rc_hi" = 1
+          test "$(grep -c '^DIFF' vexsilg_hi.out)" = 1
+          grep -q '^DIFF vpaddsw128_r_edge0 ' vexsilg_hi.out
+          head -1 vexsilg.out
+          grep -v '^ok  ' vexsilg.out || true
+          echo "vexsilg rc=$rc"
+          test "$rc" = 0
+
+      - name: D371 VEX movd/movq controls (each plant reds exactly its row; a wrong instruction refuses the run)
+        working-directory: hwprobe
+        run: |
+          ./vexsilf_probe --cpuid
+          set +e
+          ./vexsilf_probe_plant > vexsilf_plant.out; rc_plant=$?
+          ./vexsilf_probe_badop > vexsilf_badop.out; rc_badop=$?
+          ./vexsilf_probe_hi > vexsilf_hi.out; rc_hi=$?
+          ./vexsilf_probe_mem > vexsilf_mem.out; rc_mem=$?
+          set -e
+          grep '^DIFF' vexsilf_plant.out; cat vexsilf_badop.out; grep '^DIFF' vexsilf_hi.out; grep '^DIFF' vexsilf_mem.out
+          echo "vexsilf plant rc=$rc_plant · badop rc=$rc_badop · hi rc=$rc_hi · mem rc=$rc_mem (want 1 2 1 1)"
+          test "$rc_plant" = 1
+          test "$(grep -c '^DIFF' vexsilf_plant.out)" = 1
+          grep -q '^DIFF vmovd_ld_ones_a ' vexsilf_plant.out
+          test "$rc_badop" = 2
+          grep -q '^REFUSED x_vmovd_gx:' vexsilf_badop.out
+          test "$rc_hi" = 1
+          test "$(grep -c '^DIFF' vexsilf_hi.out)" = 1
+          grep -q '^DIFF vmovq_gx_ones_r ' vexsilf_hi.out
+          test "$rc_mem" = 1
+          test "$(grep -c '^DIFF' vexsilf_mem.out)" = 1
+          grep -q '^DIFF vmovd_st_ones_u ' vexsilf_mem.out
+
+      - name: D371 VEX movd/movq referee
+        working-directory: hwprobe
+        run: |
+          set +e
+          ./vexsilf_probe > vexsilf.out; rc=$?
+          set -e
+          head -1 vexsilf.out
+          grep -v '^ok  ' vexsilf.out || true
+          echo "vexsilf rc=$rc"
           test "$rc" = 0
 
       - name: Bit-string rows, full listing (artifact)
