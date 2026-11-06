@@ -1317,11 +1317,11 @@ def siliconTable : List Row :=
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PALIGNR" }
   , { mnemonic := "pinsrd", shapes := "x,r,i · x,m,i", note := "legacy SSE · the 32-bit source replaces lane imm[1:0]; the other lanes kept · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PINSRD" }
-  , { mnemonic := "pinsrq", shapes := "x,r,i", note := "legacy SSE · the 64-bit source replaces lane imm[0]; the other lane kept · x86isa refuses it",
+  , { mnemonic := "pinsrq", shapes := "x,r,i · x,m,i", note := "legacy SSE · the 64-bit source replaces lane imm[0]; the other lane kept · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PINSRQ" }
-  , { mnemonic := "pextrd", shapes := "r,x,i", note := "legacy SSE · lane imm[1:0] to a 32-bit register, zero-extended to 64 · x86isa refuses it",
+  , { mnemonic := "pextrd", shapes := "r,x,i · m,x,i", note := "legacy SSE · lane imm[1:0] to a 32-bit register, zero-extended to 64, or to m32 (D362) · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PEXTRD" }
-  , { mnemonic := "pextrq", shapes := "r,x,i", note := "legacy SSE · lane imm[0] to a 64-bit register · x86isa refuses it",
+  , { mnemonic := "pextrq", shapes := "r,x,i · m,x,i", note := "legacy SSE · lane imm[0] to a 64-bit register or m64 (D362) · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PEXTRQ" }
   -- ⭐ D335 (V1a): eleven SSE-legacy packed-integer arithmetic mnemonics, `VBinKind`
   -- kinds on `Op.vbin`/`Op.vbinm`.  Every result bit is defined and no flag is
@@ -1373,9 +1373,9 @@ def siliconTable : List Row :=
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2A AESENCLAST" }
   , { mnemonic := "vpclmulqdq", shapes := "x,x,x,i", note := "VEX.128 carry-less 64×64 product of src1's quadword imm8[0] and src's quadword imm8[4] (other imm8 bits ignored; bit 127 = 0); YMM bits 255:128 of dst zeroed · register form only · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCLMULQDQ" }
-  , { mnemonic := "vpshufb", shapes := "x,x,x", note := "VEX.128 PSHUFB: bytes of src1 (VEX.vvvv, the data) selected by src's control bytes (bit 7 zeroes; bits 3:0 index); YMM bits 255:128 of dst zeroed · register form only · x86isa refuses it",
+  , { mnemonic := "vpshufb", shapes := "x,x,x · x,x,m", note := "VEX.128 PSHUFB: bytes of src1 (VEX.vvvv, the data) selected by src's control bytes (bit 7 zeroes; bits 3:0 index); YMM bits 255:128 of dst zeroed · register form only · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSHUFB" }
-  , { mnemonic := "vpalignr", shapes := "x,x,x,i", note := "VEX.128 PALIGNR: ((src1 << 128) | src) >> 8·imm8, low 128 bits, 0 at imm8 ≥ 32; YMM bits 255:128 of dst zeroed · register form only · x86isa refuses it",
+  , { mnemonic := "vpalignr", shapes := "x,x,x,i · x,x,m,i", note := "VEX.128 PALIGNR: ((src1 << 128) | src) >> 8·imm8, low 128 bits, 0 at imm8 ≥ 32; YMM bits 255:128 of dst zeroed · register form only · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PALIGNR" }
   , { mnemonic := "vpslldq", shapes := "x,x,i", note := "VEX.128 byte shift left of src (ModRM.rm) into dst (VEX.vvvv), 0 at imm8 > 15; YMM bits 255:128 of dst zeroed · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSLLDQ" }
@@ -1384,23 +1384,23 @@ def siliconTable : List Row :=
   -- ⭐ D345 (V7): the VEX.128 and VEX.256 twins of eleven main-table forms, refereed by silicon (hwprobe `vexsil`).
   , { mnemonic := "vshufps", shapes := "x,x,x,i", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): the legacy SHUFPS with src1 (VEX.vvvv) in the destination's place; at VEX.256 the same imm8 selects within each lane · register forms only · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B SHUFPS" }
-  , { mnemonic := "vpsrad", shapes := "x,x,x · x,x,i", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): each dword of src1 shifted by the count register's low 64 bits (unsigned; one count for both lanes, the count register an xmm at VEX.256) or by imm8 (dst VEX.vvvv, src ModRM.rm); > 31 fills with the sign · register forms only · x86isa refuses it",
+  , { mnemonic := "vpsrad", shapes := "x,x,x · x,x,i · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): each dword of src1 shifted by the count register's low 64 bits (unsigned; one count for both lanes, the count register an xmm at VEX.256) or by imm8 (dst VEX.vvvv, src ModRM.rm); > 31 fills with the sign · register forms only · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSRAW/PSRAD/PSRAQ" }
   , { mnemonic := "vpsraw", shapes := "x,x,x · x,x,i", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): each word of src1 shifted as vpsrad, > 15 fills with the sign · register forms only · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSRAW/PSRAD/PSRAQ" }
-  , { mnemonic := "vaddps", shapes := "x,x,x", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): every binary32 lane by the legacy rule under MXCSR.RC; MXCSR's sticky flags ORed over all four (VEX.128) or eight (VEX.256) lanes · register forms only · x86isa refuses it",
+  , { mnemonic := "vaddps", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): every binary32 lane by the legacy rule under MXCSR.RC; MXCSR's sticky flags ORed over all four (VEX.128) or eight (VEX.256) lanes · register forms only · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B ADDPS" }
-  , { mnemonic := "vsubps", shapes := "x,x,x", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): as vaddps, src1 − src · register forms only · x86isa refuses it",
+  , { mnemonic := "vsubps", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): as vaddps, src1 − src · register forms only · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B SUBPS" }
-  , { mnemonic := "vmulps", shapes := "x,x,x", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): as vaddps, src1 × src · register forms only · x86isa refuses it",
+  , { mnemonic := "vmulps", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): as vaddps, src1 × src · register forms only · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MULPS" }
-  , { mnemonic := "vpunpcklwd", shapes := "x,x,x", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): the low words of each lane interleaved, src1 first · register forms only · x86isa refuses it",
+  , { mnemonic := "vpunpcklwd", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): the low words of each lane interleaved, src1 first · register forms only · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKLBW/PUNPCKLWD/PUNPCKLDQ/PUNPCKLQDQ" }
-  , { mnemonic := "vpunpckhwd", shapes := "x,x,x", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): the high words of each lane interleaved, src1 first · register forms only · x86isa refuses it",
+  , { mnemonic := "vpunpckhwd", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): the high words of each lane interleaved, src1 first · register forms only · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKHBW/PUNPCKHWD/PUNPCKHDQ/PUNPCKHQDQ" }
-  , { mnemonic := "vpunpcklbw", shapes := "x,x,x", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): the low bytes of each lane interleaved, src1 first · register forms only · x86isa refuses it",
+  , { mnemonic := "vpunpcklbw", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): the low bytes of each lane interleaved, src1 first · register forms only · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKLBW/PUNPCKLWD/PUNPCKLDQ/PUNPCKLQDQ" }
-  , { mnemonic := "vpackuswb", shapes := "x,x,x", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): per lane, src1's eight words then src's, each signed word saturated to 0..255 · register forms only · x86isa refuses it",
+  , { mnemonic := "vpackuswb", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): per lane, src1's eight words then src's, each signed word saturated to 0..255 · register forms only · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PACKUSWB" }
   , { mnemonic := "vpmovmskb", shapes := "r,x", note := "VEX.128 and VEX.256: the sign bit of each byte of src into a GPR, zero-extended; 16 bits, or 32 at VEX.256 (bits 31:16 from the high lane); no vector register written · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMOVMSKB" }

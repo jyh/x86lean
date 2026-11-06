@@ -589,7 +589,8 @@ def vinsrApply (sz : Size) (dst : BitVec 128) (v : Val) (imm : BitVec 8) : BitVe
   (dst &&& ~~~m) ||| (((Value.trunc sz v).setWidth 128) <<< sh)
 
 /-- PEXTRD/PEXTRQ (SDM Vol. 2B): lane `vlaneSel sz imm` of `src`, zero above the
-width (the GPR write then zero-extends a 32-bit lane by the ordinary rule). -/
+width (a GPR write then zero-extends a 32-bit lane by the ordinary rule; a memory
+write stores `sz.bits / 8` bytes of it, D362). -/
 def vextrApply (sz : Size) (src : BitVec 128) (imm : BitVec 8) : Val :=
   (src.extractLsb' (sz.bits * vlaneSel sz imm) sz.bits).setWidth 64
 
@@ -1220,6 +1221,37 @@ theorem about a VEX form keeps its proof, and only its statement gains the `.vex
       if k.aligned && !alignedVex true a then
         s.halt (.byDesign "an aligned VEX.256 move at an address that is not 32-byte aligned (#GP(0))")
       else ((s.writeMem128 a (s.getXmm src)).writeMem128 (a + 16) (s.getYmmHi src)).setRip nr
+  -- ⭐⭐ V10 (D361) — the VEX memory twins of the silicon rows: each arm is its register twin's with ModRM.rm read from
+  -- memory (`readMem128` at `a`, and at `a + 16` for a VEX.256 high lane), no alignment check.  No arithmetic of its own.
+  | .vexshufbm dst src1 ea =>
+      (s.setXmmVex128 dst (vshufbApply (s.getXmm src1) (s.readMem128 (ea.addr s nr)))).setRip nr
+  | .vexalignrm dst src1 ea imm =>
+      (s.setXmmVex128 dst (valignrApply (s.getXmm src1) (s.readMem128 (ea.addr s nr)) imm)).setRip nr
+  | .vexparithm op dst src1 ea =>
+      if op == .div then s.halt (.unimplemented "vdivps m128: a VEX memory twin not taken (D361)") else
+      let p := vparithAll op false (mxcsrRC s.mxcsr) (s.getXmm src1) (s.readMem128 (ea.addr s nr))
+      s.withSimd p.2 fun s => (s.setXmmVex128 dst p.1).setRip nr
+  | .vexparithm256 op dst src1 ea =>
+      if op == .div then s.halt (.unimplemented "vdivps m256: a VEX.256 memory twin not taken (D361)") else
+      let a := ea.addr s nr
+      let rc := mxcsrRC s.mxcsr
+      let plo := vparithAll op false rc (s.getXmm src1) (s.readMem128 a)
+      let phi := vparithAll op false rc (s.getYmmHi src1) (s.readMem128 (a + 16))
+      s.withSimd (plo.2 ||| phi.2) fun s => (s.setYmm dst plo.1 phi.1).setRip nr
+  -- ⚠️ THE COUNT IS THE LOW 64 BITS OF THE m128 AT `a`, at BOTH lengths (D361 wrong rule (c) reads all 128).
+  | .vexsraxm w dst src1 ea =>
+      if !(vshiftEncodable .sra w) then
+        s.halt (.illegalOperands "there is no packed byte shift, and no psraq outside AVX-512")
+      else
+        let c := ((s.readMem128 (ea.addr s nr)).setWidth 64).toNat
+        (s.setXmmVex128 dst (vshiftApply .sra w (s.getXmm src1) c)).setRip nr
+  | .vexsraxm256 w dst src1 ea =>
+      if !(vshiftEncodable .sra w) then
+        s.halt (.illegalOperands "there is no packed byte shift, and no psraq outside AVX-512")
+      else
+        let c := ((s.readMem128 (ea.addr s nr)).setWidth 64).toNat
+        (s.setYmm dst (vshiftApply .sra w (s.getXmm src1) c)
+                      (vshiftApply .sra w (s.getYmmHi src1) c)).setRip nr
 
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=
@@ -1751,8 +1783,9 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       | .d | .q => (s.setXmm dst (vinsrApply sz (s.getXmm dst) (s.readOperand sz nr src) imm)).setRip nr
       | _ => s.halt (.illegalOperands "pinsr at an 8- or 16-bit width (pinsrb/pinsrw are other mnemonics)")
   | .vextr sz dst src imm =>
-      match sz with
-      | .d | .q => (s.setReg sz dst (vextrApply sz (s.getXmm src) imm)).setRip nr
+      if dst.isImm then s.halt (.illegalOperands "pextrd/pextrq with an immediate destination")
+      else match sz with
+      | .d | .q => (s.writeOperand sz nr dst (vextrApply sz (s.getXmm src) imm)).setRip nr
       | _ => s.halt (.illegalOperands "pextr at an 8- or 16-bit width (pextrb/pextrw are other mnemonics)")
 
   -- ⭐ D338 (V2): SHA256MSG1, SHA256MSG2, SHA256RNDS2.  x86isa refuses all three;
