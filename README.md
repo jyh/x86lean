@@ -112,7 +112,8 @@ declaration in CI.
   register), and VEX beyond the 56 mnemonics `docs/COVERAGE.md` lists: 33
   VEX.128 and VEX.256 register twins of main-table rows in the differential
   (V3, V6), with the memory forms of 26 packed binary kinds (V9a) and of the
-  six packed moves, loads and stores (V9b) at both lengths; the moves' aligned
+  six packed moves, loads and stores (V9b) and `vmovddup`'s memory source (D359)
+  at both lengths; the moves' aligned
   kinds' #GP (16 bytes at VEX.128, 32 at VEX.256) is refereed by a processor,
   since x86isa executes those forms. And 23 VEX forms refereed
   by a processor (V4 at VEX.128; V7, V8b and V8c at both lengths; V8c adds

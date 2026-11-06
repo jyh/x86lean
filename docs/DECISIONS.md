@@ -24324,3 +24324,55 @@ every theorem in place; none pins a store's bytes), `unexplained=352` = 4 × 88:
 ⚠️ Limit, stated: no theorem pins a store's bytes for these forms, so the dropped store builds; the `%xmm9` rows are what catch it.
 **Result, prediction 3 (census): HELD** (no new key; the forms stamp only).
 **Kernel cost (measured; no prediction was made, since D358 adds test rows and no `Op`).** K2 on katmai (`kernel_delta.py --base 53f638c --head d54ed6a --repeats 6`, then `ku_delta --arm a-prime`): ms delta gate CLEAN, ARM A′ CLEAN, every unit `ok`; `X86.Syntax` +2.5 ms, `X86.Semantics` −0.2 ms, `Tests.Vectors` −4.2 ms (inside its ±4.5). The measured head `d54ed6a` is on no ref since the re-stack onto D357's docs-only `459821c`; on the branch it is `97359cb`, whose tree differs from it by docs only, so no reading input moved.
+
+## D359 — `vmovddup` with a memory source, VEX.128 and VEX.256: the VEX table's last memory-form demand (predictions before any model work)
+
+**Why.** After D354 the VEX table's modelled memory-form demand is 38,287 of 38,453; the remaining **166** are all `vmovddup`
+with a memory source (VEX.128 134, VEX.256 32; dav1d 5 · ffmpeg 6 · x264 155). The register forms are modelled since D341
+(`vexddup`) and D344 (`vexddup256`); the memory forms have no constructor (`movddup`'s legacy memory form is `vddupM`).
+
+**The referee, read first (P1, 2026-10-24, yukon, `acl2@c8897a34d3ef`, `oracle_availability.measure` unmodified):**
+`vmovddup (%rbx),%xmm3`/`%xmm11` and `vmovddup (%rbx),%ymm3`/`%ymm11` each **88 of 88 executed**; `CONTROL:mov` 88/88, `movnti`
+refused 88/88.
+
+**The rules (SDM Vol. 2B MOVDDUP, the VEX rows).** VEX.128: `DEST[63:0] ← SRC[63:0]; DEST[127:64] ← SRC[63:0]; DEST[MAXVL-1:128]
+← 0`, SRC = m64. VEX.256: `DEST[63:0] ← SRC[63:0]; DEST[127:64] ← SRC[63:0]; DEST[191:128] ← SRC[191:128]; DEST[255:192] ←
+SRC[191:128]`, SRC = m256 — so the high lane duplicates the quadword at **a + 16**, not a + 8. No alignment requirement.
+
+**The design.** Two `VexOp` constructors, `vexddupm (dst) (ea)` (through `setXmmVex128`, as `vexload`) and `vexddupm256 (dst)
+(ea)` (through `setYmm`, the high lane from `readMem .q (a + 16)`), nested in `VexOp` so `Op`'s count does not move.
+
+**The vectors (4):** `vmovddup (%rbx),%xmm3` · `(%rbx),%xmm11` · `(%rbx),%ymm3` · `(%rbx),%ymm11`. At 0x2000 the VEX.256 read
+covers 0x2000..0x201f, inside the watched window.
+
+**Predictions:**
+1. **Differential.** +4 × 88 = **+352** cases, all `matched`; `unexplained=0`; divergence unchanged (1,363). (VEX vectors are not
+   in the main table, so its line does not move.)
+2. **Mutants** (D356's guarded harness):
+   - A — VEX.128 PRESERVES bits 255:128 (the legacy rule): exactly the two VEX.128 vectors change (the pre-states' YMM highs
+     are non-zero, `ymmHiPattern`); the VEX.256 ones do not;
+   - B — VEX.256's high lane from `a + 8` instead of `a + 16`: exactly the two VEX.256 vectors change;
+   - C — VEX.256's high lane from `a` (the low quadword copied across lanes): exactly the two VEX.256 vectors change.
+3. **Census (derived):** the VEX-table modelled memory-form figure **38,287 → 38,453 of 38,453**: dav1d 8,985 → 8,990 · ffmpeg
+   18,504 → 18,510 · x264 2,745 → 2,900, each now equal to its VEX memory-form total.
+   ⚠️ **Re-carry correction (2026-11-04, paper's read of #168).** The figures in **Why** and here were measured at the 10-24 base,
+   before D380/D385 moved EVEX-only registers and EVEX encodings out of the VEX table; those decisions land BELOW this entry. At its
+   shipped base (`a2bcb36`, `docs/DEMAND-CENSUS.md.json` summed over the ten non-pooled columns) the figure is **38,254 of 38,392**:
+   dav1d 8,952 of 8,957 · ffmpeg 18,504 of 18,510 · x264 2,745 of 2,872, a remainder of **138**, not 166. The predicted deltas hold for
+   dav1d (+5) and ffmpeg (+6); x264's is **+127, not +155**. Its modelled base is unchanged and its total fell by 28, so 28 of the
+   remainder's `vmovddup` left the table with the re-bucketing. The VEX.128/VEX.256 split of the 138 is NOT re-measured. The
+   prediction text is left as written; `f040a15`'s subject line still says "38,453 of 38,453".
+4. **Kernel cost.** Two `VexOp` constructors: `X86.Vex`/`X86.Syntax` under +10 %, no NEW unit.
+
+**The price.** Half a day. No silicon (x86isa executes and referees every value).
+
+**Result, prediction 1 (differential): HELD, exactly.** `cases=132088 matched=108308 explained=34407 unexplained=0
+oracle-divergence=1363`: +352 cases, +352 matched; each of the four vectors 88 of 88 matched. The main table does not move.
+**Result, prediction 2 (mutants): HELD, all three, exactly.** A (VEX.128 preserving 255:128): `vmovddup_x3m`/`x11m` 88 each, the
+VEX.256 rows 0. B (high lane from `a + 8`): `vmovddup_y3m`/`y11m` 88 each, the VEX.128 rows 0. C (high lane from `a`): the two
+VEX.256 rows 80 each (the 8 agreeing states are those where the quadwords at 0x2000 and 0x2010 are equal), the VEX.128 rows 0.
+Built with every theorem in place, emitted from a fresh binary, restored and `cmp`-verified.
+**Result, prediction 3 (census): HELD in its claim, with the shipped base's figures** (the correction above): each column's modelled
+figure equals its VEX memory-form total — dav1d 8,957 · ffmpeg 18,510 · x264 2,872 — so the VEX table's modelled memory-form figure is
+**38,392 of 38,392** (+138 from `a2bcb36`'s 38,254; x264's +127 is 28 below the predicted +155, for the reason stated there).
+**Prediction 4 (kernel cost): HELD.** Read from the gate's own K2 output on katmai (`kernel_delta.py --base 847c23e --head 7c476af --repeats 6`, base = D358's ledger-row commit): `X86.Vex` base 37.1 ms, head 37.5 ms, delta column +0.4 ms (+1.1 %); `X86.Syntax` base 717.0 ms, head 721.5 ms, delta column +4.5 ms (+0.6 %). Each is under the predicted +10 %; every unit `ok`, no NEW unit; ms delta gate CLEAN, ARM A′ CLEAN. The measured head `7c476af` is on no ref since the re-stack onto #167's docs-only `a2bcb36`; on the branch it is `f040a15`, whose tree differs from it by docs only, so no reading input moved.

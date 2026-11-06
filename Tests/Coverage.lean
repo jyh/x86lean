@@ -1146,6 +1146,7 @@ def isMemDestVector (v : Vec) : Bool :=
       -- V9b (D354), in the SAME COMMIT as the constructors: the move memory forms split as batch 3's did,
       -- a STORE is a memory destination (16 or 32 bytes) and a LOAD is not.
       | .vexload .. | .vexload256 .. => false
+      | .vexddupm .. | .vexddupm256 .. => false
       | .vexstore .. | .vexstore256 .. => true
       -- D369, in the SAME COMMIT as the constructor: vzeroupper writes the YMM upper halves, never memory.
       | .vexzeroupper => false)
