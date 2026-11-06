@@ -1,7 +1,7 @@
 /* hwprobe/shuf_probe.c — D336 (V1b): the x86-64 referee for PSHUFB, PALIGNR, PINSRD, PINSRQ, PEXTRD and PEXTRQ.
    Runs each row's instruction on THIS processor with XMM0, XMM1, the 16-byte memory source, RCX, RAX and RFLAGS loaded
-   from the row (shuf_ops.S's header), and compares ALL 128 bits of XMM0, all 64 of RAX and the six arithmetic flags with
-   the expectations hwprobe/mk_shuf_rows.py derived from the SDM. It shares nothing with probe.c, int_probe.c or
+   from the row (shuf_ops.S's header), and compares ALL 128 bits of XMM0, all 64 of RAX, the six arithmetic flags and
+   (D362) all 16 bytes at [RBX] after the instruction with the expectations hwprobe/mk_shuf_rows.py derived from the SDM. It shares nothing with probe.c, int_probe.c or
    bitstr_probe.c.
    Exit 0: every row agrees. Exit 1: a row disagrees (printed). Exit 2: the harness is unusable — no rows, a declared
    instruction byte that is not the one assembled, or a processor without SSSE3 or SSE4.1 (a #UD is not a reading). */
@@ -20,6 +20,7 @@ struct srow {
   unsigned f;          /* the six arithmetic flags in; NO-FLAGS: they must come out the same */
   uint64_t w0, w1;     /* XMM0 after, low and high quadwords */
   uint64_t wax;        /* RAX after */
+  uint64_t wm0, wm1;   /* D362: the 16 bytes at [RBX] (p->b) after — a store's bytes, and b itself for every other form */
 };
 
 struct sop {
@@ -73,12 +74,15 @@ int main(void) {
     io.a[0] = r->a0; io.a[1] = r->a1; io.b[0] = r->b0; io.b[1] = r->b1; io.g = r->g; io.f = r->f;
     r->fn(&io);
     unsigned got_f = (unsigned)(io.fo & ARITH);
-    int ok = io.r[0] == r->w0 && io.r[1] == r->w1 && io.ro == r->wax && got_f == (r->f & ARITH);
+    int ok = io.r[0] == r->w0 && io.r[1] == r->w1 && io.ro == r->wax && got_f == (r->f & ARITH)
+             && io.b[0] == r->wm0 && io.b[1] == r->wm1;
     if (!ok) bad++;
-    printf("%s %-28s xmm0 %016llx%016llx want %016llx%016llx  rax %016llx want %016llx  flags %03x want %03x\n",
+    printf("%s %-28s xmm0 %016llx%016llx want %016llx%016llx  rax %016llx want %016llx  flags %03x want %03x"
+           "  mem %016llx%016llx want %016llx%016llx\n",
            ok ? "ok  " : "DIFF", r->name, (unsigned long long)io.r[1], (unsigned long long)io.r[0],
            (unsigned long long)r->w1, (unsigned long long)r->w0, (unsigned long long)io.ro,
-           (unsigned long long)r->wax, got_f, r->f & ARITH);
+           (unsigned long long)r->wax, got_f, r->f & ARITH, (unsigned long long)io.b[1], (unsigned long long)io.b[0],
+           (unsigned long long)r->wm1, (unsigned long long)r->wm0);
   }
   printf("rows %zu disagreements %zu\n", n, bad);
   return bad ? 1 : 0;
