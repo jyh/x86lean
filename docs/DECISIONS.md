@@ -25113,3 +25113,15 @@ measured shas are the pre-correction tips: `d7f3e13 → 8904234` (D376's base) a
 +1.1 (budget 8.9), `Tests.Coverage` +500 (budget 2,995.2). The NEW `Tests.AnchorsVexSilJ` reads 13,400.0 ms against its 40,350
 @on katmai and **5,084,765 ku in A′, exactly its K1 registration**. The retired absolute table's five `over/over` rows are the same
 five, base and head alike. **Off-ref shas, declared:** K1's `cbc52e8 → e09965c` (the 11-01 base); K2's `d7f3e13` and `0fedfd4`.
+**Reading 3, added 2026-11-07 on paper's #179 read (LOW 1); the Readings above went 1 → 2 → 4 and are left as written.**
+3. **HELD for both mutants, run red-backwards at `d557e53`** (yukon, `lean_route.py build Tests.AnchorsVexSilJ` through
+   saltbuild; `X86/Semantics.lean` mutated in place, then restored and `cmp`-checked against the original, then the
+   unmutated control built rc 0 with 0 tagged errors). The unit has 28 theorems: 4 frame lemmas, 18 `pabs` pins and 6
+   `pmulld` pins. (A) a SATURATING abs (`if (-y).msb then ~~~y else -y` in `vabsApply`, so the minimum maps to the
+   maximum): rc 1, 18 theorems red, **exactly the 18 `pabs` pins** (legacy, VEX.128 and VEX.256, register and memory),
+   and the 4 frame lemmas and 6 `pmulld` pins stay green. (B) a HIGH-HALF `pmulld` (`extractLsb' 32 32` of the 64-bit
+   product): rc 1, 6 theorems red, **exactly the 6 `pmulld` pins**. Each errored only in this unit.
+   **Prediction 2's (e) is NOT PINNED.** The unit carries no unaligned legacy memory row: its `vabsm` theorems are the
+   frame lemma and the aligned pins, so the model's alignment halt for `pabs` m128 has no `decide` receipt here, and
+   reading 2's "(see 2)" pointed at the prediction rather than at a reading. The one-row pin paper names is queued as its
+   own item rather than added here, because a `.lean` row would re-open this entry's K2.
