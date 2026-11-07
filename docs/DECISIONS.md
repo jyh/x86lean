@@ -24376,3 +24376,72 @@ Built with every theorem in place, emitted from a fresh binary, restored and `cm
 figure equals its VEX memory-form total — dav1d 8,957 · ffmpeg 18,510 · x264 2,872 — so the VEX table's modelled memory-form figure is
 **38,392 of 38,392** (+138 from `a2bcb36`'s 38,254; x264's +127 is 28 below the predicted +155, for the reason stated there).
 **Prediction 4 (kernel cost): HELD.** Read from the gate's own K2 output on katmai (`kernel_delta.py --base 847c23e --head 7c476af --repeats 6`, base = D358's ledger-row commit): `X86.Vex` base 37.1 ms, head 37.5 ms, delta column +0.4 ms (+1.1 %); `X86.Syntax` base 717.0 ms, head 721.5 ms, delta column +4.5 ms (+0.6 %). Each is under the predicted +10 %; every unit `ok`, no NEW unit; ms delta gate CLEAN, ARM A′ CLEAN. The measured head `7c476af` is on no ref since the re-stack onto #167's docs-only `a2bcb36`; on the branch it is `f040a15`, whose tree differs from it by docs only, so no reading input moved.
+## D360 — The census's model side cannot see 51 of the processor-probe forms: `shuf_ops.S`'s `OP(…)` lines and `sse_ops.S`'s `LOAD4` lines (predictions before any code)
+
+**Why.** STATUS row 18 proposed a hwprobe wave for the legacy-SSE memory forms of `pshufb` and `palignr`, sized at 462 + 223
+user-space instructions. **The premise is false, and the measurement that refutes it is the model's own.** D336 (V1b) already
+models both memory forms (`.vshufbm`, `.valignrm`), runs them on silicon (`s_pshufb_rm`, three `s_palignr_rm_*` functions;
+`rows 220 disagreements 0` on an AMD EPYC 7763 and an Intel Core i7-8700B, hwprobe run 38108854973) and pins every row by
+`decide`. What cannot see them is D352's MODELLED figure: `forms_inputs` reads a probe form only from the line after an
+`AT(…)` label or a bare `LOAD`, and two files declare their forms otherwise.
+- `hwprobe/shuf_ops.S` declares all **41** of its forms inline, `OP(name, instr)` (`#define OP(name, ...) FN(name) PRE;
+  FN(name##_at) __VA_ARGS__; POST`). Measured at `9d8fa6e`: `forms_inputs` returns **0** probe forms from that file, against
+  41 `OP(` lines (`pshufb` rr/rm, `palignr` rr ×13 / rm ×3, `pinsrd` r32 ×7 / m32 ×2, `pinsrq` ×4, `pextrd` ×6, `pextrq` ×4).
+- `hwprobe/sse_ops.S` uses `LOAD` before 27 forms and `LOAD4` before **10** (`mulps` `mulpd` `addps` `addpd` `subps` …). The
+  test is `t == "LOAD"`, so the ten are missed. They are register forms of differentially tested mnemonics, so no printed
+  figure moves for them; the population is wrong all the same.
+⇒ The probe-form population is **312, not 261** (261 + 41 + 10). The name a gate looks for is a LITERAL, and a file written in
+another idiom is not "a file with no forms": it is a file the gate cannot read, reporting agreement.
+
+**The repair.** `forms_inputs` reads all three idioms (`AT(` / `LOAD…` then the next line; `OP(name, instr)` inline), and
+**REFUSES** when any `hwprobe/*_ops.S` yields ZERO forms, naming the file — the shape that hid 41 forms. `--selftest` gains a
+fixture with each idiom and a red arm: a file in a fourth, unknown idiom is refused by name, not counted as empty.
+**Limit, declared:** the zero-forms refusal catches a WHOLE file in an unknown idiom; it cannot catch a file that mixes a known
+idiom with an unknown one (as `sse_ops.S` did). That case is caught here only because this entry counted each file's idioms
+by hand; nothing re-counts them.
+
+**Predictions (each wrong if the named reading differs):**
+1. **Red first.** The new zero-forms refusal, run against `9d8fa6e`'s parser, refuses naming `shuf_ops.S` and no other file.
+2. **Population.** After the repair: vectors **1383** (unchanged), probe forms **261 → 312**; the forms stamp's sha moves, so
+   `demand_census.py --check` reads STALE on the repaired tree before regeneration and CLEAN after.
+3. **Census, regenerated from `~/x86lean-corpus`.** Only `silicon_mem_modelled` moves, and only upward. Every corpus's
+   `total`, `covered`, `silicon`, `vex`, `covered_mem`, `silicon_mem`, `vex_mem`, `covered_mem_modelled` and `vex_mem_modelled`
+   are unchanged (the 51 forms are silicon or differential mnemonics already credited by name, and the ten `LOAD4` forms are
+   register forms). `cc1` `coreutils` `vlc-codec` `vlc-video_chroma` `vmlinux-kernel` do not move (their silicon memory gap is
+   already 0).
+4. **The size.** The silicon memory gap (`silicon_mem − silicon_mem_modelled`) summed over the corpora falls from **1,277** by
+   the SSE-legacy memory demand of `pshufb`, `palignr` and `pinsrd`: row 18's 685 for the first two, plus at most 5 for
+   `pinsrd` (x264's whole `pinsrd` demand) ⇒ **to between 587 and 592**. Per corpus the gap falls in glibc, dav1d, ffmpeg, vpx
+   and x264, and in none of them to zero unless that corpus's whole gap was these three mnemonics. `pshufb`/`palignr` in the
+   MMX bucket (ffmpeg 38 + 44, x264 22 + 17) stay unmodelled: the model has no MMX forms.
+**Not claimed:** any model, probe or vector change; the remaining gap's mnemonics (named from the regenerated census, not
+predicted). STATUS row 18 is retired by this entry if prediction 4 holds; row 19 (the VEX silicon memory remainder) is
+re-measured against the regenerated census before it is designed.
+**Result (2026-10-25, yukon, census regenerated from `~/x86lean-corpus`): all four predictions HELD.**
+1. **Red first:** the zero-forms refusal on `9d8fa6e`'s parser: `--check` rc 1, naming `shuf_ops.S` and no other file.
+2. **Population:** `1383 vectors + 312 probe forms` (261 + 41 `OP(` + 10 `LOAD4`); `forms_unread` empty; `--check` read STALE
+   (261 → 312, sha `d1c41879c5bfd0ea` → `d3b0b51087faa726`) before regeneration and CLEAN after. `--selftest` PASS, 243 arms,
+   the three D360 arms included (each idiom read; an unknown-idiom file refused by name; this tree has no unread file).
+3. **Census:** `silicon_mem_modelled` is the ONLY field that moved, in exactly glibc, dav1d, ffmpeg, vpx and x264, each upward.
+   Every other field of every corpus, `_asm_pooled` and `_controls` is byte-identical in the JSON; the document's diff is the
+   forms stamp and five silicon lines.
+4. **Size:** the silicon memory gap fell **1,277 → 590**, closing **687** (inside 685 … 690):
+   glibc 134 → 14 · dav1d 216 → 81 · ffmpeg 374 → 337 · vpx 160 → 37 · x264 393 → 121; none reached zero.
+⇒ **STATUS row 18 is RETIRED: the forms it would have built a wave for were modelled and on silicon since D336.** The remaining
+590 are other mnemonics' memory forms; row 19 re-measures them from this census before it is designed.
+**The 590, by (roster name, bucket)** — measured the same day by a scratch driver that imports this tree's
+`demand_census` unmodified (`census`, `_decide`, `model_forms`) over the same corpus. It sums to **590**, the published
+gap, by a second path. VEX-128: `vpshufb` 220 · `vmulps` 93 · `vpunpckhwd` 24 · `vaddps` 20 · `vpsrad` 16 · `vpalignr` 9 ·
+`vsubps` 4. VEX.256: `vmulps` 167 · `vaddps` 9 · `vpsrad` 8 · `vsubps` 5 · `vpunpcklbw` 4. Legacy SSE: `pextrd` 9 · `pinsrq` 2.
+⇒ **579 of 590 are VEX memory forms of silicon rows (STATUS row 19).** The legacy 11 are forms D336 never took: `pextrd` with
+an m32 DESTINATION, and `pinsrq` from m64. MMX `pshufb`/`palignr` are not in the silicon class (the model has no MMX forms),
+so they are not in the 590.
+⚠️ **Re-carry correction (2026-11-04, paper's read of #169).** Every figure in this entry's Result was measured on 2026-10-25 at
+base `9d8fa6e` (stamp `vectors=1383 probes=261`). Re-carried, it ships on D359's tree, where D354 … D359 have added vectors and
+probe forms. **At the shipped tree** (the census generated in this PR, and the same driver re-run here): `1502 vectors + 336 probe
+forms` (285 + 41 `OP(` + 10 `LOAD4`, the same +51); the gap falls **1,267 → 580**, closing the same **687**: glibc 134 → 14 ·
+dav1d **208 → 73** · ffmpeg 374 → 337 · vpx 160 → 37 · x264 **391 → 119**; `--selftest` PASS, **253** arms. The (name, bucket)
+split, re-measured by the scratch driver (it imports this tree's `demand_census` unmodified: `model_forms`, `census`, `_decide`),
+sums to **580**, matching the JSON per corpus. Two keys moved: VEX-128 `vpshufb` **211** (not 220) and `vpalignr` **8** (not 9);
+the other eleven keys are as above. ⇒ **569 of 580 are VEX memory forms of silicon rows** (row 19); the legacy 11 are unchanged.
+The predictions and the 10-25 Result are left as written; their ranges (685 … 690 closed, none at zero) hold at both bases.
