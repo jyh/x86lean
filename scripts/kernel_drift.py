@@ -1470,7 +1470,17 @@ def selftest():
     # not, which is a property of the history and cannot be discharged.
     # [[feedback-a-gate-whose-precondition-is-a-discipline]]
     # [[feedback-probe-silence-has-two-causes]]
-    lean_steps = [(b, h) for b, h in g_steps if _touches(b, h, ["*.lean"])]
+    # ⛔ 2026-11-07: AND "touches a `.lean`" IS NOT "lands in the lean bucket" since
+    # 2e9cb0e — a step whose only `.lean` is an unprofiled `[[lean_exe]]` root is
+    # `neither`. Merging #176 (Main.lean only) made such a step the NEWEST `.lean`
+    # step, the pick below took it, and the arm went red on a correct classifier.
+    # So the subject is a step with at least one `.lean` the exe-root rule does NOT
+    # argue away — the same predicate the classifier applies.
+    def _lean_decides(b, h, _m={}):
+        return any(unprofiled_root_reason(p, b, h, ROOT, _m) is None
+                   for p in _changed_paths(b, h, ROOT) if p.endswith(".lean"))
+    lean_steps = [(b, h) for b, h in g_steps
+                  if _touches(b, h, ["*.lean"]) and _lean_decides(b, h)]
     ok(bool(lean_steps),
        f"CONTROL — the chain carries {len(lean_steps)} `.lean`-changing step(s) "
        f"for the two arms below to use, independently of what the ledger records")
