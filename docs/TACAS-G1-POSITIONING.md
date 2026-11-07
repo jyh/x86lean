@@ -30,9 +30,9 @@ derived from the table. *Prose does not refuse; §2 records what it cost to lear
 | **executable** | yes — the model runs; `run_differential.sh` drives it — MEASURED | yes — it is our primary executable oracle — MEASURED (by use) | **yes** — *"fully executable … more than 7,000 instruction-level test cases and the GCC torture test suite"* — **RECORDED** (§1b). We still have never executed it; we read its tree mechanically for the roster | **yes** — `make x86_emulator` builds an emulator from the model snapshot; its validation guide runs an ELF and co-simulates **against K's single-instruction tests** — **MEASURED AT THE SOURCE** (§1c.5) |
 | **role here** | the proving model | primary differential oracle | roster/coverage source, read mechanically | third reference, spike only — never the proving model |
 | **axiom base of theorems** | exactly `[propext, Classical.choice, Quot.sound]`, CI-gated over the library — **MEASURED** | **zero** `defaxiom`, **zero** `skip-proofs` in 190 `.lisp` files; 6 `defttag` in 5 files, all in execution/instrumentation/syscall/virtualization layers — **MEASURED AT THE SOURCE** (§1c.1) | **not well-posed** — K is a rewriting logic, not a proof assistant with an axiom list; its prover is `kprove` + Z3, so the trust base is K + the SMT solver — **RECORDED** (§1c.4) | **not applicable — the translator ignores `defthm` wholesale**, so the Sail model carries no theorems to have an axiom base — **MEASURED AT THE SOURCE** (§1c.5) |
-| **proof support demonstrated** | ⛔ *read "7 machine-checked memory-safety theorems over 4 routines" until 2026-09-13 — no stated rule reproduces it (D232)*: a safety theorem for each of **6** routines, `CLAIMS.tsv[proof_sample_routines]`; cost model `19 + ~7.7/label` measured at 2–7 labels — **MEASURED** | 8 verified program families (**559** theorem forms) over a separate 24,707-line / 603-form proof-utility library; `copyData-is-correct` is **full functional correctness + fault-freedom for an unbounded loop** — **MEASURED AT THE SOURCE** (§1c.2) | 10 `kprove` reachability specs over 13 claim rules, with functional post-conditions and loop invariants, plus an 846-line / 201-rule verification-lemma library. Its README calls these *"few applications of our formal semantics"* — **MEASURED AT THE SOURCE** (§1c.4) | **NONE, BY CONSTRUCTION** — `tr_ignore`: *"forms we can ignore wholesale. E.g. `defthm`"* — **MEASURED AT THE SOURCE** (§1c.5) |
-| **undefined-bit treatment** | explicit oracle in the state; `UNDEF`-seeding precedent taken from x86isa — RECORDED | an `undef` **seed counter** feeding `create-undef`, an **`encapsulate`d CONSTRAINED function** — so *nothing* about equality is provable. Its own docs: *"an undefined value is different from another undefined value, and also all the known values"* — **MEASURED AT THE SOURCE** (§1c.10) | a single distinguished **constant** `undefMInt` (and `undefBool`) written straight into the flag, in 497 of 3,064 per-instruction files — **MEASURED AT THE SOURCE** (§1c.6) | **REPLACED, NOT DROPPED** — `prelude.sail`: *"In the ACL2 model, undefined values for things like flags just return zero. Here we use Sail's builtin `undefined`"*, via `undef_read_logic()`; an `undefined_flags` **mask** is threaded through `write_user_rflags` (144 hits in `shifts_spec.sail` alone) — **MEASURED AT THE SOURCE** (§1c.10) |
-| **decode** | Intel XED consumed as the AST; decode trust named in `TRUSTBASE.md` — MEASURED | a **22,042-line in-tree ACL2 transcription of SDM Vol. 2 Appendix A**, from which the dispatch functions are *generated* in ACL2 — ⚠️ **but NOT purely SDM: 186 of its 3,192 entries (5.8%, the x87 escape block) were machine-generated from XED data files by `xedscan.py`, and 9 more cite `xed-isa.txt` for UNDOCUMENTED encodings** — **MEASURED AT THE SOURCE** (§1c.3, §1c.9) | ⛔ **IT DOES NOT DECODE MACHINE BYTES AT ALL.** `x86-loader.k` parses GNU **assembler source** (`.text`, `.data`, `.globl`, `.comm`); `syntax Opcode ::= "adcb"` is a MNEMONIC, not a byte. **Zero** files mention `modrm`, `ModRM` or `REX` — **MEASURED AT THE SOURCE** (§1c.8) | inherited from x86isa's maps via the translator; `decoding_and_spec_utils.sail` + the generated `*_opcodes_dispatch.sail` — **MEASURED AT THE SOURCE** (§1c.5) |
+| **proof support demonstrated** | ⛔ *read "7 machine-checked memory-safety theorems over 4 routines" until 2026-09-13 — no stated rule reproduces it (D232)*: a safety theorem for each of **6** routines, `CLAIMS.tsv[proof_sample_routines]`; cost model `19 + ~7.7/label` measured at 2–7 labels — **MEASURED** | 8 verified program families (**559** theorem forms) over a separate 24,707-line / 603-form proof-utility library; `copyData-is-correct` is **full functional correctness + fault-freedom for a loop of any length below 2^14** (its preconditions carry `(unsigned-byte-p 14 n)`; *read "unbounded" until 2026-10-14*) — **MEASURED AT THE SOURCE** (§1c.2) | 10 `kprove` reachability specs over 13 claim rules, with functional post-conditions and loop invariants, plus an 846-line / 201-rule verification-lemma library. Its README calls these *"few applications of our formal semantics"* — **MEASURED AT THE SOURCE** (§1c.4) | **NONE, BY CONSTRUCTION** — `tr_ignore`: *"forms we can ignore wholesale. E.g. `defthm`"* — **MEASURED AT THE SOURCE** (§1c.5) |
+| **undefined-bit treatment** | explicit oracle in the state; `UNDEF`-seeding precedent taken from x86isa — RECORDED | an `undef` **seed counter** feeding `create-undef`, an **`encapsulate`d CONSTRAINED function** — so *nothing* about equality is provable. Its own docs: *"an undefined value is different from another undefined value, and also all the known values"* — **MEASURED AT THE SOURCE** (§1c.10) | a single distinguished **constant** `undefMInt` (and `undefBool`) written straight into the flag, in 491 of 3,064 per-instruction files (497 counted the string `undef`, see §1c.6) — **MEASURED AT THE SOURCE** (§1c.6) | **REPLACED, NOT DROPPED** — `prelude.sail`: *"In the ACL2 model, undefined values for things like flags just return zero. Here we use Sail's builtin `undefined`"*, via `undef_read_logic()`; an `undefined_flags` **mask** is threaded through `write_user_rflags` (144 hits in `shifts_spec.sail` alone) — **MEASURED AT THE SOURCE** (§1c.10) |
+| **decode** | Intel XED consumed as the AST; decode trust named in `TRUSTBASE.md` — MEASURED | a **22,042-line in-tree ACL2 transcription of SDM Vol. 2 Appendix A**, from which the dispatch functions are *generated* in ACL2 — ⚠️ **but NOT purely SDM: 138 of its 3,192 entries (4.3%, the x87 escape block) were machine-generated from XED data files by `xedscan.py`, 9 of them commented out as UNDOCUMENTED encodings from `xed-isa.txt`, so 129 live (§1c.9, corrected 2026-10-14 from 186)** — **MEASURED AT THE SOURCE** (§1c.3, §1c.9) | ⛔ **IT DOES NOT DECODE MACHINE BYTES AT ALL.** `x86-loader.k` parses GNU **assembler source** (`.text`, `.data`, `.globl`, `.comm`); `syntax Opcode ::= "adcb"` is a MNEMONIC, not a byte. **Zero** files mention `modrm`, `ModRM` or `REX` — **MEASURED AT THE SOURCE** (§1c.8) | inherited from x86isa's maps via the translator; `decoding_and_spec_utils.sail` + the generated `*_opcodes_dispatch.sail` — **MEASURED AT THE SOURCE** (§1c.5) |
 
 ---
 
@@ -192,7 +192,8 @@ to test executables. This cell does not separate us from them and the paper shou
   powOfTwo                   1      345          2
 ```
 `dataCopy/dataCopy.lisp:1595 copyData-is-correct` is **full functional correctness plus
-fault-freedom, for a loop of unbounded length `n`** — destination equals source after `(x86-run
+fault-freedom, for a loop of symbolic length `n` below 2^14** (`preconditions`, dataCopy.lisp:394, carries
+`(unsigned-byte-p 14 n)`; *this read "of unbounded length" until 2026-10-14, a non-author refuter's catch*) — destination equals source after `(x86-run
 (program-clk n) x86)`, source unmodified, `ms` and `fault` both `nil`.
 ⚠️ **THE TOTAL IS 1,162 AND IT IS NOT THE HEADLINE NUMBER.** 603 of those forms are the reusable
 `utilities` LIBRARY, not proofs about programs; the **8 program families carry 559**. My first draft
@@ -316,6 +317,10 @@ which is the defect this campaign recorded three times on 2026-09-11 before comm
             name (common 14 · mmx 2 · pseudoTestInstructions 1) hold 0 undef, so 497/3,081 either way.
             SPLIT: register 161 · memory 227 · immediate 109 · system 0 · extras 0 -- undefined
             flags are a DATA-instruction phenomenon in K and absent from its system instructions.
+            ⚠️ CORRECTED 2026-10-14 (a non-author refuter, re-derived at K 592380a): the 497 counts the
+            SUBSTRING undef. Files naming the CONSTANT (undefMInt|undefBool) are 491 -- register 155, the
+            other dirs unchanged; six register files (movmskpd/vmovmskpd) carry undef only in metadata
+            comments ("maybe undef:{ }"). CLAIMS.tsv[k_undef_files] now derives 491 at K's own tree.
             token census: undefMInt 1,073 · undefBool 310 · undefMInt64/32/16 4 each
   Sail      ⛔ THIS LINE SAID "DROPPED" AND IT IS FALSE -- SEE §1c.10.  Sail REPLACED the
             mechanism: model/prelude.sail, "Here we use Sail's builtin `undefined`", via
@@ -381,8 +386,11 @@ claim only — says *"x86isa itself uses XED's tables via `xedscan.py`"*. §1c.3
         from our opcode maps" -- the #xD8..#xDF escape opcodes
   inst-listing.lisp:1748  ";; X87 instruction entries (#xD8 through #xDF) generated from xed
                             datafiles using:  xedscan.py ~/work/xed/datafiles/xed-isa.txt xed-x87.txt"
-  MEASURED SHARE:   186 of 3,192 INST entries = 5.8%   (the x87 escape block)
-  PLUS              9 sites commented ";; Undocumented (from xed-isa.txt):"
+  MEASURED SHARE:   138 of 3,192 INST entries = 4.3%   (the x87 escape block, l.1748 to l.2729)
+  OF WHICH          9 are commented ";; Undocumented (from xed-isa.txt):", so 129 of 3,178 live
+  ⛔ CORRECTED 2026-10-14 (Deep Review r2, F39): this line read "186 of 3,192", and 186 matches no
+     count of that file at acl2 c8897a34; the 9 were read as "more" when they are inside the 138.
+     docs/CLAIMS.tsv now derives both numbers from inst-listing.lisp itself, not from this prose.
 ```
 ⇒ **The brief over-generalised a proof-of-concept covering 8 escape opcodes into "the decoder".
 §1c.3 omitted it entirely.** Both errors were in the direction of a cleaner story.
@@ -392,8 +400,8 @@ exactly where the SDM is weakest** — the x87 escape encodings the manual table
 instructions the manual does not document at all. That is a better sentence for the paper than the
 clean one, and it is the one that is true.
 📌 **What remains genuinely different is the SHARE and the DECLARATION**, not the presence: XED is our
-decode path for everything and is named as a trust component in `TRUSTBASE.md`; for x86isa it is 5.8%
-of the maps plus nine citations. ⚠️ **I have NOT checked whether x86isa states a trust position on
+decode path for everything and is named as a trust component in `TRUSTBASE.md`; for x86isa it is 4.3%
+of the maps, nine of whose entries are commented-out undocumented encodings. ⚠️ **I have NOT checked whether x86isa states a trust position on
 XED anywhere, and I am not claiming it does not.**
 ⇒ ⛔ **THIS IS THE SECOND DECODE CLAIM I HAVE HAD TO CORRECT TODAY** (§1c.8 was the first, about K).
 Both were written from a plausible structural reading rather than from the file that decides it.
