@@ -69,6 +69,22 @@ SILICON_REFEREES = (
     ("D348", ("AMD EPYC 7763", "Intel Core i7-8700B")),
     # D350 (V8c): the VEX memory-operand path (hwprobe run 39464224033); the AMD leg named by /proc/cpuinfo.
     ("D350", ("AMD EPYC 9V74", "Intel Core i7-8700B")),
+    # D361 (V10): the VEX memory forms of the silicon rows (hwprobe runs 40190842502, 40191605877); every leg NAMED by its
+    # processor: Intel Core i7-8700B on both runs, Intel Xeon Platinum 8573C (the first), AMD EPYC 7763 (the second).
+    ("D361", ("AMD EPYC 7763", "Intel Xeon Platinum 8573C", "Intel Core i7-8700B")),
+    # D371: VEX vmovd/vmovq (hwprobe run 41041988507); both legs NAMED by their processor.
+    ("D371", ("AMD EPYC 7763", "Intel Core i7-8700B")),
+    # D373: pminsw/pmulhw/pmulhuw/pavgb, set B of the packed-integer path (hwprobe run 41144876498); both legs NAMED.
+    ("D373", ("AMD EPYC 7763", "Intel Core i7-8700B")),
+    # D374: the VEX twins of eleven modelled kinds (hwprobe run 41147377467); both legs NAMED by their processor.
+    ("D374", ("AMD EPYC 9V74", "Intel Core i7-8700B")),
+    # D375: the VEX.256 lane insert/extract (hwprobe run 41148735460); both legs NAMED by their processor.
+    ("D375", ("AMD EPYC 9V74", "Intel Core i7-8700B")),
+    # D376: movntdqa and the VEX.128 half-moves (hwprobe run 41150000436); both legs NAMED by their processor.
+    ("D376", ("AMD EPYC 9V74", "Intel Core i7-8700B")),
+    # D379: pabs and pmulld, legacy and VEX (hwprobe runs 41270561289, Intel i7-8700B + Xeon 8573C, and 41270709768,
+    # AMD EPYC 9V45 + Intel i7-8700B); both vendors NAMED by their processor.
+    ("D379", ("AMD EPYC 9V45", "Intel Core i7-8700B")),
 )
 SILICON_PAIRS = "; ".join(" + ".join(rs) + " (" + d + ")" for d, rs in SILICON_REFEREES)
 SILICON_LABEL = ("silicon-refereed only (AMD + Intel hwprobe: " + SILICON_PAIRS
