@@ -25200,3 +25200,11 @@ Smaller than D379, which also needed six new constructors for a unary operation.
 `kernel_delta` reads `Tests.AnchorsVexSilK` at 5,195.0 ms ⇒ `Tests.AnchorsVexSilK 15585 @on katmai`; `ku_delta` (A′)
 reads 2,410,985 unfoldings ⇒ `Tests.AnchorsVexSilK @ku 2410985`; both registered as printed. No existing row is
 refused or UNMEASURABLE in either arm.
+
+⚠️ **Re-carry reading (2026-11-06, applied before this entry's PR): the check Result 4 named is MET.** At the shipped tree (this
+branch re-carried onto D379 `a237ea8`, which carries master's #152), `docs/DEMAND-CENSUS.md.json` against `a237ea8` reads
+silicon **+4,327**: dav1d **926** · ffmpeg 780 · vlc-video_chroma 384 · vpx 2,054 · x264 183, and the pooled asm figure
++4,327. That is the prediction as written, and dav1d is 77 below the 11-01 reading, as the ⚠️ said. `silicon_mem` and
+`silicon_mem_modelled` rise by dav1d 15 · ffmpeg 95 · vpx 440 · x264 35. `covered`, `vex` and `total` move in no column.
+`demand_census.py --check` is rc 0 at this tip (build 81 jobs, 0 tagged errors), so the figure is a regeneration and not a
+merged text. K1's shas are the 11-01 base's; the shipped-base kernel reading is the K2 row.
