@@ -592,9 +592,20 @@ def _imported_at(rev, repo=ROOT):
     mods = set()
     for ln in out.splitlines():
         toks = ln.split("--", 1)[0].split()
-        if toks and toks[0] == "import":
-            mods.update(t for t in toks[1:] if t != "all")
+        # ⛔ The toolchain's module system writes `public import M`, `private import M`,
+        # `meta import M` and `public meta import M` after a `module` header. A parser
+        # that keeps only `toks[0] == "import"` reads those as NO import, so condition (3)
+        # passes falsely and an IMPORTED exe root is exempted: the unsafe direction
+        # (paper's read of #177). Strip the leading modifiers, then require `import`.
+        i = 0
+        while i < len(toks) and toks[i] in _IMPORT_MODIFIERS:
+            i += 1
+        if i < len(toks) and toks[i] == "import":
+            mods.update(t for t in toks[i + 1:] if t not in _IMPORT_MODIFIERS | {"all"})
     return mods
+
+
+_IMPORT_MODIFIERS = frozenset({"public", "private", "meta"})
 
 
 def unprofiled_root_reason(path, base, head, repo=ROOT, _memo=None):
@@ -1601,6 +1612,11 @@ def selftest():
     _x = _xstep(_MAIN2, base_extra={"X86/B.lean": "import Main\n"})
     ok(_x == "lean", f"⛔ …and when a library file IMPORTS Main it is `lean` (got {_x})",
        plant="exe root imported")
+    for _imp in ("module\npublic import Main\n", "meta import Main\n",
+                 "module\npublic meta import Main\n", "private import all Main\n"):
+        _x = _xstep(_MAIN2, base_extra={"X86/B.lean": _imp})
+        ok(_x == "lean", f"⛔ …and a module-system import ({_imp.splitlines()[-1]!r}) of Main "
+           f"is `lean` too (got {_x})", plant="exe root imported (modifier)")
     _x = _xstep(_MAIN2, base_extra={"lakefile.toml": 'name = "t"\n'})
     ok(_x == "lean", f"⛔ …and when Main is NO exe root in lakefile.toml it is `lean` (got {_x})",
        plant="not an exe root")
