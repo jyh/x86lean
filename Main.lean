@@ -5021,12 +5021,35 @@ def dupIdArm (build : List Rec → Std.HashMap String Rec) : Bool :=
   r.matched == 1 && r.details.isEmpty && renderReport r == renderReport ref
     && renderAllDetails r == renderAllDetails ref
 
+/-- ⭐ paper's LOW 1 on #176: the declared divergences classed 0 cases in every pair,
+because no selftest arm lands on a `knownDivergences` entry, so the indexed path's
+handling of an `oracle-divergence` (the `diverged` count and its details) was never
+compared with the reference.  This plants three entries built from the pair's OWN
+first three disagreements, one per matching branch of `classify`: (1) restricted to
+the disagreement's pre-state (`states`), (2) restricted to its value pair (`pair`),
+(3) the whole vector and field.  Empty when the pair has fewer than three. -/
+def plantedDivergences (ds : List Disagreement) : List KnownDivergence :=
+  let vecOf (d : Disagreement) : String := toString (d.id.takeWhile (· != '/'))
+  let mk (d : Disagreement) : KnownDivergence :=
+    { vec := vecOf d, field := d.field, source := "compare-index-selftest plant",
+      note := "planted, not a measurement" }
+  match ds with
+  | d1 :: d2 :: d3 :: _ =>
+    [ { mk d1 with states := [caseState d1.id] },
+      { mk d2 with pair := some (d2.lhs, d2.rhs) },
+      mk d3 ]
+  | _ => []
+
 /-- Run the gate.  Arms: (1) the duplicate-id fixture reads first-match;
 (2) the last-match mutant FAILS arm 1, so the arm can fail; (3) over three
 wrong models, the indexed comparator renders byte-equal to the reference, in
-both directions, with and without the declared divergences, on a case set that
-holds every disagreeing case plus a stride sample, against a REVERSED `bs` so
-no lookup lands at the front by luck; each pair must disagree at least once.
+both directions, with no divergences, with the declared ones, and with three
+PLANTED from the pair's own disagreements (`plantedDivergences`), on a case set
+that holds every disagreeing case plus a stride sample, against a REVERSED `bs` so
+no lookup lands at the front by luck; each pair must disagree at least once, and
+the planted pair must class at least one case as `oracle-divergence`.  The
+declared list classes 0 cases at this case set; the planted one is what exercises
+the classing.
 
 ⚠️ LIMIT, printed beside the PASS line too: the case set is every disagreement
 the INDEXED comparator finds, plus a 1-in-`stride` sample (~1000 cases).  A case
@@ -5062,14 +5085,20 @@ cannot fail"; ok := false
         -- the disagreeing ids, found with the FAST comparator, then re-checked by the
         -- reference over the chosen set.  ⚠️ This cannot see a case the fast path
         -- misreads as MATCHED outside the stride sample (see the LIMIT above).
-        let hot := (compareRecs [] xs ys).details.map (·.id)
+        let hotDs := (compareRecs [] xs ys).details
+        let hot := hotDs.map (·.id)
         let hotSet := hot.foldl (fun (m : Std.HashMap String Unit) k => m.insert k ()) {}
         let stride := max 1 (xs.length / 1000)
         let chosen := (xs.zipIdx).filterMap fun (x, k) =>
           if hotSet.contains x.id || k % stride == 0 then some x else none
         let ysRev := ys.reverse
+        let planted := plantedDivergences hotDs
+        if planted.isEmpty then
+          IO.println s!"  ⛔ {name} {lbl}: fewer than three disagreements, nothing to plant"
+          ok := false
         for (dl, divs) in [("no divs", ([] : List KnownDivergence)),
-                           ("declared divs", knownDivergences)] do
+                           ("declared divs", knownDivergences),
+                           ("planted divs", planted)] do
           let rNew := compareRecs divs chosen ysRev
           let sNew := renderReport rNew ++ "\n" ++ renderAllDetails rNew
           let rRef := compareRecsListRef divs chosen ysRev
@@ -5081,6 +5110,9 @@ the reference over {chosen.length} cases"; ok := false
           else if rRef.details.isEmpty then
             IO.println s!"  ⛔ {name} {lbl} ({dl}): no disagreement in {chosen.length} \
 cases, so equality here is vacuous"; ok := false
+          else if dl == "planted divs" && rRef.diverged == 0 then
+            IO.println s!"  ⛔ {name} {lbl} ({dl}): the planted entries classed 0 cases, \
+so the classing is not compared"; ok := false
           else
             IO.println s!"  ✔ {name} {lbl} ({dl}): byte-equal over {chosen.length} of \
 {xs.length} cases, {rRef.details.length} disagreements, \
@@ -5088,7 +5120,7 @@ cases, so equality here is vacuous"; ok := false
   IO.println s!"  {pairs} report pairs compared"
   IO.println "  limit: the case set is every disagreement the indexed path finds plus a \
 ~1/1000 stride sample, so a misread-as-matched case outside the sample is not seen"
-  return ok && pairs == 2 * 2 * picks.length
+  return ok && pairs == 3 * 2 * picks.length
 
 def main (args : List String) : IO UInt32 := do
   match args with
