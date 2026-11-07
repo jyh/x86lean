@@ -2473,6 +2473,9 @@ def VBinKind.vexSilTaken : VBinKind → Bool
   | .mulld => true
   -- ⭐⭐ D384: wave E's three, at VEX.128 and VEX.256 (x86isa refuses all six, D384 P1; `vexsilk` referees them).
   | .subsw | .avgw | .muldq => true
+  -- ⭐⭐ D393: wave F, the five unpacks D345 left, at VEX.128 and VEX.256 (x86isa refuses all ten, D393 P1; `vexsill`
+  -- referees them).  Their lanes are the legacy ones (`vbinApply`'s `vunpack`), so nothing new is computed.
+  | .unpckld | .unpcklq | .unpckhb | .unpckhd | .unpckhq => true
   | _ => false
 
 /-- ⭐ V4 (D342) — the packed binary kinds whose VEX MEMORY twins (`vexbinm`, and since V9a `vexbinm256`) are
@@ -2502,6 +2505,8 @@ def VBinKind.vexSilMemTaken : VBinKind → Bool
   | .mulld => true
   -- ⭐⭐ D384: wave E's memory twins, on the same word.
   | .subsw | .avgw | .muldq => true
+  -- ⭐⭐ D393: wave F's memory twins, on the same word.
+  | .unpckld | .unpcklq | .unpckhb | .unpckhd | .unpckhq => true
   | _ => false
 
 /-- ⭐ V8c (D350) — a dword replicated into all four dwords of 128 bits (VPBROADCASTD's lane). -/

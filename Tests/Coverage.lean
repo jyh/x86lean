@@ -134,7 +134,11 @@ theorem silicon_rows_name_ast_mnemonics :
       -- D384: wave E, legacy then VEX, one row per mnemonic.
       (Op.vbin .subsw .x3 .x1).mnemonic, (Op.vbin .avgw .x3 .x1).mnemonic, (Op.vbin .muldq .x3 .x1).mnemonic,
       (Op.vex (.vexbin .subsw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .avgw .x3 .x1 .x2)).mnemonic,
-      (Op.vex (.vexbin .muldq .x3 .x1 .x2)).mnemonic] := by decide
+      (Op.vex (.vexbin .muldq .x3 .x1 .x2)).mnemonic,
+      -- D393: wave F, the five VEX unpacks, one row per mnemonic.
+      (Op.vex (.vexbin .unpckld .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .unpcklq .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .unpckhb .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .unpckhd .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .unpckhq .x3 .x1 .x2)).mnemonic] := by decide
 
 /-! ### ⭐⭐⭐ THE GATE THE ROSTER'S DOCSTRING CLAIMED AND DID NOT HAVE (2026-09-06)
 

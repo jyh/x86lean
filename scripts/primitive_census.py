@@ -537,6 +537,8 @@ SILICON_PATHS = (
     # twins (`x_vp{subsw,avgw,muldq}{128,256}_{r,m}`, disjoint from the paths above).
     ("mk_simda_rows.py --set-c", "simda_probe.c", "v_", r'^  \{"[^"]+", (v_\w+), \{'),
     ("mk_vexsilk_rows.py", "vexsile_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
+    # D393 (wave F): the five VEX unpacks (`x_vpunpck{ldq,lqdq,hbw,hdq,hqdq}{128,256}_{r,m}`, disjoint from the paths above).
+    ("mk_vexsill_rows.py", "vexsile_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
 )
 
 

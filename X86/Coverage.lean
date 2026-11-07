@@ -1502,7 +1502,18 @@ def siliconTable : List Row :=
   , { mnemonic := "vpavgw", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): PAVGW's lane rule · register and m128/m256 forms, src the memory operand, no alignment check · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PAVGW" }
   , { mnemonic := "vpmuldq", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): PMULDQ's rule per quadword · register and m128/m256 forms, src the memory operand, no alignment check · x86isa refuses it",
-      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULDQ" } ]
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULDQ" }
+  -- ⭐ D393 (wave F): the five VEX unpacks D345 left, refereed by silicon (hwprobe `vexsill`).
+  , { mnemonic := "vpunpckldq", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): the low dwords of each lane interleaved, src1 first · register and m128/m256 forms, src the memory operand, no alignment check · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKLBW/PUNPCKLWD/PUNPCKLDQ/PUNPCKLQDQ" }
+  , { mnemonic := "vpunpcklqdq", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): the low quadwords of each lane interleaved, src1 first · register and m128/m256 forms, src the memory operand, no alignment check · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKLBW/PUNPCKLWD/PUNPCKLDQ/PUNPCKLQDQ" }
+  , { mnemonic := "vpunpckhbw", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): the high bytes of each lane interleaved, src1 first · register and m128/m256 forms, src the memory operand, no alignment check · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKHBW/PUNPCKHWD/PUNPCKHDQ/PUNPCKHQDQ" }
+  , { mnemonic := "vpunpckhdq", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): the high dwords of each lane interleaved, src1 first · register and m128/m256 forms, src the memory operand, no alignment check · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKHBW/PUNPCKHWD/PUNPCKHDQ/PUNPCKHQDQ" }
+  , { mnemonic := "vpunpckhqdq", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): the high quadwords of each lane interleaved, src1 first · register and m128/m256 forms, src the memory operand, no alignment check · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKHBW/PUNPCKHWD/PUNPCKHDQ/PUNPCKHQDQ" } ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to
 `docs/COVERAGE.md` so the file in the repository is GENERATED and a stale table

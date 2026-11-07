@@ -25269,3 +25269,32 @@ D379 and D384 use. `.unpckld`/`.unpckhd` share their lane line with `.unpcklps`/
 **Price.** One silicon wave in D374's frame (one generator over 5 names × VEX.128/VEX.256 × register/memory, one probe), two
 predicate lines, one metered unit, one census regeneration, one K1. Stacked on D384 (`cb636b5`). Smaller than D384: no lane
 function is written, so the risk is in the generator's rules and the seeding, not in the model.
+
+**Readings (2026-11-07, `paris/d393-wave-f`):**
+1. **HELD on both vendors, over three runs at `701eeaa`.** hwprobe run 42389772285 (the push) and its `workflow_dispatch`
+   re-run 42390014629 each landed BOTH legs on Intel: the i7-8700B (`macos-15-intel`) and an Intel Xeon Platinum 8573C
+   (`ubuntu-latest`), each `rows 200 disagreements 0`. The prediction names two VENDORS, so those runs did not hold it. A second
+   re-run, 42390234925, landed `ubuntu-latest` on an **AMD EPYC 9V45** and the i7-8700B again, `rows 200 disagreements 0` on both.
+   On every leg of all three runs `--plant` reds exactly `vpunpckhdq256_r_p0`, `--plant-hi` exactly `vpunpckldq128_r_p0`, and
+   `--plant-op` refuses `x_vpunpckldq128_r` (rc 2).
+2. **HELD for the generator.** `hwprobe/mk_vexsill_rows.py`: 200 rows over 20 functions (5 names × VEX.128/VEX.256 × register
+   and memory; 8 register rows a function, 6 sources × {offset 0, an odd offset} a memory function), every source a run of
+   distinct byte values (checked per row). Every row's rule equals its byte-list re-derivation, which never calls `r_unpck`.
+   `--reach`: (a) the other half 200 · (b) SRC1 and SRC2 swapped 200 · (c) VEX.256 across lanes 100, every VEX.256 row ·
+   (d) the wrong width 200 · (e) VEX.128 keeping YMM3[255:128] 100, every VEX.128 row · (f) the aligned read 60, every
+   unaligned memory row. The SDM-derived bytes equal clang's on the 12 forms the selftest names, and all 20 assembled
+   `_at` bytes equal the declared ones (objdump of `vexsill_ops.S`, which `--asm` generates from the same table).
+3. **NOT MEASURABLE AS WRITTEN; the mutant is caught one layer EARLIER, and a second mutant reaches the unit.** (i) The named
+   mutant, `.unpckhd | .unpckhps => vunpack 32 false`, is refused in the library before any test unit elaborates:
+   `X86/Theorems.lean`'s `unpack_siblings_are_pairwise_distinct` (its `.unpckld ≠ .unpckhd` conjunct) is the one error of a
+   `lake build Tests`, so `Tests.AnchorsVexSilL` was never reached. The prediction's "outside it, only the legacy
+   anchors" was wrong in kind: the first thing to red is a theorem, not an anchor. (ii) A mutant that reaches the unit,
+   `.unpckhd` dropped from both `vexSilTaken` and `vexSilMemTaken` (so its four VEX forms halt): rc 1, **4 of the unit's 20
+   theorems red, exactly the four `vpunpckhdq` pins**, and no other target of `Tests` fails. Red-first, before the two
+   predicate lines landed: all 20 pins red, each by `decide` proving its proposition false. `X86/Semantics.lean` and
+   `X86/Syntax.lean` restored and `cmp`-checked after each mutant; the full build is then rc 0, 82 jobs, 0 tagged errors.
+4. **HELD exactly. Silicon +5,649** (ffmpeg +2,547 · dav1d +1,505 · x264 +1,155 · vpx +346 · glibc +96), each name's
+   `silicon_all` now its in-scope count (1,327 · 1,200 · 920 · 1,113 · 1,089), and no in-scope spelling of the five left
+   uncredited. `covered`, `vex` and `total` move in no column; `silicon_mem` and `silicon_mem_modelled` rise by dav1d 35 ·
+   x264 2 (the memory forms); the pooled asm figure is +5,553 (glibc is a compiler-output column, which the pool excludes by construction). The 1,418 AVX-512 spellings stay
+   in the residue. Regenerated against `~/x86lean-corpus/corpus` without `--debug`; `demand_census.py --check` rc 0.
