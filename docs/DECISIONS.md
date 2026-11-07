@@ -25003,7 +25003,11 @@ recorded for D374–D375).
 ⚠️ **Re-carry correction (2026-11-05, the figure class paper found on #168/#169, applied before this entry's PR).** Result 4 was
 read at the 10-31 base. **At the shipped tree** (`docs/DEMAND-CENSUS.md.json`, D375's `2d26935` against this branch) silicon rises
 **+3,933**: dav1d **808** · ffmpeg 877 · vlc-video_chroma 1,984 · x264 **187** · glibc 60 · vpx 17, and the pooled asm figure
-**+3,873**. Every gain is still in `silicon_mem_modelled` (`silicon_mem` alike), and nothing else moves. The by-name split is the
+**+3,873**. Every gain is still in `silicon_mem_modelled` (`silicon_mem` alike), and no other scalar column moves. **The residue
+re-keys** (paper's read of #178, re-derived from the JSON): with the mnemonics now mapped, 162 instances the model does not take
+leave `miss_all`'s plain keys for `_split`'s out-of-scope arm: dav1d `vmovhps` 965 → 806 + 159 `vmovhps (vector operand)`,
+`vmovlps` 4 → 2 + 2; x264 `vmovhps` 188 → 187 + 1. Totals are conserved and the top-40 `miss` list reorders. What those 162 are
+is not measured here. The by-name split is the
 10-31 reading and is not re-measured. The ⚠️ about `check_readme_snapshot` is discharged: it is rc 0 on this branch. K1's
 shas are the 10-31 base's; the shipped-base kernel reading is the K2 row. Predictions and the 10-31 Results are left as written.
 **K2 at the shipped base (2026-11-05/06, katmai, `kernel_delta.py --base 2d26935 --head 622e73e`, both arms; `622e73e` is this
@@ -25013,4 +25017,5 @@ ARM A′ was CLEAN. **Re-run at 12 repeats (`d376-ms`, 2026-11-06 16:11 → 20:3
 ms verdict (D251). `Tests.Vectors` 18.2 → 10.6 (−7.7, ±5.2, budget 18.9), `X86.Syntax` 794.0 → 815.0 (+21.0, ±8.7, budget 148.5;
 K1 read it at its own base), `X86.Semantics` +1.0. The NEW `Tests.AnchorsVexSilI` reads 3,630.0 ms against its 10,875 @on katmai
 and **1,537,866 ku in A′, exactly its K1 registration**. The retired absolute table's five `over/over` rows are the same five,
-base and head alike. **Off-ref shas, declared:** K1's `244dac3 → 681dd86` is the 10-31 base's; the hwprobe run is at `5d52058`.
+base and head alike. **Off-ref shas, declared:** K1's `244dac3 → 681dd86` is the 10-31 base's (`681dd86` is also the sha `kernel_ceilings.txt`
+and `ku_delta_budget.txt` cite for the NEW unit; it is reachable today only from the pre-re-carry branches); the hwprobe run is at `5d52058`.
