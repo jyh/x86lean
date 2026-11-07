@@ -512,6 +512,128 @@ def _touches(base, head, paths, repo=ROOT):
     return bool(kd.git("diff", "--name-only", base, head, "--", *paths, cwd=repo).strip())
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# AN EXECUTABLE ROOT THE PROFILER NEVER READS (2026-11-06, paris, on systems' Q3 at #176)
+# ══════════════════════════════════════════════════════════════════════════════
+# `*.lean` is bucketed FIRST (D171), so no EXEMPT_RULES entry can reach a `.lean` file,
+# and that is right for every `.lean` the profiler reads or that one of them imports.
+# It is WRONG for exactly one shape. `Main.lean` (x86lean-diff) and `AxiomGate.lean`
+# (x86lean-axioms) are `[[lean_exe]]` roots. `kernel_cost.modules()` does not list them,
+# and no library module imports them. A step that changes only such a file cannot move
+# a reading. It still had to buy a full K2 (dd5a67c / D367: 12 passes on katmai, ~2 h,
+# verdict ms rc 0) to record a row whose readings were byte-identical inputs on both sides.
+# Two more are queued: #176 (row 130's compareRecs index) and the acl2#2067 oracle re-pin.
+#
+# ⇒ THE RULE IS DERIVED AT BOTH REVISIONS, NEVER A LITERAL. A path qualifies only if ALL
+# of these hold at the base AND at the head:
+#   (1) it is the `root` of a `[[lean_exe]]` in that revision's `lakefile.toml`;
+#   (2) `kernel_cost.modules()`, run over that revision's file list, does not list it;
+#   (3) no tracked `.lean` file in that revision imports its module.
+# Any condition unreadable (no lakefile, no tomllib, a parse error) ⇒ None ⇒ the
+# `.lean` bucket, the conservative direction. [[feedback-widening-a-gate-needs-a-second-source]]
+# ⚠️ SCOPE: this reaches `gap()` only, the ledger's missing-row count. It does NOT change
+# `kernel_delta.null_pair_reason` (a PROFILER_PATH, so editing it would itself cost a row),
+# so the kernel-delta job still MEASURES such a pair. That reading is a free null-model
+# control: every profiled input is identical on both sides.
+def _tree_paths(rev, repo=ROOT):
+    return [p for p in kd.git("ls-tree", "-r", "--name-only", "--full-tree", rev,
+                              cwd=repo).split("\n") if p.strip()]
+
+
+def _profiled_at(paths):
+    """`kernel_cost.modules()` over a revision's file list. The function globs the
+    current directory, so it runs in a scratch dir holding EMPTY files at the same paths.
+    That way the list comes from the profiler's own code, not from a copy of its globs."""
+    d = tempfile.mkdtemp(prefix="x86lean-profiled-")
+    here = os.getcwd()
+    try:
+        for p in paths:
+            if p.endswith(".lean"):
+                full = os.path.join(d, p)
+                os.makedirs(os.path.dirname(full) or d, exist_ok=True)
+                open(full, "w", encoding="utf-8").close()
+        os.chdir(d)
+        return set(kd.kernel_cost.modules())
+    finally:
+        os.chdir(here)
+        import shutil
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def _exe_roots_at(rev, repo=ROOT):
+    """{path} of every `[[lean_exe]]` root in `rev`'s lakefile.toml, or None if unreadable."""
+    # ⛔ NOT `kd.git`: it EXITS on a git failure (rc 2), and a revision with no lakefile.toml
+    # must read "unreadable ⇒ None ⇒ `lean`", never refuse the whole gap. Found by the D390
+    # fixture repo, which has no lakefile: three of its arms read REFUSED with kd.git here.
+    r = subprocess.run(["git", "show", f"{rev}:lakefile.toml"], cwd=repo,
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        return None
+    try:
+        import tomllib
+        cfg = tomllib.loads(r.stdout)
+    except Exception:
+        return None
+    roots = set()
+    for exe in cfg.get("lean_exe", []):
+        r = exe.get("root")
+        if not isinstance(r, str) or not r:
+            return None
+        roots.add(r.replace(".", "/") + ".lean")
+    return roots
+
+
+def _imported_at(rev, repo=ROOT):
+    """{module} named by any `import` line of any tracked `.lean` in `rev`.
+    ⛔ Parsed in Python. `git grep -E '\\b…'` matches nothing on this git (fleet map),
+    so no word boundary is asked of git."""
+    out = subprocess.run(["git", "grep", "-h", "-e", "import", rev, "--", "*.lean"],
+                         cwd=repo, capture_output=True, text=True).stdout
+    mods = set()
+    for ln in out.splitlines():
+        toks = ln.split("--", 1)[0].split()
+        # ⛔ The toolchain's module system writes `public import M`, `private import M`,
+        # `meta import M` and `public meta import M` after a `module` header. A parser
+        # that keeps only `toks[0] == "import"` reads those as NO import, so condition (3)
+        # passes falsely and an IMPORTED exe root is exempted: the unsafe direction
+        # (paper's read of #177). Strip the leading modifiers, then require `import`.
+        i = 0
+        while i < len(toks) and toks[i] in _IMPORT_MODIFIERS:
+            i += 1
+        if i < len(toks) and toks[i] == "import":
+            mods.update(t for t in toks[i + 1:] if t not in _IMPORT_MODIFIERS | {"all"})
+    return mods
+
+
+_IMPORT_MODIFIERS = frozenset({"public", "private", "meta"})
+
+
+def unprofiled_root_reason(path, base, head, repo=ROOT, _memo=None):
+    """Why this `.lean` path cannot move a reading at base→head, or None."""
+    if not path.endswith(".lean"):
+        return None
+    memo = _memo if _memo is not None else {}
+    mod = kernel_mod_name(path)
+    for rev in (base, head):      # the cheap condition first: most `.lean` paths stop here
+        if ("roots", rev) not in memo:
+            memo[("roots", rev)] = _exe_roots_at(rev, repo)
+        roots = memo[("roots", rev)]
+        if roots is None or path not in roots:
+            return None
+    for rev in (base, head):
+        if ("deep", rev) not in memo:
+            memo[("deep", rev)] = (_profiled_at(_tree_paths(rev, repo)), _imported_at(rev, repo))
+        profiled, imported = memo[("deep", rev)]
+        if path in profiled or mod in imported:
+            return None
+    return (f"a `[[lean_exe]]` root at both revisions, absent from kernel_cost.modules() "
+            f"at both, and imported by no `.lean` at either: no profiled unit reads `{mod}`")
+
+
+def kernel_mod_name(path):
+    return kd.kernel_cost.mod_name(path)
+
+
 # ⛔⛔ THE JOIN WAS ON `base` ALONE, AND `head` WAS WRITTEN AND NEVER READ (D171).
 # `gap()` said `if b in ledger: continue`, so ANY row whose base sat on the chain
 # closed that base's step no matter what span it had actually priced. The path
@@ -698,7 +820,12 @@ def gap(ledger, head="HEAD", repo=ROOT, slid=None):
                    + ("no step's reading inputs match its digests)"
                       if rec.get("head_reading") else
                       "it carries no reading digests, so it cannot)"))
-        if _touches(b, h, ["*.lean"], repo):
+        # ⭐ 2026-11-06: a `.lean` that is an unprofiled executable root is argued per
+        # step by `unprofiled_root_reason`; every OTHER `.lean` still decides the bucket.
+        memo = {}
+        changed = _changed_paths(b, h, repo)
+        lean = [p for p in changed if p.endswith(".lean")]
+        if any(unprofiled_root_reason(p, b, h, repo, memo) is None for p in lean):
             out["lean"].append((b, h))
         elif _touches(b, h, PROFILER_PATHS, repo):
             out["profiler"].append((b, h))
@@ -706,7 +833,8 @@ def gap(ledger, head="HEAD", repo=ROOT, slid=None):
             # ⛔ EVERY path must be argued, not merely the step. One unrecognised
             # file in an otherwise-documentary commit is exactly the shape the
             # `else` used to swallow.
-            unknown = [p for p in _changed_paths(b, h, repo) if exempt_reason(p) is None]
+            unknown = [p for p in changed
+                       if exempt_reason(p) is None and not p.endswith(".lean")]
             (out["neither"] if not unknown else out["unclassified"]).append((b, h))
     return anchor, steps, out
 
@@ -1342,7 +1470,17 @@ def selftest():
     # not, which is a property of the history and cannot be discharged.
     # [[feedback-a-gate-whose-precondition-is-a-discipline]]
     # [[feedback-probe-silence-has-two-causes]]
-    lean_steps = [(b, h) for b, h in g_steps if _touches(b, h, ["*.lean"])]
+    # ⛔ 2026-11-07: AND "touches a `.lean`" IS NOT "lands in the lean bucket" since
+    # 2e9cb0e — a step whose only `.lean` is an unprofiled `[[lean_exe]]` root is
+    # `neither`. Merging #176 (Main.lean only) made such a step the NEWEST `.lean`
+    # step, the pick below took it, and the arm went red on a correct classifier.
+    # So the subject is a step with at least one `.lean` the exe-root rule does NOT
+    # argue away — the same predicate the classifier applies.
+    def _lean_decides(b, h, _m={}):
+        return any(unprofiled_root_reason(p, b, h, ROOT, _m) is None
+                   for p in _changed_paths(b, h, ROOT) if p.endswith(".lean"))
+    lean_steps = [(b, h) for b, h in g_steps
+                  if _touches(b, h, ["*.lean"]) and _lean_decides(b, h)]
     ok(bool(lean_steps),
        f"CONTROL — the chain carries {len(lean_steps)} `.lean`-changing step(s) "
        f"for the two arms below to use, independently of what the ledger records")
@@ -1438,6 +1576,73 @@ def selftest():
     # has no rebased PR to drive it on: master M0 · the PR measured on M0 (head P,
     # changes A.lean) · master moves to M1 · the PR rebased onto M1 and merged
     # `--no-ff`. The row names M0 and P, and P is then on no ref.
+    # ── AN UNPROFILED EXECUTABLE ROOT (2026-11-06) — in a scratch repo, both ways ──
+    print("\nEXE-ROOT. A step changing only an unprofiled `[[lean_exe]]` root is "
+          "`neither`; each condition has a plant that keeps it `lean`:")
+    _xr = scratch.mkdtemp("x86lean-driftexe-")
+
+    def _xg(*a):
+        return kd.git("-c", "user.name=t", "-c", "user.email=t@t", *a, cwd=_xr)
+
+    def _xput(files):
+        for p, t in files.items():
+            full = os.path.join(_xr, p)
+            os.makedirs(os.path.dirname(full) or _xr, exist_ok=True)
+            with open(full, "w", encoding="utf-8") as f:
+                f.write(t)
+    _xg("init", "-q")
+    _xn = [0]
+    _LAKE = 'name = "t"\n[[lean_lib]]\nname = "X86"\n[[lean_exe]]\nname = "d"\nroot = "Main"\n'
+    _BASE = {"lakefile.toml": _LAKE, "X86.lean": "import X86.A\n",
+             "X86/A.lean": "def a := 0\n", "Main.lean": "import X86\ndef main : IO Unit := pure ()\n"}
+
+    def _xstep(change, base_extra=None):
+        """bucket of the step C1 → C2, where C2 applies `change`; C0 → C1 is the
+        anchor's recorded step. Returns the name of the bucket holding the step."""
+        _xn[0] += 1
+        _xg("checkout", "-q", "--orphan", f"x{_xn[0]}")
+        _xg("rm", "-rqf", "--ignore-unmatch", ".")
+        _xput(dict(_BASE, **(base_extra or {})))
+        _xg("add", "-A"); _xg("commit", "-qm", "C0"); c0 = _xg("rev-parse", "HEAD")
+        _xput({"README.md": "r\n"}); _xg("add", "-A"); _xg("commit", "-qm", "C1")
+        c1 = _xg("rev-parse", "HEAD")
+        _xput(change); _xg("add", "-A"); _xg("commit", "-qm", "C2")
+        c2 = _xg("rev-parse", "HEAD")
+        _, _, bk = gap({c0: _row(c0, c1, {"X86.A": 1.0})}, c2, repo=_xr)
+        hit = [k for k, v in bk.items() if (c1, c2) in v]
+        return hit[0] if len(hit) == 1 else f"?{hit}"
+
+    _MAIN2 = {"Main.lean": "import X86\ndef main : IO Unit := pure ()\n-- changed\n"}
+    _x = _xstep(_MAIN2)
+    ok(_x == "neither",
+       f"⭐ a step changing ONLY Main.lean (an unprofiled exe root) is `neither` (got {_x})")
+    _x = _xstep(dict(_MAIN2, **{"X86/A.lean": "def a := 1\n"}))
+    ok(_x == "lean", f"⛔ …plus one profiled `.lean` and it is `lean` again (got {_x})",
+       plant="exe root + library .lean")
+    _x = _xstep(_MAIN2, base_extra={"X86/B.lean": "import Main\n"})
+    ok(_x == "lean", f"⛔ …and when a library file IMPORTS Main it is `lean` (got {_x})",
+       plant="exe root imported")
+    for _imp in ("module\npublic import Main\n", "meta import Main\n",
+                 "module\npublic meta import Main\n", "private import all Main\n"):
+        _x = _xstep(_MAIN2, base_extra={"X86/B.lean": _imp})
+        ok(_x == "lean", f"⛔ …and a module-system import ({_imp.splitlines()[-1]!r}) of Main "
+           f"is `lean` too (got {_x})", plant="exe root imported (modifier)")
+    _x = _xstep(_MAIN2, base_extra={"lakefile.toml": 'name = "t"\n'})
+    ok(_x == "lean", f"⛔ …and when Main is NO exe root in lakefile.toml it is `lean` (got {_x})",
+       plant="not an exe root")
+    _x = _xstep(_MAIN2, base_extra={"lakefile.toml": "this is [not toml\n"})
+    ok(_x == "lean", f"⛔ …and an UNPARSEABLE lakefile.toml reads `lean`, never exempt (got {_x})",
+       plant="unparseable lakefile")
+    _x = _xstep({"X86.lean": "import X86.A\n-- changed\n"},
+                base_extra={"lakefile.toml": _LAKE.replace('root = "Main"', 'root = "X86"'),
+                            "Main.lean": "def main : IO Unit := pure ()\n"})   # so nothing imports X86
+    ok(_x == "lean", f"⛔ …and an exe root that kernel_cost.modules() PROFILES is `lean` (got {_x})",
+       plant="profiled exe root")
+    _x = _xstep(dict(_MAIN2, **{"notes.txt": "n\n"}))
+    ok(_x == "unclassified",
+       f"⛔ …and an exe root beside an UNARGUED path is `unclassified`, not `neither` (got {_x})",
+       plant="exe root + unargued path")
+
     print("\nD372. A ROW SLIDES — the #142 shape, in a scratch repo, with a mutant "
           "for each condition:")
     _sr = scratch.mkdtemp("x86lean-driftslide-")
