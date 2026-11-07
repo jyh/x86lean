@@ -25098,3 +25098,10 @@ reads 5,084,765 unfoldings ⇒ `Tests.AnchorsVexSilJ @ku 5084765`; both register
 within its allowance (`Tests.Coverage` +450 against 2,995.2); the retired absolute table's five `over/over` rows are the
 same five as at D375's and D376's K1s. This branch carries D376's registration but not D374's or D375's (the stack's
 recorded append conflicts at rebase).
+⚠️ **Re-carry correction (2026-11-06, the figure class paper found on #168/#169, applied before this entry's PR).** Result 4 was
+read at its 11-01 base. **At the shipped tree** (`docs/DEMAND-CENSUS.md.json`, D376's `8904234` against this branch) silicon rises
+**+4,826**, not +4,862: coreutils 1 · glibc 11 · dav1d **1,822** · ffmpeg **492** · vpx 752 · x264 **1,748**, and the pooled asm
+figure **+4,814**. The three bold columns are 23, 8 and 5 lower than the 11-01 reading, and why is not measured here. As before,
+`covered`, `vex` and `total` move in no column. The 1,137 AVX-512 split and its second method are the 11-01 reading and are not
+re-measured. The registry sentence above is discharged: D374's, D375's and D376's units are all registered at this tree.
+K1's shas are the 11-01 base's; the shipped-base kernel reading is the K2 row. Predictions and the 11-01 Results are left as written.
