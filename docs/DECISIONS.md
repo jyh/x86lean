@@ -25298,3 +25298,11 @@ function is written, so the risk is in the generator's rules and the seeding, no
    uncredited. `covered`, `vex` and `total` move in no column; `silicon_mem` and `silicon_mem_modelled` rise by dav1d 35 ·
    x264 2 (the memory forms); the pooled asm figure is +5,553 (glibc is a compiler-output column, which the pool excludes by construction). The 1,418 AVX-512 spellings stay
    in the residue. Regenerated against `~/x86lean-corpus/corpus` without `--debug`; `demand_census.py --check` rc 0.
+**Reading 3, addendum (2026-11-07, on paper's NIT at f042629): a mutant through the LANE, which (ii) did not test.** (ii) drops
+the kind from the VEX gate, so its pins fall to the refusal path and the lane is never exercised. (iii) `.unpckhd | .unpckhps
+=> vunpack 32 true b a` (the operands swapped on the shared lane line) passes `unpack_siblings_are_pairwise_distinct` and
+elaborates: a `lake build Tests` reds **exactly the four `vpunpckhdq` pins of `Tests.AnchorsVexSilL`, and no other target**.
+`Tests.Vectors` and `Tests.Coverage` rebuilt green under it: the legacy `punpckhdq_{xx,m}` and `unpckhps_{xx,m}` rows there are
+FORMS for the x86isa differential, which carries their values at run time, so no kernel term of theirs reads the lane. ⇒ in
+the KERNEL the shared lane is pinned by this wave's VEX rows alone; its legacy users are refereed by the differential (not
+run against this mutant). Restored and `cmp`-checked.
