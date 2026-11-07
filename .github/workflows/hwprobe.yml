@@ -179,6 +179,12 @@ jobs:
           python3 mk_vexsilk_rows.py --plant > vexsilk_rows_plant.h
           python3 mk_vexsilk_rows.py --plant-op > vexsilk_rows_badop.h
           python3 mk_vexsilk_rows.py --plant-hi > vexsilk_rows_hi.h
+          python3 mk_vexsill_rows.py --selftest
+          python3 mk_vexsill_rows.py --reach
+          python3 mk_vexsill_rows.py > vexsill_rows.h
+          python3 mk_vexsill_rows.py --plant > vexsill_rows_plant.h
+          python3 mk_vexsill_rows.py --plant-op > vexsill_rows_badop.h
+          python3 mk_vexsill_rows.py --plant-hi > vexsill_rows_hi.h
           python3 mk_vexsilf_rows.py --selftest
           python3 mk_vexsilf_rows.py --refuse-wrong
           python3 mk_vexsilf_rows.py --reach
@@ -312,6 +318,11 @@ jobs:
           for v in "" _plant _badop _hi; do
             sed "s/\"vexsile_rows.h\"/\"vexsilk_rows$v.h\"/" vexsile_probe.c > vexsilk_probe$v.c
             gcc -O1 -o vexsilk_probe$v vexsilk_probe$v.c vexsilk_ops.S
+          done
+          # D393: the same probe source, compiled against wave F's VEX-unpack rows and their own (generated) .S.
+          for v in "" _plant _badop _hi; do
+            sed "s/\"vexsile_rows.h\"/\"vexsill_rows$v.h\"/" vexsile_probe.c > vexsill_probe$v.c
+            gcc -O1 -o vexsill_probe$v vexsill_probe$v.c vexsill_ops.S
           done
           gcc -O1 -o vexsilf_probe vexsilf_probe.c vexsilf_ops.S
           for v in plant badop hi mem; do
@@ -929,6 +940,32 @@ jobs:
           head -1 vexsilk.out
           grep -v '^ok  ' vexsilk.out || true
           echo "vexsilk rc=$rc"
+          test "$rc" = 0
+
+      # D393: the VEX twins of wave F's five unpacks (vpunpck{l,h}dq vpunpck{l,h}qdq vpunpckhbw), D361's probe and controls.
+      - name: D393 VEX-unpack controls and referee (each plant reds exactly its row; a wrong instruction refuses the run)
+        working-directory: hwprobe
+        run: |
+          ./vexsill_probe --cpuid
+          set +e
+          ./vexsill_probe_plant > vexsill_plant.out; rc_plant=$?
+          ./vexsill_probe_badop > vexsill_badop.out; rc_badop=$?
+          ./vexsill_probe_hi > vexsill_hi.out; rc_hi=$?
+          ./vexsill_probe > vexsill.out; rc=$?
+          set -e
+          head -1 vexsill_plant.out; grep '^DIFF' vexsill_plant.out; cat vexsill_badop.out; grep '^DIFF' vexsill_hi.out
+          echo "vexsill plant rc=$rc_plant (want 1) · badop rc=$rc_badop (want 2) · hi rc=$rc_hi (want 1)"
+          test "$rc_plant" = 1
+          test "$(grep -c '^DIFF' vexsill_plant.out)" = 1
+          grep -q '^DIFF vpunpckhdq256_r_p0 ' vexsill_plant.out
+          test "$rc_badop" = 2
+          grep -q '^REFUSED x_vpunpckldq128_r:' vexsill_badop.out
+          test "$rc_hi" = 1
+          test "$(grep -c '^DIFF' vexsill_hi.out)" = 1
+          grep -q '^DIFF vpunpckldq128_r_p0 ' vexsill_hi.out
+          head -1 vexsill.out
+          grep -v '^ok  ' vexsill.out || true
+          echo "vexsill rc=$rc"
           test "$rc" = 0
 
       - name: D371 VEX movd/movq controls (each plant reds exactly its row; a wrong instruction refuses the run)
