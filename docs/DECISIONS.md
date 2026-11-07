@@ -25104,7 +25104,8 @@ read at its 11-01 base. **At the shipped tree** (`docs/DEMAND-CENSUS.md.json`, D
 figure **+4,814**. The three bold columns are 23, 8 and 5 lower than the 11-01 reading, and why is not measured here. As before,
 `covered`, `vex` and `total` move in no column. The 1,137 AVX-512 split and its second method are the 11-01 reading and are not
 re-measured. The registry sentence above is discharged: D374's, D375's and D376's units are all registered at this tree.
-K1's shas are the 11-01 base's; the shipped-base kernel reading is the K2 row. Predictions and the 11-01 Results are left as written.**K2 at the shipped base (2026-11-06/07, katmai, `kernel_delta.py --base d7f3e13 --head 0fedfd4 --repeats 12`, both arms).** The
+K1's shas are the 11-01 base's; the shipped-base kernel reading is the K2 row. Predictions and the 11-01 Results are left as written.
+**K2 at the shipped base (2026-11-06/07, katmai, `kernel_delta.py --base d7f3e13 --head 0fedfd4 --repeats 12`, both arms).** The
 measured shas are the pre-correction tips: `d7f3e13 → 8904234` (D376's base) and `0fedfd4 → a237ea8` (this branch) each differ in
 `docs/DECISIONS.md` alone, so the measured `.lean` trees are the shipped ones. **ms delta gate CLEAN** (12 repeats, run directly at
 12 after D376's 6-repeat UNMEASURABLE on `Tests.Vectors`) and **ARM A′ CLEAN**, so the row lands on the ms verdict (D251).
