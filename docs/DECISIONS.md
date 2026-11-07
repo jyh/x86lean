@@ -25223,3 +25223,49 @@ against the model. (C) `.avgw` without the `+1` (`(x.setWidth 17 + y.setWidth 17
 theorems red, **exactly the 6 `pavgw` pins** (legacy `xx`/`xm`, VEX.128 and VEX.256 `r`/`m`); the 12 `psubsw`/`pmuldq` pins stay
 green and only this unit errors. `X86/Semantics.lean` restored and `cmp`-checked, then the unmutated control built rc 0 with 0
 tagged errors (yukon, `lean_route.py build Tests.AnchorsVexSilK` through saltbuild).
+
+## D393 — wave F: the five VEX unpacks the model does not take (`vpunpckldq` · `vpunpcklqdq` · `vpunpckhbw` · `vpunpckhdq` · `vpunpckhqdq`), refereed by silicon (STATUS row 58; DESIGN ONLY, predictions and price before any model work)
+
+**Why.** The VEX unpack family is half modelled. D345 (V7) took `vpunpcklbw`, `vpunpcklwd` and `vpunpckhwd` at VEX.128 and
+VEX.256 through `vexSilTaken`, and their memory forms followed through `vexSilMemTaken` (born at D350); the other five names have no credit
+of any kind. Their legacy lanes are already in `vbinApply` (`vunpack 32 false`, `vunpack 64 false`, `vunpack 8 true`,
+`vunpack 32 true`, `vunpack 64 true`), and the legacy forms execute on the oracle, so this wave adds no semantics: it admits
+five existing kinds to the VEX-silicon path and referees them there.
+**The census, derived by script from `docs/DEMAND-CENSUS.md.json` at D384's `a30c4f2`, never typed.** Residue = the in-scope
+`miss_by_ext` buckets (VEX-128, AVX2/AVX ymm) minus `silicon_all` and `vex_all`, both 0 for all five names:
+```
+  name           VEX-128   ymm   | in scope
+  vpunpckldq        729    598   |   1,327
+  vpunpcklqdq       812    388   |   1,200
+  vpunpckhbw        282    638   |     920
+  vpunpckhdq        576    537   |   1,113
+  vpunpckhqdq       764    325   |   1,089
+                                   IN SCOPE = 5,649     out of scope: AVX-512 (zmm/k) 1,418
+```
+By column: ffmpeg 2,547 (VEX-128 1,798 · ymm 749) · dav1d 1,505 (141 · 1,364) · x264 1,155 (1,046 · 109) · vpx 346 (82 · 264) ·
+glibc 96 (96 · 0). For contrast, the three names D345 took read `silicon_all` = in-scope exactly (1,609 · 2,950 · 2,702), so
+the family's crediting rule is already shown to reach every in-scope spelling.
+**The referee (P1, 2026-11-07 08:0x, yukon, `oracle_availability.measure()` unmodified, 88 pre-states, controls in the SAME
+run, every verdict predicted before the run).** All 10 encodings (VEX.128 reg and VEX.256 reg of each name) REFUSE at 88 of 88,
+while the legacy `punpckldq` and `punpckhbw`, `movl %ecx,(%rbx)`, `vpaddw` (ymm) and `vpxor` (xmm) EXECUTE 88/88; 0 of 15
+verdicts disagree with the prediction ⇒ **silicon**, in D371's frame. (The VEX-128 `dq`/`qdq` four had refused once already,
+in D129's P2 batch 26, which recorded them as wrong predictions of `executes`; this run re-measures them beside the new six.)
+**The model (no new constructor, no new semantics).** `.unpckld`, `.unpcklq`, `.unpckhb`, `.unpckhd` and `.unpckhq` join
+`vexSilTaken` and `vexSilMemTaken`, so their VEX.128 and VEX.256 register and memory forms go through the constructors D374,
+D379 and D384 use. `.unpckld`/`.unpckhd` share their lane line with `.unpcklps`/`.unpckhps`, and `.unpcklq`/`.unpckhq` with
+`.unpcklpd`/`.unpckhpd`; nothing about the `ps`/`pd` kinds changes.
+**Predictions (each wrong if the named reading differs):**
+1. **Silicon.** Every generated row agrees on both vendors (an AMD leg and an Intel leg), with each source seeded so that every
+   element of every lane is distinct, so a row tells the low half from the high half, SRC1 from SRC2, and one lane from the other.
+2. **Generator, before any processor.** Named wrong rules are each refused on a named row: (a) an `l` form reading the HIGH
+   halves (and an `h` form the low), (b) SRC1 and SRC2 swapped, (c) a VEX.256 form unpacking ACROSS lanes (the low 128 bits of
+   the whole 256 instead of each lane's low 64), (d) the wrong element width (`dq` read as `wd`, `qdq` as `dq`, `hbw` as `hwd`),
+   (e) a VEX.128 form keeping YMM bits 255:128, and (f) a VEX memory form refusing an unaligned address.
+3. **Model.** Five kinds, every row pinned by `decide` in a NEW metered unit `Tests.AnchorsVexSilL`. A mutant that gives
+   `.unpckhd` the LOW half reds exactly the `vpunpckhdq` pins in that unit; outside it, it may red only the legacy `punpckhdq`
+   and `unpckhps` anchors that already share the lane line, and the reading names which.
+4. **Census.** Silicon rises by **5,649 exactly**, column by column as above. The 1,418 AVX-512 spellings stay in the residue.
+   `covered`, `vex` and `total` do not move. Wrong if any in-scope spelling of the five is not credited, or any out-of-scope one is.
+**Price.** One silicon wave in D374's frame (one generator over 5 names × VEX.128/VEX.256 × register/memory, one probe), two
+predicate lines, one metered unit, one census regeneration, one K1. Stacked on D384 (`cb636b5`). Smaller than D384: no lane
+function is written, so the risk is in the generator's rules and the seeding, not in the model.
