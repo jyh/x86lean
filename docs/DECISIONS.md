@@ -25006,3 +25006,11 @@ read at the 10-31 base. **At the shipped tree** (`docs/DEMAND-CENSUS.md.json`, D
 **+3,873**. Every gain is still in `silicon_mem_modelled` (`silicon_mem` alike), and nothing else moves. The by-name split is the
 10-31 reading and is not re-measured. The ⚠️ about `check_readme_snapshot` is discharged: it is rc 0 on this branch. K1's
 shas are the 10-31 base's; the shipped-base kernel reading is the K2 row. Predictions and the 10-31 Results are left as written.
+**K2 at the shipped base (2026-11-05/06, katmai, `kernel_delta.py --base 2d26935 --head 622e73e`, both arms; `622e73e` is this
+branch's tip before the correction commit `ea507ab`, which changes no `.lean` file).** At 6 repeats the ms arm was UNMEASURABLE
+on `Tests.Vectors` alone (bimodal ~10/~20 ms samples on both sides, low modes agreeing: the shape D362 and row 48's K4 met), and
+ARM A′ was CLEAN. **Re-run at 12 repeats (`d376-ms`, 2026-11-06 16:11 → 20:30): ms delta gate CLEAN**, so the row lands on the
+ms verdict (D251). `Tests.Vectors` 18.2 → 10.6 (−7.7, ±5.2, budget 18.9), `X86.Syntax` 794.0 → 815.0 (+21.0, ±8.7, budget 148.5;
+K1 read it at its own base), `X86.Semantics` +1.0. The NEW `Tests.AnchorsVexSilI` reads 3,630.0 ms against its 10,875 @on katmai
+and **1,537,866 ku in A′, exactly its K1 registration**. The retired absolute table's five `over/over` rows are the same five,
+base and head alike. **Off-ref shas, declared:** K1's `244dac3 → 681dd86` is the 10-31 base's; the hwprobe run is at `5d52058`.
