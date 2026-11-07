@@ -64,6 +64,9 @@ else printf "  ⛔ FAIL hwprobe/mk_shuf_anchors --check\n"; rc=1; fi
 # D335: the packed-integer arithmetic pins, from hwprobe's SIMD rows.
 if python3 hwprobe/mk_simda_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_simda_anchors --check\n"
 else printf "  ⛔ FAIL hwprobe/mk_simda_anchors --check\n"; rc=1; fi
+# D373: set B's pins (Tests/AnchorsSimdB.lean).
+if python3 hwprobe/mk_simda_anchors.py --set-b --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_simda_anchors --set-b --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_simda_anchors --set-b --check\n"; rc=1; fi
 # D338: the SHA-NI pins, from hwprobe's SHA rows.
 if python3 hwprobe/mk_sha_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_sha_anchors --check\n"
 else printf "  ⛔ FAIL hwprobe/mk_sha_anchors --check\n"; rc=1; fi
@@ -81,6 +84,29 @@ if python3 hwprobe/mk_vexsilc_anchors.py --check >/dev/null 2>&1; then printf " 
 else printf "  ⛔ FAIL hwprobe/mk_vexsilc_anchors --check\n"; rc=1; fi
 if python3 hwprobe/mk_vexsild_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsild_anchors --check\n"
 else printf "  ⛔ FAIL hwprobe/mk_vexsild_anchors --check\n"; rc=1; fi
+# D361: the VEX memory pins of the silicon rows, from hwprobe's vexsile rows.
+if python3 hwprobe/mk_vexsile_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsile_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsile_anchors --check\n"; rc=1; fi
+# D371: the VEX movd/movq pins, from hwprobe's vexsilf rows.
+if python3 hwprobe/mk_vexsilf_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsilf_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsilf_anchors --check\n"; rc=1; fi
+# D374: the VEX twins' pins.
+if python3 hwprobe/mk_vexsilg_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsilg_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsilg_anchors --check\n"; rc=1; fi
+# D375: the lane insert/extract pins.
+if python3 hwprobe/mk_vexsilh_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsilh_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsilh_anchors --check\n"; rc=1; fi
+# D376: movntdqa and the VEX half-move pins.
+if python3 hwprobe/mk_vexsili_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsili_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsili_anchors --check\n"; rc=1; fi
+# D379: the pabs / pmulld pins.
+if python3 hwprobe/mk_vexsilj_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsilj_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsilj_anchors --check\n"; rc=1; fi
+# D384: wave E's pins (set C and its VEX twins, one unit).
+if python3 hwprobe/mk_simda_anchors.py --set-c --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_simda_anchors --set-c --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_simda_anchors --set-c --check\n"; rc=1; fi
+if python3 hwprobe/mk_vexsilk_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsilk_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsilk_anchors --check\n"; rc=1; fi
 # ⛔⛔ ADDED 2026-09-20 (paris): `mk_anchors --check` proves Tests/Anchors.lean matches the
 #   GENERATOR byte for byte. It proves NOTHING about whether the generator's PINNED set is still
 #   CORRECT -- PINNED is DECLARED, and its reach half is measured by a command nothing ran.
