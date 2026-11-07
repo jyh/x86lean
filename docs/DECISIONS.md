@@ -25208,3 +25208,12 @@ silicon **+4,327**: dav1d **926** · ffmpeg 780 · vlc-video_chroma 384 · vpx 2
 `silicon_mem_modelled` rise by dav1d 15 · ffmpeg 95 · vpx 440 · x264 35. `covered`, `vex` and `total` move in no column.
 `demand_census.py --check` is rc 0 at this tip (build 81 jobs, 0 tagged errors), so the figure is a regeneration and not a
 merged text. K1's shas are the 11-01 base's; the shipped-base kernel reading is the K2 row.
+**K2 at the shipped base (2026-11-07, katmai, `kernel_delta.py --base a237ea8 --head 78e35a6 --repeats 12`, both arms).** The
+measured shas are D379's and this branch's tips before D379's record: since then D379 gained `d4b3e0d` `d557e53` `1f14bfe` and this
+branch was re-carried onto `1f14bfe` (`1683c92` before this commit). `a237ea8 → 1f14bfe` and `78e35a6 → 1683c92` each change only
+`docs/DECISIONS.md` and the ledger, so the measured `.lean` trees, and `docs/DEMAND-CENSUS.md.json` that the re-carry reading above
+cites at `a237ea8`, are the shipped ones. **ms delta gate CLEAN** (12 repeats, chosen for `Tests.Vectors`'s bimodality) and **ARM A′
+CLEAN**, so the row lands on the ms verdict (D251). `Tests.Vectors` 14.7 → 11.6 (−3.1, ±5.0, budget 15.2), `X86.Syntax` −1.0 (budget
+160.7), `X86.Semantics` +0.0, `Tests.Coverage` +300 (budget 3,031.2). The NEW `Tests.AnchorsVexSilK` reads 5,205.0 ms against its
+15,585 @on katmai and **2,410,985 ku in A′, exactly its K1 registration**. **Off-ref shas, declared:** K1's `0875143 → 0710c63` (the
+11-01 base); K2's `a237ea8` and `78e35a6`.
