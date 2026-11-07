@@ -25217,3 +25217,9 @@ CLEAN**, so the row lands on the ms verdict (D251). `Tests.Vectors` 14.7 → 11.
 160.7), `X86.Semantics` +0.0, `Tests.Coverage` +300 (budget 3,031.2). The NEW `Tests.AnchorsVexSilK` reads 5,205.0 ms against its
 15,585 @on katmai and **2,410,985 ku in A′, exactly its K1 registration**. **Off-ref shas, declared:** K1's `0875143 → 0710c63` (the
 11-01 base); K2's `a237ea8` and `78e35a6`.
+**Reading 3, addendum (2026-11-07, on paper's #180 NIT): a third mutant, for `pavgw`, run red-backwards at `a30c4f2`.** Prediction 3
+named mutants for `.subsw` and `.muldq` only, so `pavgw`'s rounding was refuted against the generator (reading 2's (b), (c)) and never
+against the model. (C) `.avgw` without the `+1` (`(x.setWidth 17 + y.setWidth 17).extractLsb' 1 16`): rc 1, 6 of the unit's 18
+theorems red, **exactly the 6 `pavgw` pins** (legacy `xx`/`xm`, VEX.128 and VEX.256 `r`/`m`); the 12 `psubsw`/`pmuldq` pins stay
+green and only this unit errors. `X86/Semantics.lean` restored and `cmp`-checked, then the unmutated control built rc 0 with 0
+tagged errors (yukon, `lean_route.py build Tests.AnchorsVexSilK` through saltbuild).
