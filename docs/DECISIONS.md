@@ -25306,3 +25306,11 @@ elaborates: a `lake build Tests` reds **exactly the four `vpunpckhdq` pins of `T
 FORMS for the x86isa differential, which carries their values at run time, so no kernel term of theirs reads the lane. ⇒ in
 the KERNEL the shared lane is pinned by this wave's VEX rows alone; its legacy users are refereed by the differential (not
 run against this mutant). Restored and `cmp`-checked.
+
+**K1 (2026-11-07, katmai, `cb636b5 → f042629`, 6 repeats).** Both arms refuse exactly the NEW unit and nothing else:
+`kernel_delta` reads `Tests.AnchorsVexSilL` at 4,765.0 ms ⇒ `Tests.AnchorsVexSilL 14295 @on katmai`; `ku_delta` (A′)
+reads 2,059,194 unfoldings ⇒ `Tests.AnchorsVexSilL @ku 2059194`; both registered as printed (copied from the two logs, not
+retyped). No existing row is refused or UNMEASURABLE in either arm (the ms log's one REFUSED row is the new unit; A′
+reports one finding). Base and head both sit over the same five box-scoped ceilings (`Tests.Anchors`, `Tests.Coverage
+@decl vectorCoverage`, `Tests.Coverage @residue`, `X86.Syntax`, `X86.Theorems`; D111, D122). The measured head is
+`f042629`; the branch tip `dc11ff6` adds only the reading-3 lane-mutant addendum to this file, so no reading input moved.
