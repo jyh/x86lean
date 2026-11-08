@@ -24670,3 +24670,10 @@ kernel reading is the K2 row. Predictions and the 10-25 Results are left as writ
 a ~15 ms unit. `X86.Syntax` −7.0 (±5.7) and `X86.Semantics` +0.2. The NEW `Tests.AnchorsShufM` is **699.5 ms** against the
 150–600 predicted (its 2,163 @on katmai ceiling: ok) and **352,020 ku** against 80k–300k, exactly its K1 registration (A′
 CLEAN, no drift below it). The row is recorded from the repeats-12 ms file and K2's A′ file (D251).
+
+**Re-key K2 (2026-11-07, katmai, `4117a3c → 229c137`, 12 repeats), applied before this entry's PR merges.** This entry's K2 row
+(`bc1f722 → abff07d`) was keyed to D361's pre-merge head and to the reading tree before #176 moved it (D361's re-key paragraph),
+so it matched no step once #170 merged at `4117a3c`. Re-measured at the real base, the head carrying #170's runner line
+(`229c137`), at 12 repeats from the start (the first K2 above read `Tests.Vectors` UNMEASURABLE at 6): `kernel_delta` rc 0
+"delta gate: CLEAN", `ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands on the ms verdict),
+and the `bc1f722` row deleted in the same commit. If master moves before the merge, the row is re-recorded.
