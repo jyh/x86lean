@@ -24762,3 +24762,9 @@ predictions and the 10-24 Results are left as written.
 both arms):** ms delta gate CLEAN, ARM A′ CLEAN, so the row lands on the ms verdict (D251). `X86.Syntax` 746.5 → 765.5 (+19.0,
 ±8.4; K1 read +6.0 at its base), `X86.Semantics` +0.4, `X86.Vex` +0.1. The NEW `Tests.AnchorsVexSilF` reads 488.5 ms against its
 1,472 @on katmai and **220,986 ku, exactly its K1 registration**.
+
+**Re-key K2 (2026-11-08, katmai, `081f53c → 8a3c5df`, 12 repeats), applied before this entry's PR merges.** This entry's K2 row
+(`9b66f3c → e795506`) was keyed to D362's pre-merge head, which is on no step of master's chain once #171 merged at `081f53c`.
+Re-measured at the real base, the head carrying #171's runner line (`8a3c5df`): `kernel_delta` rc 0 "delta gate: CLEAN",
+`ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands on the ms verdict), and the `9b66f3c` row
+deleted in the same commit. If master moves before the merge, the row is re-recorded.
