@@ -76,7 +76,7 @@ theorem silicon_rows_name_ast_mnemonics :
       -- D336 (V1b): PSHUFB, PALIGNR, and PINSR/PEXTR at each width (one row per mnemonic).
       (Op.vshufb .x0 .x1).mnemonic, (Op.valignr .x0 .x1 0).mnemonic,
       (Op.vinsr .d .x0 (.reg .rcx) 0).mnemonic, (Op.vinsr .q .x0 (.reg .rcx) 0).mnemonic,
-      (Op.vextr .d .rax .x1 0).mnemonic, (Op.vextr .q .rax .x1 0).mnemonic,
+      (Op.vextr .d (.reg .rax) .x1 0).mnemonic, (Op.vextr .q (.reg .rax) .x1 0).mnemonic,
       -- D335 (V1a): one `VBinKind` kind per row, on `Op.vbin`.
       (Op.vbin .maddwd .x0 .x1).mnemonic, (Op.vbin .maddubsw .x0 .x1).mnemonic,
       (Op.vbin .mullw .x0 .x1).mnemonic, (Op.vbin .mulhrsw .x0 .x1).mnemonic,

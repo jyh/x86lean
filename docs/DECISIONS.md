@@ -24559,3 +24559,121 @@ BASE digest refuses), and the drift partition arm went red on a synthesized forg
 `kernel_delta` rc 0 "delta gate: CLEAN", `ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands
 on the ms verdict) and the stale row deleted in the same commit (`4b31d38`). On a synthesized merge of `012b969` + `4b31d38`
 the drift selftest is CLEAN and `--gap` reads 0. If master moves before the merge, the row is re-recorded.
+
+## D362 — the legacy silicon memory remainder: `pextrd`/`pextrq` to memory and `pinsrq` from m64, refereed by silicon (predictions and price before any model, row or hardware work)
+
+**Why these.** After D361 the census's silicon memory gap is **11** instructions, all legacy SSE: `pextrd` with an m32
+DESTINATION (9) and `pinsrq` from m64 (2), the forms D336 did not take (D360/D361's by-name split).
+**The referee, measured before anything was designed (P1, 2026-10-25, yukon, `oracle_availability.measure()` unmodified through a
+scratch driver, bytes from its `encode_forms`; the seat's P1 record, kept with its driver).** All four
+encodings REFUSE at 88 of 88 — `pextrd $1, %xmm0, (%rbx)` · `pextrd $3, %xmm2, (%rbx)` · `pinsrq $1, (%rbx), %xmm0` · `pinsrq $0,
+(%rbx), %xmm2` — while `CONTROL:mov` and V4's `vpxor (%rbx), %xmm2, %xmm0` executed at 88/88. ⇒ a silicon wave on D336's `shuf`
+path.
+
+**The model (no new constructor).** `pinsrq` from m64 is ALREADY modelled: `.vinsr`'s source is an `Operand` (D336), and `.q` reads
+it with `readOperand .q`. It lacks only silicon rows. `pextrd`/`pextrq` to memory is not: `.vextr`'s destination is a `GPR`. It is
+WIDENED to an `Operand`, `.vinsr`'s own idiom, rather than given a memory twin, because `X86.Syntax`'s kernel cost tracks `Op`'s
+constructor count (D343) and a field's type is nearly free there:
+- `vextr (sz : Size) (dst : Operand) (src : XmmReg) (imm : BitVec 8)`; semantics `s.writeOperand sz nr dst (vextrApply sz …)`,
+  which is `setReg sz r v false` at a register (the shipped meaning) and `writeMem sz a v` at memory, `sz.bits / 8` bytes,
+  Type 5 (no alignment requirement); an immediate destination halts as `writeOperand` already does.
+- `memOperands` names `[dst]`; `lockIllegal` is `dst.locked` (the SDM lists no lock form; a locked memory operand is `#UD`,
+  as for `.vinsr`).
+- `step_vextr` is restated at `.reg r`; a new `step_vextr_mem` states the memory write; `Tests/AnchorsShuf.lean`'s ten
+  `pextrd`/`pextrq` pins are regenerated with `(.reg .rax)` and keep their rows. `X86/Coverage.lean`: `pextrd` and `pextrq`
+  gain `m,x,i`, `pinsrq` gains `x,m,i`.
+
+**⛔ The blind spot this must not ship (D358's class).** In `shuf_ops.S` RBX = `&p->b` and XMM1 = `b`, so `pextrd $0, %xmm1,
+(%rbx)` stores b's own low dword over itself and a dropped store agrees with a performed one. ⇒ **every store row extracts from
+XMM0 = `a`**, and the two `(a, b)` pairs differ in every dword (checked by the generator, which refuses a store row whose
+expected memory equals its pre-state memory).
+
+**The rows (14 functions, 56 rows; `mk_shuf_rows.py`, expectations derived from the rules, never typed).**
+`pextrd $i, %xmm0, (%rbx)` at i ∈ {0, 1, 2, 3, 5, 0xff} · `pextrq $i, %xmm0, (%rbx)` at {0, 1, 3, 0x80} · `pinsrq $i, (%rbx),
+%xmm0` at {0, 1, 2, 0xff} — each × the two `(a, b)` pairs × the two flag sets. **Every row of the program (all 276) now also
+compares the 16 bytes at RBX after the instruction** (the probe re-reads `p->b`, as `sha_probe`/`simda_probe` do), so the 220
+D336 rows are asked not to write memory and a store is compared over all 16 bytes, never only the ones it should write.
+
+**Predictions (each wrong if the named reading differs):**
+1. **Generator, before any processor.** A new `--refuse-wrong` refuses each of these on a named row: (a) `pextrd` to memory
+   storing 8 bytes (the lane zero-extended, as the register write is); (b) a dropped store; (c) `pextrd` selecting by `imm[2:0]`
+   (i = 5 then names no lane); (d) `pinsrq` from memory reading 4 bytes; (e) `pextrq` selecting by `imm[1:0]` (i = 3 then names a
+   dword lane). The store-row blind-spot check refuses a row built from XMM1.
+2. **Silicon.** `rows 276 disagreements 0` on every leg, both vendors, each processor NAMED; the three D336 controls behave as
+   before, and a fourth, `--plant-mem` (bit 0 of the expected memory flipped in one `pextrd` store row), gives exactly that row
+   `DIFF`, rc 1.
+3. **Model.** All 56 rows pinned by `decide` in a NEW metered unit, `Tests/AnchorsShufM.lean` (AnchorsShuf's ku allowance is
+   23.3 % × 511,292 ≈ 119k, and 56 rows at its ~2,300 ku per row would exceed it), each pin reading back RAX, XMM0 and the
+   16 bytes at 0x2000. **Red backwards on the model:** (a)'s mutant (`.d` store at `.q` width) reds exactly the `pextrd` memory
+   pins; (b)'s (memory destination writes nothing) exactly the `pextrd` and `pextrq` memory pins; (d)'s (`.vinsr .q` from memory
+   reading `.d`) exactly the `pinsrq` memory pins. The D336 pins build unchanged in meaning.
+4. **Census.** The silicon memory gap **11 → 0**; `silicon_mem_modelled` is the only field that moves, upward by 11, in
+   exactly the corpora whose split names these two mnemonics. `docs/COVERAGE.md` regenerates with the three shapes above.
+5. **Kernel cost.** `X86.Syntax` |Δ| < 10 ms at katmai (one field's type, no constructor). The NEW unit is priced from
+   AnchorsShuf's rate (1,050 ms and 511,292 ku for 220 rows): **150–600 ms at katmai and 80k–300k ku** (a store pin reads
+   memory back, so the per-row rate may be higher than D336's); registered in both registries from the lines the tools print.
+**Not claimed:** `pextrb`/`pextrw`/`pinsrb`/`pinsrw` (other mnemonics); VEX `vpextrd`/`vpinsrq` (no census demand);
+`pextrd` to a memory operand that faults (no row maps an unmapped page).
+**Price.** One day: model + the generator's new rows and `--refuse-wrong` (half), probe + hwprobe dispatch + pins + mutants (half);
+then K1/K2 on katmai and the census. Lands after D361 on the stack, one PR; the runner's ceiling line for the NEW unit rides in
+the next script-only PR (row 21's), not a PR of its own.
+**Result, prediction 1 (generator, step (a), `465c2cb`): HELD.** 276 rows over 55 functions (220 D336 rows unchanged field
+for field, each now also expecting the 16 bytes at [RBX] untouched; 56 new). `--refuse-wrong` refuses 6 of 6 on named rows:
+(a) `pextrd_mr_i0_p1` (24 rows) · (b) dropped store, `pextrd_mr_i0_p1` (24) and `pextrq_mr_i0_p1` (16) · (c) `pextrd_mr_i5_p1`
+(8) · (d) `pinsrq_rm_i0_p1` (16) · (e) `pextrq_mr_i1_p1` (8). No store row equals its pre-state memory (the generator's own
+refusal did not fire). Under Rosetta 2 (a translation, not silicon): 276/0, each of the four controls on its row.
+**Result, prediction 2 (silicon, hwprobe runs 40267603865 (push) and 40267766296 (re-dispatch for an AMD leg), `b45a6a8`):
+HELD on four legs, both vendors, each NAMED by `/proc/cpuinfo` or the brand string.** Intel Core i7-8700B: 276/0 on both runs.
+Intel Xeon Platinum 8573C (ubuntu-latest, the push run, so it had no AMD leg): 276/0. **AMD EPYC 7763** (the re-dispatch,
+CPUID.01.ECX `feda3203`): 276/0. On every leg: plant rc 1 on `pshufb_rr_a1_ident`, badop rc 2, zx rc 1 on `pextrd_rr_i1_p1`,
+**mem rc 1 on exactly `pextrd_mr_i1_p1`**, and `--refuse-wrong` 6 of 6.
+**Result, prediction 3 (model, `b848c4f`): HELD, with one thing the prediction did not name.** `.vextr`'s destination is an
+`Operand`; `step_vextr` restated at `.reg`, `step_vextr_mem` added; no new constructor. `Tests/AnchorsShufM.lean` (NEW unit)
+pins all 56 rows in 14 theorems; the 220 D336 pins keep their rows (only the ten `pextr` instruction spellings moved to
+`(.reg .rax)`). Full build of X86, Tests and x86lean-diff: the wrapper's audit line reads `EXIT=0`, 0 tagged errors, no warning
+on a changed line. **Red backwards**, each mutant built and `X86/Semantics.lean` restored (`cmp`-verified): ⭐ **not predicted:
+(a) and (b) are each caught FIRST by `step_vextr_mem`**, which states the store's width and bytes, so with the theorem in place
+the build never reaches the pins. To measure the pins on their own, that one proof was set to `sorry` inside the mutant only
+(restored with it): (a) the `.d` store at `.q` width reds exactly the six `pextrd` memory pin theorems; (b) the dropped store
+the six `pextrd` and four `pextrq` ones; (d) `pinsrq` from memory reading `.d` (theorem untouched) exactly the four `pinsrq`
+ones. No D336 pin reds under any of them. ⚠️ A harvest defect on the way: the first mutant pass counted ZERO red pins under
+(d), because its parser matched only the `path: error` order and lake prints `error: path` (the fleet map's two-order trap);
+the build's rc 1 is what showed the parser was wrong.
+**Result, prediction 4 (census, regenerated from `~/x86lean-corpus` with its debug tree): HELD exactly.** Against D361's census
+exactly three fields change, all `silicon_mem_modelled`: ffmpeg 8,556 → 8,562, vpx 4,342 → 4,344, x264 1,060 → 1,063 (+11, the
+whole gap); probe forms 358 → 372. `--check` CLEAN; `docs/COVERAGE.md` changes in the `pinsrq`, `pextrd` and `pextrq` rows only.
+⚠️ A first regeneration without `--debug` zeroed every attribution column; it was discarded, not committed.
+**Result, prediction 5 (kernel cost, K1 on katmai, `06ca21f` → `b45a6a8`, `--repeats 6`, both arms): NOT HELD on either price.**
+⛔ **The NEW unit costs more than predicted, on both arms:** `Tests.AnchorsShufM` **721 ms** (kernel_delta, ± 21.2) against
+150–600 predicted, and **352,020 ku** (ku_delta a′) against 80k–300k. Per row that is ~6,290 ku against AnchorsShuf's 2,324,
+about 2.7×: the 16-byte read-back each pin adds is most of a pin's cost, and the prediction's "may be higher" named the
+direction without pricing it. Each refusal is the NEW-unit refusal, as designed, and the unit is registered from the lines the
+tools printed: `Tests.AnchorsShufM 2163 @on katmai` and `Tests.AnchorsShufM @ku 352020`. ⚠️ `X86.Syntax` reads **+27.0 ms,
+± 38.9 at K = its band**, verdict ok, against a predicted |Δ| < 10: the point estimate is outside the prediction and the
+measurement cannot separate it from zero, so the prediction is NOT CONFIRMED rather than refuted. Its ku reading is +15 of an
+allowance of 8,654 (one field's type, no constructor), which is the sharper instrument here. Every other unit ok on both arms;
+`Tests.AnchorsShuf` +40 ms ± 36.3 and +360 ku (the ten `pextr` spellings). No yukon ceiling is registered (no yukon K1 was
+run); the runner's line comes from the PR's own kernel-delta refusal and rides in the next script-only PR.
+⚠️ **Re-carry correction (2026-11-04, the figure class paper found on #168/#169, applied before this entry's PR).** Result 4's
+three fields are the 10-25 base's. **At the shipped tree** (`docs/DEMAND-CENSUS.md.json` at D361's `bc1f722` and at this branch):
+ffmpeg **8,542 → 8,548** · vpx 4,342 → 4,344 · x264 **1,054 → 1,057**, still +11 in exactly those three fields, and the gap
+still **11 → 0**. The census is regenerated here WITHOUT the debug tree, and it reproduces the branch's committed document with
+nothing moving. **Off-ref shas, declared:** prediction 2's hwprobe runs ran at `b45a6a8`, and the four probe files they consumed
+(`hwprobe/mk_shuf_rows.py`, `mk_shuf_anchors.py`, `shuf_ops.S`, `shuf_probe.c`) are blob-identical there and at this tip.
+`465c2cb` is `dc75332` on the branch (its files identical); `b848c4f` and `b45a6a8` are `e5be8da` and `8493634`, the same commits
+re-carried, whose shared files also carry the moved base. K1's `06ca21f` → `b45a6a8` is the 10-25 base's; the shipped-base
+kernel reading is the K2 row. Predictions and the 10-25 Results are left as written.
+**Prediction 5 at the shipped base (K2, 2026-11-05, katmai): NOT HELD, as at K1, and by the same margins.** The first K2
+(`kernel_delta.py --base bc1f722 --head abff07d --repeats 6`) read the ms gate **UNMEASURABLE**: `Tests.Vectors` 11.6 → 18.2
+(+6.6, ±7.0) against a 12.1 budget, with the box quiet. Per the tool, the budget was not widened; repeats were bought. At
+`--repeats 12` on the same pair, the gate is **CLEAN**: `Tests.Vectors` 19.9 → 18.4 (−1.5, ±4.7), so the first reading was noise in
+a ~15 ms unit. `X86.Syntax` −7.0 (±5.7) and `X86.Semantics` +0.2. The NEW `Tests.AnchorsShufM` is **699.5 ms** against the
+150–600 predicted (its 2,163 @on katmai ceiling: ok) and **352,020 ku** against 80k–300k, exactly its K1 registration (A′
+CLEAN, no drift below it). The row is recorded from the repeats-12 ms file and K2's A′ file (D251).
+
+**Re-key K2 (2026-11-07, katmai, `4117a3c → 229c137`, 12 repeats), applied before this entry's PR merges.** This entry's K2 row
+(`bc1f722 → abff07d`) was keyed to D361's pre-merge head and to the reading tree before #176 moved it (D361's re-key paragraph),
+so it matched no step once #170 merged at `4117a3c`. Re-measured at the real base, the head carrying #170's runner line
+(`229c137`), at 12 repeats from the start (the first K2 above read `Tests.Vectors` UNMEASURABLE at 6): `kernel_delta` rc 0
+"delta gate: CLEAN", `ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands on the ms verdict),
+and the `bc1f722` row deleted in the same commit. If master moves before the merge, the row is re-recorded.
