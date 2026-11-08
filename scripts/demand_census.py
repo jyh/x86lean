@@ -69,6 +69,9 @@ SILICON_REFEREES = (
     ("D348", ("AMD EPYC 7763", "Intel Core i7-8700B")),
     # D350 (V8c): the VEX memory-operand path (hwprobe run 39464224033); the AMD leg named by /proc/cpuinfo.
     ("D350", ("AMD EPYC 9V74", "Intel Core i7-8700B")),
+    # D361 (V10): the VEX memory forms of the silicon rows (hwprobe runs 40190842502, 40191605877); every leg NAMED by its
+    # processor: Intel Core i7-8700B on both runs, Intel Xeon Platinum 8573C (the first), AMD EPYC 7763 (the second).
+    ("D361", ("AMD EPYC 7763", "Intel Xeon Platinum 8573C", "Intel Core i7-8700B")),
 )
 SILICON_PAIRS = "; ".join(" + ".join(rs) + " (" + d + ")" for d, rs in SILICON_REFEREES)
 SILICON_LABEL = ("silicon-refereed only (AMD + Intel hwprobe: " + SILICON_PAIRS

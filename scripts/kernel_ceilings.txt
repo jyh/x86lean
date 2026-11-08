@@ -503,3 +503,7 @@ Tests.CoverageVexMov 10425 @on katmai
 # each max(x 3, 50)), copied, not retyped.
 Tests.AnchorsVexSilD 23745 @on runnervmtai0g
 Tests.CoverageVexMov 15315 @on runnervmtai0g
+
+# D361 (V10): the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1 (738411c → 709af7c,
+# katmai, --repeats 6), copied, not retyped: Tests.AnchorsVexSilE head 14450.0 ms ⇒ max(14450.0 × 3, 50).
+Tests.AnchorsVexSilE 43350 @on katmai
