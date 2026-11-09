@@ -25398,3 +25398,18 @@ which the legacy forms already referee against x86isa. Stacked on D393 (`fc9f804
    legacy twins `subss`, `mulss`, `divss`, `addss (%rbx)` and the `movss` store EXECUTE 88/88, and `vpunpckhdq` refuses 88/88. A row
    is AGREE only when all 88 pre-states land in the predicted bucket; 0 stalled and 0 unreadable on every row. With 11-08's twelve,
    every VEX scalar-FP shape this wave takes is now measured refused, so the referee is silicon for all of them.
+2. **HELD for the generator.** `hwprobe/mk_vexsilm_rows.py`: 309 rows over 22 functions. The arithmetic rows are the legacy
+   B1/B2 rows' own operand pairs and MXCSR values (`mk_rows.build()`, 195 cases, every rounding mode, the sticky-flag preset),
+   each at the register form, plus the round-to-nearest cases at the memory form alternating offset 0 and an odd offset (66);
+   the moves are 8 rows a function (48). The low lane's value and flags are `mk_rows.mul`/`mk_rows.arith`, imported, never
+   restated; every row's rule equals its byte-list re-derivation. `--reach`: (a) [127:w] from DEST 277, every row but the 32
+   loads and stores · (b) YMM3[255:128] kept 293, every row but the 16 stores · (c) SRC1/SRC2 swapped 60 · (d) RC ignored 50 ·
+   (e) flags unwritten 201 · (f) the load merging / the register move zeroing 32, every such row · (g) the aligned read 40.
+   The SDM-derived bytes equal clang's on the 10 forms the selftest names.
+   ⚖️ **Price, amended:** every earlier VEX-silicon probe checks the buffer UNCHANGED, so the two store forms need a probe
+   that compares it with expected bytes. `hwprobe/vexsilm_probe.c` is `vexsile_probe.c` plus that one field (`wmem`).
+   ⚠️ **A smoke run, NOT a referee:** on yukon under Rosetta 2 (`ROSETTA_ADVERTISE_AVX=1`, `/usr/bin/arch -x86_64`; the
+   probe's CPUID line reads AVX=1 AVX2=1), the probe reads `rows 309 disagreements 0`, `--plant` reds exactly
+   `vaddsd_r_exact/nearest`, `--plant-hi` exactly `vmulss_r_exact/nearest`, and `--plant-op` refuses `x_vaddss_r` (rc 2).
+   Rosetta is a translator, a third implementation, so this says the harness works and says nothing about silicon.
+   Prediction 1 waits on the hwprobe workflow's AMD and Intel legs.
