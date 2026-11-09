@@ -25390,3 +25390,11 @@ arms (no new arithmetic: each is one line over `varithLow` or the legacy move), 
 (`hwprobe/mk_vexsilm_rows.py`) over 10 names × register/memory × the rounding and merge classes, one probe on AMD and Intel,
 one metered unit, one census regeneration, K1 and K2 on katmai. Its risk is the merge rule (prediction 2(a)), not the arithmetic,
 which the legacy forms already referee against x86isa. Stacked on D393 (`fc9f804`), and it lands after D393 does.
+
+**Readings (2026-11-09, `paris/d394-vex-scalar-fp`):**
+0. **P1 re-run HELD, 0 of 13 verdicts disagree (2026-11-09 10:0x, yukon, `oracle_availability.measure()` unmodified, 88 pre-states,
+   every verdict predicted before the run).** The five encodings the 11-08 P1 did not carry REFUSE 88/88: `vsubss`, `vmulss`,
+   `vdivss` (x,x,x), `vaddss` (m32,x,x) and the `vmovss` store. In the same run the controls `movl %ecx,(%rbx)` and `vpxor` and the
+   legacy twins `subss`, `mulss`, `divss`, `addss (%rbx)` and the `movss` store EXECUTE 88/88, and `vpunpckhdq` refuses 88/88. A row
+   is AGREE only when all 88 pre-states land in the predicted bucket; 0 stalled and 0 unreadable on every row. With 11-08's twelve,
+   every VEX scalar-FP shape this wave takes is now measured refused, so the referee is silicon for all of them.
