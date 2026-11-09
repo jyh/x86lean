@@ -1409,6 +1409,19 @@ inductive VexOp where
   | vexabsm (w : VAbsW) (dst : XmmReg) (ea : Ea)
   | vexabs256 (w : VAbsW) (dst src : XmmReg)
   | vexabsm256 (w : VAbsW) (dst : XmmReg) (ea : Ea)
+  /-- ⭐ D394 (wave G) — the VEX scalar floating-point forms (SDM Vol. 2B ADDSS … DIVSD, MOVSS/MOVSD, "VEX.128 encoded
+  version"; VEX.L is ignored). Each is its legacy twin's meaning with `src1` (VEX.vvvv) in the legacy destination's
+  place, written through `setXmmVex128`, so YMM bits 255:128 are ZEROED: `vexarith` is `varith`'s `varithLow` over
+  `src1` and `src` (bits 127:sz FROM `src1`, MXCSR read and written as `varith` does), `vexarithm` the same with the
+  m32/m64 second operand and NO alignment check; `vexmovs` takes the low lane from `src` and bits 127:sz from `src1`;
+  `vexmovsld` loads the low lane and zeroes everything above it; `vexmovsst` stores `sz` bytes and writes no register.
+  Separate from `vexmovgld`/`vexmovgst`, whose meanings the load and store share, because the AST is printed and
+  assembled by the encoding cross-check. Silicon-refereed: x86isa refuses every VEX scalar-FP shape (D394 P1). -/
+  | vexarith (op : VArithOp) (sz : Size) (dst src1 src : XmmReg)
+  | vexarithm (op : VArithOp) (sz : Size) (dst src1 : XmmReg) (ea : Ea)
+  | vexmovs (sz : Size) (dst src1 src : XmmReg)
+  | vexmovsld (sz : Size) (dst : XmmReg) (ea : Ea)
+  | vexmovsst (sz : Size) (ea : Ea) (src : XmmReg)
   deriving DecidableEq, Repr, Inhabited, BEq
 
 /-- V5 (D343) — `opOperands` over the nested VEX forms: V3's and V4's arms, verbatim. -/
@@ -1427,6 +1440,9 @@ def VexOp.operands : VexOp → List Operand
   -- D371: VEX movd/movq name their GPR or their address, as the legacy forms do.
   | .vexmovg _ _ _ r => [.reg r]
   | .vexmovgld _ _ ea | .vexmovgst _ ea _ => [.mem ea]
+  -- D394: the VEX scalar FP register forms name no address; the memory forms name theirs.
+  | .vexarith .. | .vexmovs .. => []
+  | .vexarithm _ _ _ _ ea | .vexmovsld _ _ ea | .vexmovsst _ ea _ => [.mem ea]
   -- D375: the lane insert/extract name their address (the register forms none).
   | .vexins128m _ _ _ ea _ | .vexext128m _ ea _ _ => [.mem ea]
   -- D376: the half-moves name their address.
@@ -1456,6 +1472,8 @@ def VexOp.anyLocked : VexOp → Bool
   | .vexsraxm _ _ _ ea | .vexsraxm256 _ _ _ ea => ea.lock
   | .vexmovg .. => false
   | .vexmovgld _ _ ea | .vexmovgst _ ea _ => ea.lock
+  | .vexarith .. | .vexmovs .. => false
+  | .vexarithm _ _ _ _ ea | .vexmovsld _ _ ea | .vexmovsst _ ea _ => ea.lock
   | .vexins128m _ _ _ ea _ | .vexext128m _ ea _ _ => ea.lock
   | .vexloadq _ _ _ _ ea | .vexstoreq _ _ ea _ => ea.lock
   | .vexabsm _ _ ea | .vexabsm256 _ _ ea => ea.lock
@@ -1488,6 +1506,9 @@ def VexOp.mnemonic : VexOp → String
   | .vexshiftdq left .. => if left then "vpslldq" else "vpsrldq"
   | .vexzeroupper => "vzeroupper"
   | .vexmovg _ sz .. | .vexmovgld sz .. | .vexmovgst sz .. => match sz with | .q => "vmovq" | _ => "vmovd"
+  -- D394: the scalar mnemonics, `v` before the legacy one; `vmovsd` here cannot collide with the string `movsd`.
+  | .vexarith op sz .. | .vexarithm op sz .. => "v" ++ op.mnemonic sz
+  | .vexmovs sz .. | .vexmovsld sz .. | .vexmovsst sz .. => match sz with | .q => "vmovsd" | _ => "vmovss"
   -- D375: four literals, not a concatenation (`quadMnemonic`'s reason).
   | .vexins128 fp .. | .vexins128m fp .. => if fp then "vinsertf128" else "vinserti128"
   | .vexext128 fp .. | .vexext128m fp .. => if fp then "vextractf128" else "vextracti128"

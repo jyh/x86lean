@@ -25413,3 +25413,20 @@ which the legacy forms already referee against x86isa. Stacked on D393 (`fc9f804
    `vaddsd_r_exact/nearest`, `--plant-hi` exactly `vmulss_r_exact/nearest`, and `--plant-op` refuses `x_vaddss_r` (rc 2).
    Rosetta is a translator, a third implementation, so this says the harness works and says nothing about silicon.
    Prediction 1 waits on the hwprobe workflow's AMD and Intel legs.
+3. **HELD exactly (2026-11-09, yukon, through `saltbuild`).** The model: five `VexOp` constructors (`vexarith` · `vexarithm` ·
+   `vexmovs` · `vexmovsld` · `vexmovsst`), their `operands`/`lock`/mnemonic lines in `X86/Syntax.lean`, five `stepVex` arms, the
+   memory-destination arm in `Tests/Coverage.lean`, ten `siliconTable` rows and their ten AST-printed mnemonics in the Coverage
+   gate. `Tests.AnchorsVexSilM` pins all 309 rows by `decide` (22 theorems, built in 2.8 s), generated and gated byte for byte by
+   `hwprobe/mk_vexsilm_anchors.py --check`; its `vmAgrees` adds one conjunct to D393's, the operand's qwords read AFTER the step,
+   so a store row checks what it wrote. `lake build Tests x86lean-diff`: 77 jobs, 0 errors; `docs/COVERAGE.md` regenerated
+   (+10 rows). **The named lane mutant** — `.vexarith` taking bits 127:sz from DEST rather than `src1`, the low lane unchanged —
+   reds **exactly the 8 register-arithmetic theorems of the new unit** (`d394_v{add,sub,mul,div}s{s,d}_r_pins`), and no other
+   target of `Tests` fails. `X86/Semantics.lean` restored and `cmp`-checked; the rebuild is green.
+4. **HELD exactly. Silicon +4,785** (glibc +4,627 · ffmpeg +142 · x264 +16), each of the ten names' `silicon_all` now its in-scope
+   count (1,459 · 1,141 · 1,012 · 819 · 241 · 78 · 17 · 9 · 7 · 2), so no in-scope spelling is left uncredited; `covered`, `vex` and
+   `total` move in no column; `silicon_mem` and `silicon_mem_modelled` rise by glibc 2,072 · ffmpeg 132 · x264 6 (not predicted,
+   as the design said). Regenerated against `~/x86lean-corpus/corpus`; `demand_census.py --check` CLEAN (310 mnemonics).
+   **Prediction 1, partly:** the push run 42670416049 at `034cc92` concluded **success**, the D394 step green on both legs (read
+   anonymously at the step level): `macos-15-intel`, an Intel leg, and `ubuntu-latest`, whose processor is printed only in the log,
+   which reads 403 without a credential. **HELD for Intel; the second vendor UNREAD.** So `SILICON_REFEREES` carries NO D394 row
+   yet: a vendor pair is named from the log, never typed (`demand_census.py`'s own rule), and it is owed when the log can be read.
