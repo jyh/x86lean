@@ -25430,3 +25430,9 @@ which the legacy forms already referee against x86isa. Stacked on D393 (`fc9f804
    anonymously at the step level): `macos-15-intel`, an Intel leg, and `ubuntu-latest`, whose processor is printed only in the log,
    which reads 403 without a credential. **HELD for Intel; the second vendor UNREAD.** So `SILICON_REFEREES` carries NO D394 row
    yet: a vendor pair is named from the log, never typed (`demand_census.py`'s own rule), and it is owed when the log can be read.
+
+**K1 (2026-11-09, katmai, `fc9f804 → 53299ce`, 6 repeats).** Both arms refuse exactly the NEW unit and nothing else:
+`kernel_delta` reads `Tests.AnchorsVexSilM` at 2,280.0 ms ⇒ `Tests.AnchorsVexSilM 6840 @on katmai`; `ku_delta` (A′) reads
+1,043,936 unfoldings ⇒ `Tests.AnchorsVexSilM @ku 1043936`; both registered as printed (copied from the two logs, not retyped).
+No existing row is refused or UNMEASURABLE in either arm (the ms log's one REFUSED row is the new unit; A′ reports one
+finding). The measured head is `53299ce`; the tip that registers them changes only this file and the two registries.

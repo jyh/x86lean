@@ -230,3 +230,5 @@ Tests.AnchorsVexSilJ @ku 5084765
 Tests.AnchorsVexSilK @ku 2410985
 # D393: the NEW unit, the count ku_delta printed on refusing it at K1 (cb636b5 → f042629, katmai), copied.
 Tests.AnchorsVexSilL @ku 2059194
+# D394: the NEW unit, the count ku_delta printed on refusing it at K1 (fc9f804 → 53299ce, katmai), copied.
+Tests.AnchorsVexSilM @ku 1043936
