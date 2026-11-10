@@ -203,6 +203,16 @@ jobs:
       - name: Oracle leak check, its cursor plant, and the undefined column (D226)
         run: lake env .lake/build/bin/x86lean-diff undefined-column
 
+      # ROW 130: THE INDEXED COMPARATOR AGAINST THE LINEAR ONE IT REPLACED. `compareRecs`
+      # was a `find?` per record (95.5 % of a selftest arm's time, sampled) and is now a
+      # first-match id index. This step holds it to the old body, kept as
+      # `compareRecsListRef`: a duplicate-id fixture must read first-match, a last-match
+      # mutant must fail that arm, and over three wrong models the full report must be
+      # byte-equal. Every shard and the differential run trust `compareRecs`, so its
+      # contract is checked here, once, beside the other comparator gates.
+      - name: The indexed comparator renders byte-equal to the linear reference (row 130)
+        run: lake env .lake/build/bin/x86lean-diff compare-index-selftest
+
       # ⛔ THE LOCAL RUNNER'S ARGUMENT READER, DRIVEN RED (D173). `ci_local.py` is
       # how every gate in this workflow is exercised on a developer box, and an
       # unrecognised flag used to make it RUN `--job build` instead of answering.
