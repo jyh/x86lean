@@ -24835,3 +24835,9 @@ as `e795506` on D371's branch; the trees differ by the moved base. The shipped-b
 gate CLEAN, ARM A′ CLEAN, so the row lands on the ms verdict (D251). `X86.Syntax` +2.0 (±8.0); `Tests.AnchorsSimd` −20.0; `Tests.Coverage`
 +150 (±453.4, budget 2,822). The NEW `Tests.AnchorsSimdB` reads 2,435 ms against its 7,500 @on katmai and **1,267,652 ku, exactly
 its K1 registration**.
+
+**Re-key K2 (2026-11-10, katmai, `2dbdf8a → 8f54ba4`, 12 repeats), applied before this entry's PR merges.** This entry's K2 row
+(`c3eeffe → 4960875`) was keyed to #172's pre-merge base, which is on no step of master's chain once #172 merged at `2dbdf8a`.
+Re-measured at the real base, the head carrying #172's runner line (`8f54ba4`): `kernel_delta` rc 0 "delta gate: CLEAN",
+`ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands on the ms verdict), and the `c3eeffe` row
+deleted in the same commit. If master moves before the merge, the row is re-recorded.
