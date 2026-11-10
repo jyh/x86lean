@@ -25428,8 +25428,12 @@ which the legacy forms already referee against x86isa. Stacked on D393 (`fc9f804
    as the design said). Regenerated against `~/x86lean-corpus/corpus`; `demand_census.py --check` CLEAN (310 mnemonics).
    **Prediction 1, partly:** the push run 42670416049 at `034cc92` concluded **success**, the D394 step green on both legs (read
    anonymously at the step level): `macos-15-intel`, an Intel leg, and `ubuntu-latest`, whose processor is printed only in the log,
-   which reads 403 without a credential. **HELD for Intel; the second vendor UNREAD.** So `SILICON_REFEREES` carries NO D394 row
-   yet: a vendor pair is named from the log, never typed (`demand_census.py`'s own rule), and it is owed when the log can be read.
+   which read 403 without a credential. *(This sentence read "HELD for Intel; the second vendor UNREAD" until 2026-11-10, when the
+   credential returned.)* **HELD, both vendors, read from the logs:** the ubuntu-latest leg prints `model name : AMD EPYC 7763 64-Core
+   Processor` (job 129345167539, log line 154) and the macos-15-intel leg `Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz` (job 129345166962,
+   line 154); the second push run 42677501619 at `53299ce` reads the same pair (jobs 129362750552 and 129362749929, line 154 each), and
+   on both of its legs the D394 step prints `rows 309 disagreements 0` with all three plants at their wanted rc (`plant rc=1 · badop
+   rc=2 · hi rc=1`). So `SILICON_REFEREES` carries `("D394", ("AMD EPYC 7763", "Intel Core i7-8700B"))`, named from those lines.
 
 **K1 (2026-11-09, katmai, `fc9f804 → 53299ce`, 6 repeats).** Both arms refuse exactly the NEW unit and nothing else:
 `kernel_delta` reads `Tests.AnchorsVexSilM` at 2,280.0 ms ⇒ `Tests.AnchorsVexSilM 6840 @on katmai`; `ku_delta` (A′) reads
