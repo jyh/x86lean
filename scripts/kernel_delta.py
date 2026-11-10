@@ -788,7 +788,9 @@ def measure(base_rev, head_rev, repeats, keep=None, plant=None):
                 readings[side].append(r)
                 print(f"  pass {side:<4} load1={fmt_load(r['load1'])}  {r['secs']:>4.0f}s  "
                       f"Tests.Coverage={r['modules'].get('Tests.Coverage', 0):.0f}  "
-                      f"X86.Syntax={r['modules'].get('X86.Syntax', 0):.1f}", flush=True)
+                      f"X86.Syntax={r['modules'].get('X86.Syntax', 0):.1f}"
+                      + (f"  ⛔ UNREAD (omitted, not 0): {','.join(r['unread'])}" if r.get("unread") else ""),
+                      flush=True)
         return {"base_rev": git("rev-parse", base_rev),
                 "head_rev": git("rev-parse", head_rev),
                 "planted": bool(plant), "box": box_stamp(),
@@ -887,6 +889,13 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False, ceilings=None):
     p(f"{'UNIT':<56}{'base':>10}{'head':>10}{'delta':>10}{'+-K*se':>9}"
       f"{'range':>9}{'budget':>9}  VERDICT")
     fail, refuse, defaulted, flags, unresolved = False, False, [], [], []
+    # ⛔ ROW 61: a pass that produced NO reading for a unit is omitted from that unit's medians and its band, and
+    # NAMED here, so a dropped reading can neither widen a band (the #172 X86.Syntax case) nor pass unseen.
+    for _side in ("base", "head"):
+        for _r in data["readings"][_side]:
+            for _u in _r.get("unread") or []:
+                flags.append(f"UNREAD on pass {_r.get('pass', '?')} ({_side}): {_u} — the profiler printed no "
+                             f"`type checking` line; that reading is OMITTED, never scored 0.0")
     unregistered_new, unresolved_new = [], []
     # ⛔ THE MACHINE THIS RUN WAS TAKEN ON. A reading without its box is not a
     # reading, and no registered ceiling may be compared against one.
@@ -1578,6 +1587,16 @@ def selftest():
         _synthetic({"M": 100.0}, {"M": 101.0}), ("abs", 50.0), {}, 0, "fell to @default")
     run("a @default that does not cover the delta still FAILS",
         _synthetic({"M": 100.0}, {"M": 400.0}), ("abs", 50.0), {}, 1, "OVER BUDGET")
+    # ⛔ ROW 61 (paper's finding on #172): a pass with NO reading for a unit is OMITTED and NAMED. The pair is the
+    # arm: the same five readings with that pass scored 0.0 — what kernel_cost used to emit — refuse UNMEASURABLE,
+    # so the omission is what decides, not the fixture.
+    _om = _explicit([1000.0, 1010.0, 990.0], [1050.0, 1040.0, 1060.0])
+    _om["readings"]["head"].append({"modules": {}, "decls": {}, "load1": 1.0, "unread": ["M"], "pass": 6})
+    run("row 61: an UNREAD pass is omitted from the band and NAMED, never scored 0",
+        _om, None, {"M": ("abs", 200.0)}, 0, "UNREAD on pass 6 (head): M")
+    _z = _explicit([1000.0, 1010.0, 990.0], [1050.0, 1040.0, 1060.0, 0.0])
+    run("row 61's control: the SAME readings with that pass as 0.0 do NOT read clean (the old shape)",
+        _z, None, {"M": ("abs", 200.0)}, 3, "UNMEASURABLE")
     # ⛔ THE ARM THAT MATTERS MOST FOR HONESTY: a budget under the run's own
     # measured spread is not a verdict about the commit, and must not be reported
     # as one — in EITHER direction.
