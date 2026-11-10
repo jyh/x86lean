@@ -24677,3 +24677,94 @@ so it matched no step once #170 merged at `4117a3c`. Re-measured at the real bas
 (`229c137`), at 12 repeats from the start (the first K2 above read `Tests.Vectors` UNMEASURABLE at 6): `kernel_delta` rc 0
 "delta gate: CLEAN", `ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands on the ms verdict),
 and the `bc1f722` row deleted in the same commit. If master moves before the merge, the row is re-recorded.
+
+## D371 — VEX `vmovd`/`vmovq` between an XMM register and a GPR or memory: the VEX twins of D356, refereed by silicon (STATUS row 27; predictions and price before any model work)
+
+**Why.** 6,939 instructions in the census residue (`vmovq` 3,922 · `vmovd` 3,017, all VEX.128: dav1d 2,551 · ffmpeg 1,848 ·
+x264 1,314 · glibc 815 · vpx 406 · coreutils 4 · vmlinux 1), read at D356's head `569b100`. These are the VEX encodings of
+D356's `vmovgld`/`vmovgst` and of the register forms the model has as `vmovg`.
+**The referee, measured before anything was designed (P1, 2026-10-30, yukon, a scratch driver that imports
+`oracle_availability.py` unmodified and calls its `measure()`, bytes from its `encode_forms`).** All **8** encodings REFUSE at
+88 of 88: `vmovd`/`vmovq` GPR→xmm (`c5f96ec1` `c4e1f96ec1`), xmm→GPR (`c5f97ec1` `c4e1f97ec1`), load (`c5f96e03`; `vmovq`
+load assembles as F3 0F 7E, `c5fa7e03`) and store (`c5f97e03`; `vmovq` store as 66 0F D6, `c5f9d603`). In the same run
+`CONTROL:mov` and V4's `vpxor (%rbx), %xmm2, %xmm0` executed at 88/88, which places the refusals on the opcodes and not on a VEX
+memory access. ⇒ **a silicon wave with register and memory operands, D361's shape.** (The driver's first two runs printed `None`
+for both controls: it looked the results up by mnemonic, and `measure()` keys them by `tag_of`, which maps `:` to `_`. The third
+run reads them by tag. A refusal table whose controls read `None` is uninterpretable, so the readings above are from that third
+run alone.)
+**The model (four VEX constructors; no new arithmetic).** Each is its legacy twin's value with the VEX.128 write rule: an XMM
+destination is written through `setXmmVex128`, so bits 255:128 of the YMM register are zeroed, where the legacy form leaves them.
+- `vexmovgx sz dst r` — GPR→xmm: the low 32 or 64 bits of `r`, zero-extended to 128 (VEX.W picks the width).
+- `vexmovxg sz r src` — xmm→GPR: the low 32 or 64 bits of `src`; a 32-bit write zero-extends into the 64-bit register.
+- `vexmovgld sz dst ea` — load: 4 or 8 bytes at `a`, zero-extended to 128 (no merge: the x86isa legacy `movd`-load merge D356
+  declared is not this form's question, since the referee is silicon).
+- `vexmovgst sz ea src` — store: exactly 4 or 8 bytes written, nothing else in memory or in the registers moved.
+VEX.L = 1 is `#UD` for all four (SDM Vol. 2B, MOVD/MOVQ), so there is no VEX.256 twin.
+**Predictions (each wrong if the named reading differs):**
+1. **Silicon.** Every row agrees on every processor read, on both vendors, each named by the processor. The YMM upper half is
+   SEEDED NONZERO before every row, so the VEX zeroing is read, not assumed. Every memory row is read at an UNALIGNED offset as
+   well as an aligned one, and the store rows read the whole buffer back.
+2. **Generator, before any processor.** A textbook per form reproduces every row, and `--refuse-wrong` refuses each of these
+   on a named row: (a) a VEX form that leaves YMM 255:128 untouched (the legacy rule); (b) a `vmovd` load that merges bits
+   127:32 instead of zeroing them; (c) a `vmovq` store that writes 16 bytes; (d) a `vmovd` xmm→r32 that leaves bits 63:32 of
+   the GPR.
+3. **Model.** Four constructors under `Op.vex`, all rows pinned by `decide` in a NEW metered unit. **Red backwards:** (a)'s
+   mutant reds exactly the four constructors' upper-zeroing theorems, and (c)'s reds exactly the store rows.
+4. **Census.** The VEX column rises by the `vmovd`/`vmovq` spellings these four shapes cover, and nothing else moves.
+   ⚠️ **Not 6,939 by construction:** the census counts by mnemonic, and VEX `vmovq xmm, xmm` (F3 0F 7E, register form) carries
+   the same name and is not one of these four shapes. Its share is UNMEASURED here. The census's form split (branch
+   `paris/census-shape-split`) or a by-spelling count at build time decides it, and the residue is printed, not assumed zero.
+**Price.** One silicon wave (two vendors), one generator, four constructors, one metered anchor unit, one census regeneration.
+D361 is the comparable. The branch stacks on D362, the stack's tip (D356's constructors included), so it lands after the
+D356–D362 stack.
+**Readings (2026-10-30, `paris/d371-vex-movdq`):**
+1. **HELD** on both vendors, hwprobe run 41041988507 at `761159d`: AMD EPYC 7763 (`ubuntu-latest`) and Intel Core i7-8700B
+   (`macos-15-intel`), each `rows 72 disagreements 0`. On each leg `--plant` reds exactly `vmovd_ld_ones_a`, `--plant-hi`
+   exactly `vmovq_gx_ones_r`, `--plant-mem` exactly `vmovd_st_ones_u`, and `--plant-op` refuses `x_vmovd_gx` (rc 2). The
+   `--plant-mem` control is new here: it shows the buffer comparison can fail, which V8c's and V10's probes never showed.
+2. **HELD.** Selftest 17 arms; `--refuse-wrong` refuses (a)-(d), each on its named row (`vmovd_gx_zero_r`,
+   `vmovd_ld_zero_a`, `vmovq_st_zero_a`, `vmovd_xg_zero_r`). Reach: (a) 36 rows, (b) 12, (c) 12, (d) 6. Two mutants of the
+   references themselves (the textbook's store one byte short; a `vmovd` r → xmm keeping 128 bits) each red the selftest.
+3. **HELD, with one design change declared.** THREE constructors under `Op.vex`, not four: `vexmovg toXmm sz x r`
+   mirrors the legacy `vmovg` (one constructor for both GPR directions), with `vexmovgld` and `vexmovgst`. All 72 rows are
+   pinned by `decide` in the NEW unit `Tests/AnchorsVexSilF.lean` (`mk_vexsilf_anchors.py --check`). A store row also
+   reads back the qwords it spans. The frame theorems `vf_frame_movg` and `vf_frame_movgld` state `mem` unchanged, with
+   axioms `propext` and `Quot.sound`. **Red backwards on the model:** the load written through `setXmm` (the legacy
+   upper rule) reds exactly `vf_vmovd_ld_pins` and `vf_vmovq_ld_pins`; the store writing 16 bytes reds exactly
+   `vf_vmovd_st_pins` and `vf_vmovq_st_pins`. `siliconTable` gains `vmovd` and `vmovq`, and `Tests.Coverage`'s
+   mnemonic gate gains both.
+4. **HELD, exactly, and the ⚠️ resolved.** The census's silicon column rises by **6,939**: coreutils 4 · glibc 815 ·
+   dav1d 2,551 · ffmpeg 1,848 · vpx 406 · x264 1,314 · vmlinux 1, plus `_asm_pooled` +6,119. Compared key by key against
+   the JSON before regeneration, only the silicon keys move: `silicon`, `silicon_all`, `silicon_pct`, and `silicon_mem` =
+   `silicon_mem_modelled` (glibc +464, which is its M,X 176 + 218 and X,M 34 + 36). `total`, `covered`, `vex` and every miss
+   figure are unchanged. The census credits silicon BY NAME, so the by-shape question was measured directly (`objdump -d` over the same
+   corpus, operands classed): `vmovd` M,X 1,017 · R,X 912 · X,M 715 · X,R 373; `vmovq` M,X 2,199 · R,X 101 · X,M 1,388 ·
+   X,R 234 = 6,939. **VEX `vmovq xmm, xmm` occurs ZERO times**, so here the by-name credit and the by-shape credit
+   are equal. If a later corpus carries that form, the census will credit it by name while the model lacks it. This
+   paragraph is the record of that limit.
+   P2-ROSTER.md regenerated (`vmovd` now reads silicon-refereed).
+⚠️ `check_readme_snapshot` reds on this branch as it already does on D362's tip (README 108,240 against the record's
+109,208). It belongs to the D356–D362 stack's rebase, not to D371.
+**K1 (a reading; no kernel prediction was sealed), katmai, 733f8f2 → 914ab1c, 6 repeats:** both arms REFUSED only the NEW
+unit, as a K1 does. `Tests.AnchorsVexSilF` reads 490.5 ms and 220,986 unfoldings; both registration lines are copied
+from the tools' own output. Every existing unit reads `ok`; `X86.Syntax` +6.0 ms (756.5 → 762.5, budget 141.5) for the
+three constructors. (A first K1 was stopped at 04:2x to free katmai for #142's re-key; it is not the reading.)
+⚠️ **Re-carry correction (2026-11-05, the figure class paper found on #168/#169, applied before this entry's PR).** Result 4's
+rise was read at the 10-24 base. **At the shipped tree** (`docs/DEMAND-CENSUS.md.json`, `silicon`, at D362's `9b66f3c` against
+this branch) the silicon column rises by **6,599**: coreutils 4 · glibc **784** · dav1d **2,311** · ffmpeg **1,846** · vpx 406 ·
+x264 **1,247** · vmlinux 1, plus `_asm_pooled` **+5,810**. The by-shape split (`vmovd`/`vmovq` M,X · R,X · X,M · X,R) and "VEX
+`vmovq xmm, xmm` occurs ZERO times" are the 10-24 reading and are NOT re-measured here. The ⚠️ about `check_readme_snapshot` is
+discharged: it is rc 0 on this branch, since the D356–D362 re-carry moved README's count. **Off-ref shas, declared:** the
+Why's `569b100` (D356's record commit before the re-carry) was re-carried as `ed8749f`, now on master; `761159d` is the probe step `c842ce8` on this branch (its
+files identical). K1's `733f8f2` → `914ab1c` is the 10-24 base's; the shipped-base kernel reading is the K2 row. The
+predictions and the 10-24 Results are left as written.
+**K2 at the shipped base (a reading, as K1 was; 2026-11-05, katmai, `kernel_delta.py --base 9b66f3c --head e795506 --repeats 6`,
+both arms):** ms delta gate CLEAN, ARM A′ CLEAN, so the row lands on the ms verdict (D251). `X86.Syntax` 746.5 → 765.5 (+19.0,
+±8.4; K1 read +6.0 at its base), `X86.Semantics` +0.4, `X86.Vex` +0.1. The NEW `Tests.AnchorsVexSilF` reads 488.5 ms against its
+1,472 @on katmai and **220,986 ku, exactly its K1 registration**.
+
+**Re-key K2 (2026-11-08, katmai, `081f53c → 8a3c5df`, 12 repeats), applied before this entry's PR merges.** This entry's K2 row
+(`9b66f3c → e795506`) was keyed to D362's pre-merge head, which is on no step of master's chain once #171 merged at `081f53c`.
+Re-measured at the real base, the head carrying #171's runner line (`8a3c5df`): `kernel_delta` rc 0 "delta gate: CLEAN",
+`ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands on the ms verdict), and the `9b66f3c` row
+deleted in the same commit. If master moves before the merge, the row is re-recorded.
