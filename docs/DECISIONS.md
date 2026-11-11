@@ -24970,3 +24970,9 @@ D374's pre-re-carry model step; the shipped-base kernel reading is the K2 row.
 **K2 at the shipped base (2026-11-05, katmai, `kernel_delta.py --base f28ee84 --head 04f6b5c --repeats 6`, both arms):** ms delta
 gate CLEAN, ARM A′ CLEAN, so the row lands on the ms verdict (D251). `X86.Syntax` +24.0 (±7.5, budget 142.8). The NEW
 `Tests.AnchorsVexSilH` reads 4,230 ms against its 12,855 @on katmai and **1,977,574 ku, exactly its K1 registration**.
+
+**Re-key K2 (2026-11-11, katmai, `cfd1ede → a5a9a44`, 12 repeats), applied before this entry's PR merges.** This entry's K2 row
+(`f28ee84 → 04f6b5c`) was keyed to #174's pre-merge head, which is on no step of master's chain once #174 merged at `cfd1ede`.
+Re-measured at the real base, the head carrying #174's runner line (`a5a9a44`): `kernel_delta` rc 0 "delta gate: CLEAN",
+`ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands on the ms verdict), and the `f28ee84` row
+deleted in the same commit. If master moves before the merge, the row is re-recorded.
