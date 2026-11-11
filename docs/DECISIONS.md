@@ -25058,3 +25058,13 @@ K1 read it at its own base), `X86.Semantics` +1.0. The NEW `Tests.AnchorsVexSilI
 and **1,537,866 ku in A′, exactly its K1 registration**. The retired absolute table's five `over/over` rows are the same five,
 base and head alike. **Off-ref shas, declared:** K1's `244dac3 → 681dd86` is the 10-31 base's (`681dd86` is also the sha `kernel_ceilings.txt`
 and `ku_delta_budget.txt` cite for the NEW unit; it is reachable today only from the pre-re-carry branches); the hwprobe run is at `5d52058`.
+
+**Re-key K2 (2026-11-11, katmai, `5f2231f → 35cc3ac`, 12 repeats), applied before this entry's PR merges.** This entry's K2 row
+(`2d26935 → 622e73e`) was keyed to #175's pre-merge head, which is on no step of master's chain once #175 merged at `5f2231f`.
+Re-measured at the real base, the head carrying #175's runner line (`35cc3ac`): **`kernel_delta` rc 3 UNMEASURABLE on ONE unit**,
+`Tests.Vectors` +7.1 ms (band ±5.2, budget 10.9, so not OVER; the gate calls it a commit-cost refusal at ~23 repeats a side); every
+other unit `ok`, and the NEW `Tests.AnchorsVexSilI` `NEW ok` against its own katmai ceiling. `ku_delta` A′ rc 0 CLEAN, and it reads `Tests.Vectors` at **197 → 197 unfoldings (Δku 0)**: the commit does not change that
+unit's kernel work, so the +7.1 ms is timing, not cost. So by D251
+the step **lands on the A′ verdict** (landed_on {katmai, a-prime, ms_rc 3}), as #176's row `bb8d553` did; recorded with
+`--record --readings --a-prime`, and the `2d26935` row deleted in the same commit. If master moves before the merge, the row is
+re-recorded.
