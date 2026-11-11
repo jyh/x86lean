@@ -24841,3 +24841,73 @@ its K1 registration**.
 Re-measured at the real base, the head carrying #172's runner line (`8f54ba4`): `kernel_delta` rc 0 "delta gate: CLEAN",
 `ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands on the ms verdict), and the `c3eeffe` row
 deleted in the same commit. If master moves before the merge, the row is re-recorded.
+
+
+## D374 — the VEX twins of eleven modelled packed-integer kinds, refereed by silicon (STATUS row 36, wave B; predictions and price before any model work)
+
+**Why.** 8,608 instructions in the census residue at D373's head (xmm and ymm): `vpaddsw` 1,600 · `vpmaxsw` 1,384 ·
+`vpminsw` 1,371 · `vpsubusb` 1,315 · `vpsadbw` 850 · `vpmullw` 817 · `vpavgb` 453 · `vpsubusw` 389 · `vpmulhw` 346 ·
+`vpmulhuw` 64 · `vpmuludq` 19. Each is the VEX twin of a kind the model already has (D335's `addsw maxsw subusb sadbw mullw
+subusw muludq`, D373's `minsw avgb mulhw mulhuw`). The other four D335 kinds' twins are already taken (D348, D361).
+**The referee, measured before anything was designed (P1, 2026-10-30, yukon, `oracle_availability.measure()` unmodified,
+controls in the SAME run).** All **34** encodings REFUSE at 88 of 88: the eleven at VEX.128 register, VEX.128 m128 and
+VEX.256 register (and `vpaddsw` also at VEX.256 m256). `mov`, `vpxor (%rbx),%xmm2,%xmm0` and `vpaddw %xmm1,%xmm2,%xmm0`
+executed 88/88. ⇒ **a silicon wave, D348's and D361's shape.**
+**The model (no new semantics).** `vexbin`, `vexbinm`, `vexbin256` and `vexbinm256` already apply `vbinApply k` with the
+VEX write rule, behind `VBinKind.vexSilTaken` (register) and `VBinKind.vexSilMemTaken` (memory). The change is the eleven
+kinds added to both predicates.
+**Predictions (each wrong if the named reading differs):**
+1. **Silicon.** Every row agrees on every processor read, on both vendors, each named by the processor; the YMM upper half
+   is seeded nonzero before every VEX.128 row; every memory row runs at an unaligned offset as well as an aligned one.
+2. **Generator, before any processor.** The 128-bit function is `mk_simda_rows.rule` itself (imported, not restated), with
+   SRC1 in the legacy destination's place. Named wrong rules each refused on a named row: (a) a VEX.128 form that leaves YMM
+   255:128 (the legacy rule); (b) a VEX.256 form that applies the function to the low lane only; (c) the operands swapped
+   (SRC2 in the destination's place), which changes `psubus*`; (d) a memory form that checks 32- or 16-byte alignment.
+3. **Model.** The two predicates gain the eleven kinds; every row pinned by `decide` in a NEW unit. **Red backwards:**
+   removing one kind from `vexSilMemTaken` reds exactly that kind's memory pins.
+4. **Census.** The VEX column rises by the eleven mnemonics' xmm and ymm forms, 8,608 if every spelling counted is one of
+   the four shapes, and nothing else moves. Any shortfall is printed as residue.
+**Price.** One silicon wave (two vendors), one generator importing D335's rules, one `.S`, one probe, two predicate lines,
+one metered anchor unit, one census regeneration. Stacked on D373 (`f5d9ffa`).
+**Readings (2026-10-31, `paris/d374-vex-twins`):**
+1. **HELD** on both vendors, hwprobe run 41147377467 at `4016ac2`: AMD EPYC 9V74 (`ubuntu-latest`) and Intel Core i7-8700B
+   (`macos-15-intel`), each `rows 561 disagreements 0`. On each leg `--plant` reds exactly `vpaddsw256_r_p0`, `--plant-hi`
+   exactly `vpaddsw128_r_edge0`, and `--plant-op` refuses `x_vpaddsw128_r` (rc 2). (Rosetta on yukon has no AVX, so the
+   probe refused there by CPUID, rc 3, as it should.)
+2. **HELD.** 561 rows over 44 functions; every row's rule equals its byte-list re-derivation. `--reach`: (a) 330 · (b) 216
+   · (c) 91 · (d) 132 rows. The declared bytes are derived from the SDM's VEX rule and equal clang's for all 44 forms.
+   ⚠️ Wrong rule (d) is a READ at the aligned address, not an alignment FAULT: the generator cannot model a fault, so a
+   faulting model is caught only by the model pins at odd offsets, which `vexbinm` passes because it has no check.
+3. **HELD exactly.** The eleven kinds in both predicates; `Tests/AnchorsVexSilG.lean` pins all 561 rows in 44 theorems;
+   `saltbuild EXIT=0`, 0 tagged errors. Red backwards: `subusw` removed from `vexSilMemTaken` reds exactly
+   `d374_vpsubusw128_m_pins` and `d374_vpsubusw256_m_pins`.
+4. **NOT HELD as written, on two counts, and the figure is corrected here.** (i) The column: the census puts
+   silicon-refereed VEX forms in the SILICON column, not the VEX one, so it is silicon that rose. (ii) The count: silicon
+   **+7,022** (dav1d 2,394 · ffmpeg 2,639 · x264 1,207 · vpx 771 · glibc 11), not 8,608. The census's extension split
+   accounts for every one of the 1,586: by extension the eleven names are 4,195 ymm · 2,827 VEX-128 xmm · **1,586 AVX-512
+   (zmm/k)**, and AVX-512 is EVEX, out of this model's scope (README, "Not in scope"). Credited 7,022 = 4,195 + 2,827
+   exactly; no other column moved. ⇒ **8,608 was my read of the residue by MNEMONIC, which pools the EVEX spellings**,
+   the same pooling D373's MMX share showed; STATUS row 36 carried it and is corrected to 7,022.
+**K1 (2026-10-30, katmai, `f5d9ffa → f0364d8`, 6 repeats).** Both arms refuse exactly the NEW unit and nothing else:
+`kernel_delta` reads `Tests.AnchorsVexSilG` at 12,000.0 ms ⇒ `Tests.AnchorsVexSilG 36000 @on katmai` (D361's
+`Tests.AnchorsVexSilE` reads 14,900 ms on the same run, so the unit is that path's ordinary size); `ku_delta` (A′) reads
+5,371,473 unfoldings ⇒ `Tests.AnchorsVexSilG @ku 5371473`; both registered as printed. All 52 existing units are within
+their allowances: `X86.Syntax` −2.0 ms, `X86.Theorems` +0.0, `X86.Semantics` +0.1, `Tests.Coverage` +650 (2,908.8).
+⚠️ **Re-carry correction (2026-11-05, the figure class paper found on #168/#169, applied before this entry's PR).** Result 4's
+corrected figure was read at the 10-30 base. **At the shipped tree** (`docs/DEMAND-CENSUS.md.json`, D373's `ca713e5` against this
+branch) the silicon column rises by **+6,772**: dav1d **2,211** · ffmpeg **2,635** · x264 **1,144** · vpx 771 · glibc 11, plus
+`_asm_pooled` +6,761. The memory sub-column (`silicon_mem` and `silicon_mem_modelled` alike) rises **+1,050**, and no other column
+moved. The extension split (4,195 ymm · 2,827 VEX-128 · 1,586 AVX-512) is the 10-30 reading and is NOT re-measured, so which
+spellings account for the 250 between 7,022 and 6,772 is not stated here. K1's `f5d9ffa` → `f0364d8` is the 10-30 base's (`f5d9ffa` is D373's pre-re-carry model step); the
+shipped-base kernel reading is the K2 row. Prediction 1's hwprobe run ran at `4016ac2`, which is the probe step `9652185` on this
+branch; its files are blob-identical there and at this tip. Predictions and the 10-30 Results are left as written.
+**K2 at the shipped base (2026-11-05, katmai, `kernel_delta.py --base ca713e5 --head 38d52f7 --repeats 6`, both arms):** ms delta
+gate CLEAN, ARM A′ CLEAN, so the row lands on the ms verdict (D251). `X86.Syntax` −3.0 (±7.9), `X86.Semantics` −0.2, `Tests.Coverage`
++400 (±349, budget 2,862). The NEW `Tests.AnchorsVexSilG` reads 11,800 ms against its 36,000 @on katmai and **5,371,473 ku, exactly
+its K1 registration**.
+
+**Re-key K2 (2026-11-10, katmai, `460b713 → 86f7922`, 12 repeats), applied before this entry's PR merges.** This entry's K2 row
+(`ca713e5 → 38d52f7`) was keyed to #173's pre-merge head, which is on no step of master's chain once #173 merged at `460b713`.
+Re-measured at the real base, the head carrying #173's runner line (`86f7922`): `kernel_delta` rc 0 "delta gate: CLEAN",
+`ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands on the ms verdict), and the `ca713e5` row
+deleted in the same commit. If master moves before the merge, the row is re-recorded.

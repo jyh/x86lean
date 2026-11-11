@@ -524,6 +524,9 @@ SILICON_PATHS = (
     # D371: VEX vmovd/vmovq, also `x_*` (`x_vmov[dq]_{gx,xg,ld,st}`, disjoint from the four paths above); its rows open
     # the same way.
     ("mk_vexsilf_rows.py", "vexsilf_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
+    # D374: the VEX twins of eleven modelled kinds, also `x_*` (`x_vp…{128,256}_{r,m}`, disjoint from the paths above);
+    # its rows open the same way.
+    ("mk_vexsilg_rows.py", "vexsile_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
 )
 
 
