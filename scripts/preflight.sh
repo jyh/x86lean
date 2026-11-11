@@ -64,6 +64,9 @@ else printf "  ⛔ FAIL hwprobe/mk_shuf_anchors --check\n"; rc=1; fi
 # D335: the packed-integer arithmetic pins, from hwprobe's SIMD rows.
 if python3 hwprobe/mk_simda_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_simda_anchors --check\n"
 else printf "  ⛔ FAIL hwprobe/mk_simda_anchors --check\n"; rc=1; fi
+# D373: set B's pins (Tests/AnchorsSimdB.lean).
+if python3 hwprobe/mk_simda_anchors.py --set-b --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_simda_anchors --set-b --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_simda_anchors --set-b --check\n"; rc=1; fi
 # D338: the SHA-NI pins, from hwprobe's SHA rows.
 if python3 hwprobe/mk_sha_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_sha_anchors --check\n"
 else printf "  ⛔ FAIL hwprobe/mk_sha_anchors --check\n"; rc=1; fi

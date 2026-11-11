@@ -11,6 +11,7 @@ import Tests.AnchorsBmi
 import Tests.AnchorsShuf
 import Tests.AnchorsShufM
 import Tests.AnchorsSimd
+import Tests.AnchorsSimdB
 import Tests.AnchorsSha
 import Tests.AnchorsAes
 import Tests.AnchorsVexSil

@@ -24768,3 +24768,76 @@ both arms):** ms delta gate CLEAN, ARM A′ CLEAN, so the row lands on the ms ve
 Re-measured at the real base, the head carrying #171's runner line (`8a3c5df`): `kernel_delta` rc 0 "delta gate: CLEAN",
 `ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands on the ms verdict), and the `9b66f3c` row
 deleted in the same commit. If master moves before the merge, the row is re-recorded.
+
+## D373 — `pminsw`, `pmulhw`, `pmulhuw`, `pavgb` at xmm: four packed-integer kinds beside D335's eleven, refereed by silicon (STATUS row 35, wave A; predictions and price before any model work)
+
+**Why.** 7,485 instructions in the census residue at master `899a887` (`pmulhw` 2,200 · `pminsw` 2,088 · `pmulhuw` 1,605 ·
+`pavgb` 1,592; dav1d · ffmpeg · vlc-video_chroma · vpx · x264). By extension **6,053 are SSE-legacy (xmm)** and **1,432 are
+MMX (mm)**, which this model does not have (README, "Not in scope"). Each is the cheapest kind left: `pminsw` mirrors D335's
+`pmaxsw`, `pmulhw`/`pmulhuw` are the high halves of the product whose low half is D335's `pmullw`, and `pavgb` is one rounded
+average. None is modelled on master or on any open branch (needle control: `pmaddwd` found at `X86/Coverage.lean:1318`).
+**The referee, measured before anything was designed (P1, 2026-10-30, yukon, a scratch driver that imports
+`oracle_availability.py` unmodified and calls `measure()`, bytes from its `encode_forms`, results read by `tag_of`).** All
+**8** encodings REFUSE at 88 of 88: `pminsw` (`660feac1` `660fea03`), `pmulhw` (`660fe5c1` `660fe503`), `pmulhuw`
+(`660fe4c1` `660fe403`), `pavgb` (`660fe0c1` `660fe003`). `CONTROL:mov` executed 88/88 in the same run, and D335's modelled
+`pmaxsw` and `pmullw` refused 88/88 there as D335 recorded. A second run placed the refusals on the opcodes: `paddd
+%xmm1,%xmm0` and `pxor (%rbx),%xmm0` executed 88/88 (⚠️ a separate run from the refusals, not the same one). ⇒ **a silicon
+wave, D335's shape.**
+**The model (four `VBinKind` kinds; `Op.vbin`/`Op.vbinm` carry both operand shapes and the 16-byte `#GP` rule already).**
+- `minsw` — word i := DEST.w[i] if DEST.w[i] < SRC.w[i] (SIGNED) else SRC.w[i] (SDM Vol. 2B, PMINSW).
+- `mulhw` — word i := bits 31:16 of the SIGNED 32-bit product DEST.w[i]*SRC.w[i] (PMULHW).
+- `mulhuw` — the same with both words UNSIGNED (PMULHUW).
+- `avgb` — byte i := (DEST.b[i] + SRC.b[i] + 1) >> 1, unsigned, computed in 9 bits (PAVGB).
+"Flags Affected: None" for all four; the source register and the m128 source are not written.
+**Predictions (each wrong if the named reading differs):**
+1. **Silicon.** Every row agrees on every processor read, on both vendors, each named by the processor; `--plant`,
+   `--plant-op` and the source/flag checks behave as in D335.
+2. **Generator, before any processor.** `mk_simda_rows.py --set b` reproduces each rule, and `--reach` finds a non-zero
+   count for each named wrong rule: `pminsw` as an UNSIGNED minimum (PMINUW) · `pmulhw` with UNSIGNED words (PMULHUW) ·
+   `pmulhuw` with SIGNED words (PMULHW) · `pavgb` truncating (no +1).
+3. **Model.** Four kinds; every row pinned by `decide` in a NEW unit `Tests/AnchorsSimdB.lean`. **Red backwards:** a
+   truncating `avgb` reds exactly the two `pavgb` theorems, and a signed `mulhuw` exactly the two `pmulhuw` ones.
+4. **Census.** The silicon column rises by exactly **6,053** (the xmm spellings), and the 1,432 MMX instructions stay in the
+   residue, because the census credits silicon by extension (D335's ffmpeg `pmullw`: 330 xmm credited, 844 mm not).
+**Price.** One silicon wave (two vendors), one generator set beside D335's (`--set b`: the rules and the row construction are
+shared, not copied), one `.S`, the D335 probe compiled against the new rows, four kinds, one metered anchor unit, one census
+regeneration. The branch stacks on D371 (`5796e5b`), the stack's tip, so it lands after it.
+**Readings (2026-10-30, `paris/d373-sse-word`):**
+1. **HELD** on both vendors, hwprobe run 41144876498 at `d75fab7`: AMD EPYC 7763 (`ubuntu-latest`) and Intel Core i7-8700B
+   (`macos-15-intel`), each `rows 144 disagreements 0`. On each leg `--plant` reds exactly `pminsw_xx_edge0` (rc 1) and
+   `--plant-op` refuses `v_pminsw_xx` (rc 2). (A Rosetta run on yukon read the same 144/0 first; it is a translator, so it
+   is not counted as a referee.)
+2. **HELD.** `--set-b --reach`: the four wrong rules disagree on 30 · 32 · 32 · 30 of each mnemonic's 36 rows. Set A's
+   output (plain and `--plant`) is byte-identical to the generator's before set B was added, and `mk_simda_anchors.py
+   --check` still passes on `Tests/AnchorsSimd.lean`. Ten SDM edge values checked by hand against the rules (e.g. PMULHW
+   8000H × 8000H = 4000H, PMULHUW FFFFH × FFFFH = FFFEH, PAVGB FEH, FFH = FFH).
+3. **HELD for the unit, with one addition stated.** Four kinds; `Tests/AnchorsSimdB.lean` pins all 144 rows in 8 theorems;
+   `saltbuild EXIT=0`, 0 tagged errors. Red backwards, each mutant built on `X86.Theorems` and then on the unit imported below
+   it: a truncating `avgb` reds exactly `d373_pavgb_xx_pins` and `d373_pavgb_xm_pins`, and a signed `mulhuw` exactly
+   `d373_pmulhuw_xx_pins` and `d373_pmulhuw_xm_pins`. ⚠️ Each also reds one equation in `X86.Theorems` (`avgb_rounds_up`,
+   `mulhw_mulhuw_ones`), the edge case that theorem states; the prediction named the unit only.
+4. **HELD exactly.** Silicon +6,053 (dav1d 836 · ffmpeg 1,380 · vlc-video_chroma 1,152 · vpx 2,361 · x264 324; by name
+   `pminsw` 1,886 · `pmulhuw` 1,603 · `pmulhw` 1,590 · `pavgb` 974), its memory sub-column +620 inside it, and no other
+   column moved. The 1,432 MMX instructions remain in the residue. `COVERAGE.md`, the census and `P2-ROSTER.md` regenerated;
+   `demand_census --check` and `p2_roster --check` CLEAN.
+**K1 (2026-10-30, katmai, `5796e5b → f5d9ffa`, 6 repeats).** Both arms refuse exactly the NEW unit and nothing else:
+`kernel_delta` reads `Tests.AnchorsSimdB` at 2,500.0 ms ⇒ `Tests.AnchorsSimdB 7500 @on katmai`; `ku_delta` (A′) reads
+1,267,652 unfoldings ⇒ `Tests.AnchorsSimdB @ku 1267652`; both lines registered as printed. Every existing unit is within
+its allowance: `X86.Syntax` +3.0 ms (allowance 143.9), `X86.Theorems` +25.0 (365.1), `X86.Semantics` +0.4,
+`Tests.AnchorsSimd` +25.0 (1,611.2), `Tests.Coverage` +400 (2,880).
+⚠️ **Re-carry note (2026-11-05).** The figure check was re-run at the shipped tree (`docs/DEMAND-CENSUS.md.json`, D371's `c3eeffe` against
+this branch). Result 4 holds as written: silicon **+6,053**, per column dav1d 836 · ffmpeg 1,380 · vlc-video_chroma 1,152 · vpx 2,361 ·
+x264 324, memory sub-column +620, and no other column moved. **Off-ref shas, declared:** prediction 1's hwprobe run ran at `d75fab7`,
+which is the probe step `c5d8e6a` on this branch; its three files (`hwprobe.yml`, `hwprobe/README.md`, `simdb_ops.S`) are blob-identical
+there and at this tip. `5796e5b` (D371's K1 commit before the re-carry, this branch's stated parent and the K1 base) was re-carried
+as `e795506` on D371's branch; the trees differ by the moved base. The shipped-base kernel reading is the K2 row.
+**K2 at the shipped base (2026-11-05, katmai, `kernel_delta.py --base c3eeffe --head 4960875 --repeats 6`, both arms):** ms delta
+gate CLEAN, ARM A′ CLEAN, so the row lands on the ms verdict (D251). `X86.Syntax` +2.0 (±8.0); `Tests.AnchorsSimd` −20.0; `Tests.Coverage`
++150 (±453.4, budget 2,822). The NEW `Tests.AnchorsSimdB` reads 2,435 ms against its 7,500 @on katmai and **1,267,652 ku, exactly
+its K1 registration**.
+
+**Re-key K2 (2026-11-10, katmai, `2dbdf8a → 8f54ba4`, 12 repeats), applied before this entry's PR merges.** This entry's K2 row
+(`c3eeffe → 4960875`) was keyed to #172's pre-merge base, which is on no step of master's chain once #172 merged at `2dbdf8a`.
+Re-measured at the real base, the head carrying #172's runner line (`8f54ba4`): `kernel_delta` rc 0 "delta gate: CLEAN",
+`ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands on the ms verdict), and the `c3eeffe` row
+deleted in the same commit. If master moves before the merge, the row is re-recorded.
