@@ -536,3 +536,10 @@ Tests.AnchorsSimdB 8700 @on runnervmwuk1x
 # D374: the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1 (f5d9ffa → f0364d8,
 # katmai, --repeats 6), copied, not retyped: Tests.AnchorsVexSilG head 12000.0 ms ⇒ max(12000.0 × 3, 50).
 Tests.AnchorsVexSilG 36000 @on katmai
+# D374, runner, 2026-11-11: the line PR #174's kernel-delta job PRINTED on refusing its NEW unit (D252 §6; run
+# 42965975430, job 130343186046, the merged head 9e568e1: Tests.AnchorsVexSilG head 27500.0 ms, max(x 3, 50)), copied,
+# not retyped. The helm's XF condition (4), in the next PR of the stack.
+Tests.AnchorsVexSilG 82500 @on runnervmwuk1x
+# D375: the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1 (f0364d8 → 3248cf3,
+# katmai, --repeats 6), copied, not retyped: Tests.AnchorsVexSilH head 4285.0 ms ⇒ max(4285.0 × 3, 50).
+Tests.AnchorsVexSilH 12855 @on katmai

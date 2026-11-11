@@ -24911,3 +24911,68 @@ its K1 registration**.
 Re-measured at the real base, the head carrying #173's runner line (`86f7922`): `kernel_delta` rc 0 "delta gate: CLEAN",
 `ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands on the ms verdict), and the `ca713e5` row
 deleted in the same commit. If master moves before the merge, the row is re-recorded.
+
+
+## D375 — VEX.256 128-bit lane insert and extract (`vinserti128` `vinsertf128` `vextracti128` `vextractf128`), refereed by silicon (STATUS row 37, wave C1; predictions and price before any model work)
+
+**Why.** 4,719 instructions in the census residue at D374's head, all ymm: `vinserti128` 2,396 · `vextracti128` 1,412 ·
+`vextractf128` 638 · `vinsertf128` 273 (counted by EXTENSION, so nothing EVEX is pooled — D374 reading 4).
+**The referee, measured before anything was designed (P1, 2026-10-31, yukon, `oracle_availability.measure()` unmodified,
+controls in the SAME run).** All **8** encodings REFUSE at 88 of 88: each insert from xmm and from m128, each extract to
+xmm and to m128. `mov`, `vpxor (%rbx),%xmm2,%xmm0`, `vpaddw %ymm1,%ymm2,%ymm0` and legacy `movlps (%rbx),%xmm0` executed
+88/88. ⇒ **a silicon wave, with a store, so D371's expected-buffer frame.**
+**The model (four VEX constructors; the integer and FP spellings are one function at two opcodes, a `fp` flag that only
+the mnemonic reads).** SDM Vol. 2C, VINSERTI128/VINSERTF128 and VEXTRACTI128/VEXTRACTF128, VEX.256 only (VEX.L = 0 is #UD):
+- `vexins128 fp dst src1 src imm` — DEST := SRC1 with the 128-bit lane `imm[0]` replaced by `src`'s low 128 bits.
+- `vexins128m fp dst src1 ea imm` — the same with the 16 bytes at `a`, no alignment check.
+- `vexext128 fp dst src imm` — DEST[127:0] := SRC's lane `imm[0]`; DEST[255:128] := 0 (a VEX.128 register write).
+- `vexext128m fp ea src imm` — the 16 bytes at `a` := SRC's lane `imm[0]`; no register written.
+`imm[7:1]` are ignored.
+**Predictions (each wrong if the named reading differs):**
+1. **Silicon.** Every row agrees on every processor read, on both vendors, each named by the processor; every memory row at
+   an odd offset as well as an aligned one; the store rows read the whole 64-byte buffer back against an expected buffer.
+2. **Generator, before any processor.** Named wrong rules each refused on a named row: (a) `imm` read as two bits (bit 1
+   selecting); (b) an extract to xmm that leaves YMM3[255:128]; (c) an insert into the wrong lane; (d) a store that
+   writes 32 bytes. Rows carry `imm` ∈ {0, 1, 2, 3, 0xfe, 0xff}, so the ignored bits are read.
+3. **Model.** Four constructors under `Op.vex`, all rows pinned by `decide` in a NEW metered unit. **Red backwards:**
+   (a)'s mutant reds exactly the rows whose `imm` has bit 1 set and bit 0 differs from it; (d)'s reds exactly the store
+   rows.
+4. **Census.** The silicon column rises by 4,719 and nothing else moves.
+**Price.** One silicon wave (two vendors), one generator, one `.S`, D371's probe against new rows, four constructors, one
+metered anchor unit, one census regeneration. Stacked on D374 (`f0364d8`).
+**Readings (2026-10-31, `paris/d375-lane128`):**
+1. **HELD** on both vendors, hwprobe run 41148735460 at `812bc3f`: AMD EPYC 9V74 (`ubuntu-latest`) and Intel Core i7-8700B
+   (`macos-15-intel`), each `rows 288 disagreements 0`. On each leg `--plant` reds exactly `vinserti128_r_i1_c0`,
+   `--plant-hi` exactly `vextracti128_r_i1_c0`, `--plant-mem` exactly `vextracti128_m_i1_c0_u` (a byte just past the
+   sixteen stored), and `--plant-op` refuses `x_vinserti128_r_i0` (rc 2).
+2. **HELD.** 288 rows over 48 functions; every row's rule equals its byte-list re-derivation; the declared bytes are the
+   SDM VEX derivation and equal clang's for all 48. `--reach`: (a) 144 · (b) 48 · (c) 144 · (d) 96 rows.
+3. **HELD, with the wording of (a) corrected.** Four constructors; `Tests/AnchorsVexSilH.lean` pins all 288 rows in 48
+   theorems, plus memory-frame theorems for the three non-store forms; `saltbuild EXIT=0`, 0 tagged errors, 0 warnings in
+   the unit. Red backwards on the unit: an insert that reads `imm[1]` reds exactly the six register-insert theorems at imm
+   1, 2 and FEH (both spellings); a store of 32 bytes reds exactly the twelve store theorems. ⚠️ The prediction said
+   (a) would red the rows "whose imm has bit 1 set and bit 0 differs" (2 and FEH). The mutant differs wherever bit 1 ≠
+   bit 0, so imm 1 is in its reach too. The run agrees with that, and the prediction's wording was wrong.
+4. **HELD exactly, on the second regeneration.** Silicon **+4,719** (`vinserti128` 2,396 · `vextracti128` 1,412 ·
+   `vextractf128` 638 · `vinsertf128` 273), its memory sub-column +3,108, nothing else moved. ⚠️ **The first regeneration
+   read +3,808 with both FP spellings at 0.** The census credits a `siliconTable` row at `%ymm` only when its note
+   DECLARES `VEX.256` (D345's rule), and the two FP rows' notes said only "VINSERTI128's function at the FP opcode". Both
+   now begin "VEX.256 only:", as the integer rows did. The census was right and my notes were incomplete.
+**K1 (2026-10-31, katmai, `f0364d8 → 3248cf3`, 6 repeats).** Both arms refuse exactly the NEW unit and nothing else:
+`kernel_delta` reads `Tests.AnchorsVexSilH` at 4,285.0 ms ⇒ `Tests.AnchorsVexSilH 12855 @on katmai`; `ku_delta` (A′)
+reads 1,977,574 unfoldings ⇒ `Tests.AnchorsVexSilH @ku 1977574`; both registered as printed. All 53 existing units are
+within their allowances (`Tests.Coverage` +350 against 2,944.8).
+⚠️ **Re-carry note (2026-11-05).** The figure check was re-run at the shipped tree (`docs/DEMAND-CENSUS.md.json`, D374's `f28ee84`
+against this branch). Result 4 holds as written: silicon **+4,719**, memory sub-column **+3,108**, and no other column moved.
+**Off-ref shas, declared:** prediction 1's hwprobe run ran at `812bc3f`, which is the probe step `85d950f` on this branch; its
+files (`hwprobe.yml`, `hwprobe/README.md`, `vexsilh_ops.S`) are blob-identical there and at this tip. K1's base `f0364d8` is
+D374's pre-re-carry model step; the shipped-base kernel reading is the K2 row.
+**K2 at the shipped base (2026-11-05, katmai, `kernel_delta.py --base f28ee84 --head 04f6b5c --repeats 6`, both arms):** ms delta
+gate CLEAN, ARM A′ CLEAN, so the row lands on the ms verdict (D251). `X86.Syntax` +24.0 (±7.5, budget 142.8). The NEW
+`Tests.AnchorsVexSilH` reads 4,230 ms against its 12,855 @on katmai and **1,977,574 ku, exactly its K1 registration**.
+
+**Re-key K2 (2026-11-11, katmai, `cfd1ede → a5a9a44`, 12 repeats), applied before this entry's PR merges.** This entry's K2 row
+(`f28ee84 → 04f6b5c`) was keyed to #174's pre-merge head, which is on no step of master's chain once #174 merged at `cfd1ede`.
+Re-measured at the real base, the head carrying #174's runner line (`a5a9a44`): `kernel_delta` rc 0 "delta gate: CLEAN",
+`ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands on the ms verdict), and the `f28ee84` row
+deleted in the same commit. If master moves before the merge, the row is re-recorded.
