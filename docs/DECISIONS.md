@@ -25180,3 +25180,111 @@ five, base and head alike. **Off-ref shas, declared:** K1's `cbc52e8 → e09965c
 Re-measured at the real base, the head carrying #178's runner line (`678661d`): `kernel_delta` rc 0 "delta gate: CLEAN",
 `ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands on the ms verdict), and the `d7f3e13` row
 deleted in the same commit. If master moves before the merge, the row is re-recorded.
+
+## D384 — wave E: `psubsw` · `pavgw` · `pmuldq` and their VEX twins, refereed by silicon (STATUS row 44; DESIGN ONLY, predictions and price before any model work)
+
+**Why.** Row 44 named the next three packed kinds the census leaves unmodelled. Each is the mirror of a kind the model
+has: `psubsw` of `.addsw` (signed saturating word subtract), `pavgw` of `.avgb` (D373, the rounded unsigned average at
+word width), and `pmuldq` the SIGNED twin of `.muludq` (the 64-bit product of the even signed dwords).
+**The census, derived by script from master's `docs/DEMAND-CENSUS.md.json` (`cbf075d`, after master's EVEX-register rule, x86lean #152), never typed.**
+D379's head carries the pre-#152 bucketing, where `%ymm16–31` and `%xmm16–31` were counted as VEX. None of the stack
+between master and D379 credits these six names, so master's buckets are the right base. Over `miss_by_ext`, the six
+names number 5,280 at both heads, split as follows:
+```
+  bucket              psubsw  pavgw  pmuldq | vpsubsw  vpavgw  vpmuldq | in scope
+  SSE-legacy (xmm)     1,185  1,114   1,079 |                          |   3,378
+  VEX-128                                   |      32     249        4 |     285
+  AVX2/AVX (ymm)                            |     306     314       44 |     664
+  ---- out of scope: MMX (mm) 196 + 172 = 368 · AVX-512 (zmm/k) 515 + 70 = 585
+                                                              IN SCOPE = 4,327
+```
+⚠️ **Row 44 read 4,404, at D379's head.** The 77-form difference is master's EVEX-register rule (#152): `vpsubsw` loses 25 VEX-128 and 48 ymm
+spellings to AVX-512, and `vpavgw` loses 2 of each. Both figures are right for the census they were read from.
+By column (in scope): dav1d 926 (xmm 408 · VEX-128 53 · ymm 465) · ffmpeg 780 (567 · 163 · 50) · vlc-video_chroma 384
+(384 · 0 · 0) · vpx 2,054 (1,901 · 9 · 144) · x264 183 (118 · 60 · 5).
+**The referee (P1, 2026-10-31 23:5x, yukon, `oracle_availability.measure()` unmodified, 88 pre-states, controls in the
+SAME run).** All 9 encodings (legacy reg, VEX.128 reg and VEX.256 reg of each name) REFUSE at 88 of 88, while `mov`,
+`vpaddw` (ymm) and `vpxor` EXECUTE 88/88 ⇒ **silicon**, in D371's frame.
+**The model (no new constructor).** Three new `VBinKind`s, `.subsw`, `.avgw` and `.muldq`, each with a lane function
+next to its mirror's. All three are added to `vexSilTaken` and `vexSilMemTaken`, so their legacy, VEX.128 and VEX.256
+register and memory forms go through the constructors D374 and D379 already use.
+**Predictions (each wrong if the named reading differs):**
+1. **Silicon.** Every generated row agrees on both vendors (an AMD leg and an Intel leg), with each source seeded so
+   that `psubsw` meets both saturation bounds (−32768 − 1 and 32767 − (−1)), `pavgw` meets 0xFFFF + 0xFFFF (the
+   17-bit carry before the shift), and `pmuldq` meets a negative dword in each even lane with garbage in the odd lanes.
+2. **Generator, before any processor.** Named wrong rules are each refused on a named row: (a) `psubsw` WRAPPING
+   instead of saturating, (b) `pavgw` truncating instead of rounding (no `+1`), (c) `pavgw` losing the carry (a
+   16-bit sum), (d) `pmuldq` zero-extending (`.muludq`'s rule), (e) `pmuldq` reading the ODD dwords, (f) a VEX.128 form
+   keeping YMM bits 255:128, (g) a legacy form zeroing them.
+3. **Model.** Three kinds, every row pinned by `decide` in a NEW metered unit. A wrapping-`subsw` mutant reds exactly the
+   `psubsw` theorems, and a zero-extending `muldq` mutant reds exactly the `pmuldq` theorems.
+4. **Census.** Silicon rises by **4,327 exactly**, column by column as above (by bucket: xmm 3,378 · VEX-128 285 · ymm
+   664). The 368 MMX and 585 AVX-512 spellings stay in the residue. `covered`, `vex` and `total` do not move. Wrong if
+   any in-scope spelling is not credited, or any out-of-scope one is. ⚠️ This prediction is written against master's
+   bucketing. Read at a stack head that does not yet carry #152, the ymm and VEX-128 figures will differ by the 77
+   above. The reading names its head.
+**Price.** One silicon wave in D374's frame (one generator over 3 names × legacy/VEX.128/VEX.256 × register/memory),
+three kinds, two predicate lines, one metered unit, one census regeneration, one K1. Stacked on D379 (`0875143`).
+Smaller than D379, which also needed six new constructors for a unary operation.
+
+**Readings (2026-11-01, `paris/d384-wave-e`):**
+1. **HELD on both vendors.** hwprobe run 41338494131 at `34ceb05` landed `ubuntu-latest` on an **AMD EPYC 7763** and
+   `macos-15-intel` on an **Intel i7-8700B**. Each leg read set C `rows 108 disagreements 0` and vexsilk `rows 153
+   disagreements 0`. On each leg every control fired as designed: the set-C plant reds exactly `psubsw_xx_edge0` and its
+   bad op refuses (rc 2); the vexsilk plant reds `vpsubsw256_r_p0`, `--plant-hi` reds `vpsubsw128_r_edge0`, and its bad op
+   refuses. The seeding reaches every edge prediction 1 names (the generators' EDGES and UNIFORM rows).
+2. **HELD for the generators, with one limit.** Set C's `--reach`: (a) wrapping `psubsw` disagrees on 28 of 36 rows, (b) a
+   truncating `pavgw` on 26, (c) a 16-bit sum on 32, (d) a zero-extending `pmuldq` on 34, (e) the odd dwords on 28.
+   `mk_vexsilk_rows --reach`: (f) VEX.128 keeping YMM3[255:128] on 90 of 153, the low lane only on 60, swapped operands
+   on 43, an aligned read on 36. ⚠️ **(g) a legacy form zeroing YMM bits 255:128 is NOT refereed by silicon.**
+   `simda_probe.c` reads XMM only, as it did for sets A and B. It is the model's rule (`setXmm`), the same for every
+   legacy `vbin`. The SDM-derived bytes equal clang's for all 18 forms; the assembled `_at` bytes were read back from the
+   object, not taken from the derivation.
+3. **HELD.** Three kinds; 261 rows pinned by `decide` in one new unit `Tests/AnchorsVexSilK` (two generated blocks:
+   `mk_simda_anchors --set-c`, 108 rows; `mk_vexsilk_anchors`, 153 rows). A wrapping-`subsw` mutant reds exactly the six
+   `psubsw`/`vpsubsw` theorems, and a zero-extending `muldq` mutant reds exactly the six `pmuldq`/`vpmuldq` theorems.
+   The file is restored byte-identical after each (`cmp`).
+4. **NOT HELD as written; its own caveat HELD exactly. Silicon +4,404, not +4,327** (dav1d +1,003 · ffmpeg +780 ·
+   vlc-video_chroma +384 · vpx +2,054 · x264 +183). `covered`, `vex` and `total` do not move in any column. The census
+   was regenerated at THIS branch's head, which is stacked on D379 and does not carry #152. So `%ymm16–31`/`%xmm16–31`
+   spellings still bucket as VEX here, and the prediction's ⚠️ named this difference as 77 before the reading. It is 77
+   to the form, and all of it is in dav1d (926 + 77 = 1,003), the only column #152 moved for these names. The 368 MMX
+   and the AVX-512 spellings are not credited. When the stack is rebased onto master the figure should read 4,327; that
+   rebase's census is the check.
+**K1 (2026-11-01, katmai, `0875143 → 0710c63`, 6 repeats).** Both arms refuse exactly the NEW unit and nothing else:
+`kernel_delta` reads `Tests.AnchorsVexSilK` at 5,195.0 ms ⇒ `Tests.AnchorsVexSilK 15585 @on katmai`; `ku_delta` (A′)
+reads 2,410,985 unfoldings ⇒ `Tests.AnchorsVexSilK @ku 2410985`; both registered as printed. No existing row is
+refused or UNMEASURABLE in either arm.
+
+⚠️ **Re-carry reading (2026-11-06, applied before this entry's PR): the check Result 4 named is MET.** At the shipped tree (this
+branch re-carried onto D379 `a237ea8`, which carries master's #152), `docs/DEMAND-CENSUS.md.json` against `a237ea8` reads
+silicon **+4,327**: dav1d **926** · ffmpeg 780 · vlc-video_chroma 384 · vpx 2,054 · x264 183, and the pooled asm figure
++4,327. That is the prediction as written, and dav1d is 77 below the 11-01 reading, as the ⚠️ said. `silicon_mem` and
+`silicon_mem_modelled` rise by dav1d 15 · ffmpeg 95 · vpx 440 · x264 35. `covered`, `vex` and `total` move in no column.
+`demand_census.py --check` is rc 0 at this tip (build 81 jobs, 0 tagged errors), so the figure is a regeneration and not a
+merged text. K1's shas are the 11-01 base's; the shipped-base kernel reading is the K2 row.
+**K2 at the shipped base (2026-11-07, katmai, `kernel_delta.py --base a237ea8 --head 78e35a6 --repeats 12`, both arms).** The
+measured shas are D379's and this branch's tips before D379's record: since then D379 gained `d4b3e0d` `d557e53` `1f14bfe` and this
+branch was re-carried onto `1f14bfe` (`1683c92` before this commit). `a237ea8 → 1f14bfe` and `78e35a6 → 1683c92` each change only
+`docs/DECISIONS.md` and the ledger, so the measured `.lean` trees, and `docs/DEMAND-CENSUS.md.json` that the re-carry reading above
+cites at `a237ea8`, are the shipped ones. **ms delta gate CLEAN** (12 repeats, chosen for `Tests.Vectors`'s bimodality) and **ARM A′
+CLEAN**, so the row lands on the ms verdict (D251). `Tests.Vectors` 14.7 → 11.6 (−3.1, ±5.0, budget 15.2), `X86.Syntax` −1.0 (budget
+160.7), `X86.Semantics` +0.0, `Tests.Coverage` +300 (budget 3,031.2). The NEW `Tests.AnchorsVexSilK` reads 5,205.0 ms against its
+15,585 @on katmai and **2,410,985 ku in A′, exactly its K1 registration**. **Off-ref shas, declared:** K1's `0875143 → 0710c63` (the
+11-01 base); K2's `a237ea8` and `78e35a6`.
+**Reading 3, addendum (2026-11-07, on paper's #180 NIT): a third mutant, for `pavgw`, run red-backwards at `a30c4f2`.** Prediction 3
+named mutants for `.subsw` and `.muldq` only, so `pavgw`'s rounding was refuted against the generator (reading 2's (b), (c)) and never
+against the model. (C) `.avgw` without the `+1` (`(x.setWidth 17 + y.setWidth 17).extractLsb' 1 16`): rc 1, 6 of the unit's 18
+theorems red, **exactly the 6 `pavgw` pins** (legacy `xx`/`xm`, VEX.128 and VEX.256 `r`/`m`); the 12 `psubsw`/`pmuldq` pins stay
+green and only this unit errors. `X86/Semantics.lean` restored and `cmp`-checked, then the unmutated control built rc 0 with 0
+tagged errors (yukon, `lean_route.py build Tests.AnchorsVexSilK` through saltbuild).
+
+**Re-key K2 (2026-11-12, katmai, `b1ac171 → 9038ecf`, 12 repeats), applied before this entry's PR merges.** This entry's K2 row
+(`a237ea8 → 78e35a6`) was keyed to #179's pre-merge head, which is on no step of master's chain once #179 merged at `b1ac171`.
+Re-measured at the real base, the head carrying #179's runner line (`9038ecf`): **`kernel_delta` rc 3 UNMEASURABLE on ONE unit**,
+`Tests.Vectors` +6.6 ms (band ±4.3, budget 10.8, so not OVER); every other unit `ok`, and the NEW `Tests.AnchorsVexSilK` `NEW ok`
+against its own katmai ceiling. `ku_delta` A′ rc 0 CLEAN, and it reads `Tests.Vectors` at **197 → 197 unfoldings (Δku 0)**: the
+commit does not change that unit's kernel work, so the +6.6 ms is timing, not cost. So by D251 the step **lands on the A′ verdict**
+(landed_on {katmai, a-prime, ms_rc 3}), the shape the helm's 11-11 15:37 widening of the stack's merge rule admits under its
+(i) and (ii); recorded with `--record --readings --a-prime`, and the `a237ea8` row deleted in the same commit. If master moves
+before the merge, the row is re-recorded.

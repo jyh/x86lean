@@ -533,6 +533,10 @@ SILICON_PATHS = (
     ("mk_vexsili_rows.py", "vexsilf_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
     # D379: pabs and pmulld, also `x_*` (`x_[v]pabs{b,w,d}[y]_{r,m}`, `x_[v]pmulld[y]_{r,m}`, disjoint from the paths above).
     ("mk_vexsilj_rows.py", "vexsilf_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
+    # D384 (wave E): set C's legacy forms (`v_{psubsw,pavgw,pmuldq}_{xx,xm}`, disjoint from sets A and B) and their VEX
+    # twins (`x_vp{subsw,avgw,muldq}{128,256}_{r,m}`, disjoint from the paths above).
+    ("mk_simda_rows.py --set-c", "simda_probe.c", "v_", r'^  \{"[^"]+", (v_\w+), \{'),
+    ("mk_vexsilk_rows.py", "vexsile_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
 )
 
 

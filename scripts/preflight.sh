@@ -102,6 +102,11 @@ else printf "  ⛔ FAIL hwprobe/mk_vexsili_anchors --check\n"; rc=1; fi
 # D379: the pabs / pmulld pins.
 if python3 hwprobe/mk_vexsilj_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsilj_anchors --check\n"
 else printf "  ⛔ FAIL hwprobe/mk_vexsilj_anchors --check\n"; rc=1; fi
+# D384: wave E's pins (set C and its VEX twins, one unit).
+if python3 hwprobe/mk_simda_anchors.py --set-c --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_simda_anchors --set-c --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_simda_anchors --set-c --check\n"; rc=1; fi
+if python3 hwprobe/mk_vexsilk_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsilk_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsilk_anchors --check\n"; rc=1; fi
 # ⛔⛔ ADDED 2026-09-20 (paris): `mk_anchors --check` proves Tests/Anchors.lean matches the
 #   GENERATOR byte for byte. It proves NOTHING about whether the generator's PINNED set is still
 #   CORRECT -- PINNED is DECLARED, and its reach half is measured by a command nothing ran.
