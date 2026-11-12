@@ -25278,3 +25278,13 @@ against the model. (C) `.avgw` without the `+1` (`(x.setWidth 17 + y.setWidth 17
 theorems red, **exactly the 6 `pavgw` pins** (legacy `xx`/`xm`, VEX.128 and VEX.256 `r`/`m`); the 12 `psubsw`/`pmuldq` pins stay
 green and only this unit errors. `X86/Semantics.lean` restored and `cmp`-checked, then the unmutated control built rc 0 with 0
 tagged errors (yukon, `lean_route.py build Tests.AnchorsVexSilK` through saltbuild).
+
+**Re-key K2 (2026-11-12, katmai, `b1ac171 → 9038ecf`, 12 repeats), applied before this entry's PR merges.** This entry's K2 row
+(`a237ea8 → 78e35a6`) was keyed to #179's pre-merge head, which is on no step of master's chain once #179 merged at `b1ac171`.
+Re-measured at the real base, the head carrying #179's runner line (`9038ecf`): **`kernel_delta` rc 3 UNMEASURABLE on ONE unit**,
+`Tests.Vectors` +6.6 ms (band ±4.3, budget 10.8, so not OVER); every other unit `ok`, and the NEW `Tests.AnchorsVexSilK` `NEW ok`
+against its own katmai ceiling. `ku_delta` A′ rc 0 CLEAN, and it reads `Tests.Vectors` at **197 → 197 unfoldings (Δku 0)**: the
+commit does not change that unit's kernel work, so the +6.6 ms is timing, not cost. So by D251 the step **lands on the A′ verdict**
+(landed_on {katmai, a-prime, ms_rc 3}), the shape the helm's 11-11 15:37 widening of the stack's merge rule admits under its
+(i) and (ii); recorded with `--record --readings --a-prime`, and the `a237ea8` row deleted in the same commit. If master moves
+before the merge, the row is re-recorded.
