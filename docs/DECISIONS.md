@@ -25068,3 +25068,115 @@ unit's kernel work, so the +7.1 ms is timing, not cost. So by D251
 the step **lands on the A′ verdict** (landed_on {katmai, a-prime, ms_rc 3}), as #176's row `bb8d553` did; recorded with
 `--record --readings --a-prime`, and the `2d26935` row deleted in the same commit. If master moves before the merge, the row is
 re-recorded.
+
+## D379 — `pabs{b,w,d}` · `pmulld` and their VEX twins, refereed by silicon (STATUS row 35's last two names, wave D; DESIGN ONLY, predictions and price before any model work)
+
+**Why.** Row 35 named `vpabsw` (2,001) and `vpmulld` (1,794) as the in-scope residue with NO legacy twin in the model.
+The census JSON at D376's head (`docs/DEMAND-CENSUS.md.json`, `miss_all`) sizes the whole family: `pabsb` 44 · `pabsw`
+1,307 · `pabsd` 224 · `vpabsb` 38 · `vpabsw` 2,001 · `vpabsd` 57 · `pmulld` 534 · `vpmulld` 1,794 = **5,999** by name.
+⚠️ A name's count pools its spellings (register/memory; xmm/ymm), and the model is credited only for the spellings it
+implements. The split is read at the census, never assumed (prediction 4).
+**The referee, measured before anything was designed (P1, 2026-10-31, yukon, `oracle_availability.measure()` unmodified,
+88 pre-states, controls in the SAME run).** All **10** encodings REFUSE at 88 of 88: `pabsb` `pabsw` `pabsd` `pmulld`
+(legacy, `66 0f 38 1c/1d/1e/40`), `vpabsb` `vpabsw` `vpabsd` `vpmulld` (VEX.128) and `vpabsw`/`vpmulld` at VEX.256.
+`movl %ecx,%eax`, `vpaddw %ymm1,%ymm2,%ymm0` and `vpxor %xmm1,%xmm2,%xmm0` EXECUTE 88/88. ⚠️ A fourth control,
+`pmaxsw %xmm1,%xmm0`, REFUSED 88/88. That is consistent with its own status (a D335 kind, silicon-refereed), so it was
+never an execute control and is not counted as one. ⇒ **silicon**, on hwprobe's pattern (D371's frame).
+**The model (no new arithmetic beyond one lane function).**
+- `pmulld`: ONE new `VBinKind`, `.mulld` (the low 32 bits of each 32×32 lane product), beside `.mullw`. Its legacy form
+  and its VEX.128/VEX.256 twins come through the constructors D374 used for eleven kinds, with no new constructor.
+- `pabs{b,w,d}`: a UNARY lanewise operation, which no existing kind is. New constructors: `vabs (w) (dst src)` and
+  `vabsm (w) (dst ea)` (legacy, through `setXmm`: YMM bits 255:128 PRESERVED; the memory form is m128 and, as every
+  legacy SSE m128 operand here (`vbinm`'s rule), 16-byte ALIGNED or #GP(0)), and their VEX twins `vexabs`/`vexabsm` (VEX.128, through
+  `setXmmVex128`) and `vexabs256`/`vexabsm256`, whose memory forms carry NO alignment check (VEX Exception Type 4). `w` is the lane width (b/w/d). The lane function is the two's-complement
+  absolute value, which WRAPS: |−2^(n−1)| = 2^(n−1), the same bit pattern (SDM: "the unsigned result").
+**Predictions (each wrong if the named reading differs):**
+1. **Silicon.** Every row agrees on both vendors (AMD + Intel hwprobe legs), with each row's operands seeded so that every
+   lane width meets its minimum value (−128, −32768, −2^31) and zero.
+2. **Generator, before any processor.** Named wrong rules are each refused on a named row: (a) a SATURATING abs (|min| =
+   max), (b) `pmulld` keeping the HIGH 32 bits, (c) a VEX.128 form keeping YMM bits 255:128, (d) a legacy form zeroing
+   them, (e) an unaligned legacy memory row accepted (the probe cannot read a #GP as a value, so this one is the model's
+   `decide` row and not a silicon row), and (f) `vpabs` at VEX.256 computing only the low lane.
+3. **Model.** One kind and six constructors, every row pinned by `decide` in a NEW metered unit. A saturating-abs mutant
+   reds exactly the abs theorems, and a high-half `mulld` mutant reds exactly the `pmulld` theorems.
+4. **Census.** Silicon rises by the spellings implemented, at most 5,999. The figure is predicted per spelling from the
+   census's own `miss` breakdown before the model is built, and the residue it leaves is named.
+**Price.** One silicon wave in D371's frame (one generator over 10 functions × register/memory), one kind, six
+constructors, one metered unit, one census regeneration, one K1. Stacked on D376 (`7c5221b`). Smaller arithmetic than
+D375. The cost is the six constructors' plumbing (operands, lock, mnemonic, the memory-destination classifier,
+Coverage rows), each a place D374–D376 already show the shape of.
+
+**Readings (2026-10-31, `paris/d379-abs-mulld`; steps (a) and (c) only, the model is not built yet):**
+1. **HELD on both vendors, by two runs.** hwprobe run 41270561289 at `cbc52e8` (the push) landed BOTH legs on Intel: the
+   i7-8700B (`macos-15-intel`) and an Intel Xeon Platinum 8573C (`ubuntu-latest`), each `rows 480 disagreements 0`. The
+   prediction names two VENDORS, so that run alone did not hold it, and `ubuntu-latest` is not an AMD guarantee. A
+   `workflow_dispatch` re-run, 41270709768 at the same sha, landed `ubuntu-latest` on an AMD EPYC 9V45 (`rows 480
+   disagreements 0`) and the i7-8700B again. On every leg of both runs, `--plant` reds exactly `vpabsw_r_c0_o0`,
+   `--plant-hi` exactly `vpmulld_r_c0_o0` and `--plant-mem` exactly `pabsw_m_c0_o0` (YMM3 equal, the buffer not:
+   the probe compares it), and `--plant-op` refuses `x_pabsb_r` (rc 2). The real readings show the wrap directly:
+   `vpabsw` of a word `8000` reads `8000` on silicon.
+2. **HELD for the generator.** `hwprobe/mk_vexsilj_rows.py`: 480 rows over 24 functions (the 10 encodings P1 probed,
+   plus the 14 other register/memory × width spellings of the same two operations). Every row's rule equals its
+   byte-list re-derivation, and the declared bytes equal clang's for all 24. `--reach`: (a) 360, every abs row, because
+   the seeding puts each width's minimum in every source · (b) 120, every `pmulld` row · (c) 192, every VEX.128 row ·
+   (d) 120, every legacy row · (f) 168, every VEX.256 row. (e) is the model's rule, not the generator's (see 2).
+   `hwprobe/vexsilj_ops.S` is GENERATED from the same OPS table, and its assembled bytes equal the declared ones 24/24.
+4. **The number, written 2026-10-31 after the model and BEFORE the census was regenerated:** every spelling the eight
+   names take in the census (register and memory; xmm, and ymm through the VEX notes' `VEX.256`) is implemented, so
+   silicon rises by **5,999 exactly**, column by column as `miss_all` reads at D376's head (dav1d 2,856 · ffmpeg 513 ·
+   x264 1,855 · vpx 752 · glibc 21 · coreutils 2; derived from the JSON by a script, after a hand-typed dav1d of
+   1,563 was caught against it before the census ran), and NONE of the eight names is left in any column's residue. Wrong if
+   any spelling is not credited (an EVEX or a form the notes do not reach).
+   **Reading: NOT HELD as written: silicon +4,862, not +5,999** (coreutils +1 · glibc +11 · dav1d +1,845 · ffmpeg
+   +500 · vpx +752 · x264 +1,753). Nothing else moves (`covered`, `vex` and `total` unchanged in every column), and
+   COVERAGE.md gains exactly the eight rows. **The 1,137 are AVX-512, out of scope:** each name's uncredited rows
+   reappear under the census's `<name> (vector operand)` key, its `AVX-512 (zmm/k)` bucket (any operand naming `%zmm`
+   or `%k0–7`, `EXT_SCOPE` False), and the drops sum to exactly 1,137 (dav1d 1,011 · x264 102 · ffmpeg 13 · glibc 10
+   · coreutils 1). A second method agrees on the population and not on the count: dav1d's own disassembly gives EVEX
+   by register class `vpmulld` 855 and `vpabsw` 179, against the census's 844 and 167. ⚠️ **The difference is a
+   census limit, recorded and not repaired here:** an EVEX form on `%ymm16–31` with no mask names no `%zmm` and no `%k`,
+   so the census buckets it as ymm and CREDITS it as VEX.256, while the model has 16 vector registers. Here that is 23
+   rows in two dav1d names. It predates this wave and touches every VEX.256 credit, so it is queued as its own item.
+   ⚠️ **And the miss is mine, for the SECOND time:** D374's prediction 4 failed the same way (`miss_all` pools
+   AVX-512 spellings under the plain name). This prediction was written from `miss_all` by name, after a bank that
+   recorded that failure. The rule now in the memory bank: predict a silicon delta from the census's per-ext buckets,
+   never from a name's pooled count.
+**K1 (2026-11-01, katmai, `cbc52e8 → e09965c`, 6 repeats).** Both arms refuse exactly the NEW unit and nothing else:
+`kernel_delta` reads `Tests.AnchorsVexSilJ` at 13,450.0 ms ⇒ `Tests.AnchorsVexSilJ 40350 @on katmai`; `ku_delta` (A′)
+reads 5,084,765 unfoldings ⇒ `Tests.AnchorsVexSilJ @ku 5084765`; both registered as printed. Every existing row (55) is
+within its allowance (`Tests.Coverage` +450 against 2,995.2); the retired absolute table's five `over/over` rows are the
+same five as at D375's and D376's K1s. This branch carries D376's registration but not D374's or D375's (the stack's
+recorded append conflicts at rebase).
+⚠️ **Re-carry correction (2026-11-06, the figure class paper found on #168/#169, applied before this entry's PR).** Result 4 was
+read at its 11-01 base. **At the shipped tree** (`docs/DEMAND-CENSUS.md.json`, D376's `8904234` against this branch) silicon rises
+**+4,826**, not +4,862: coreutils 1 · glibc 11 · dav1d **1,822** · ffmpeg **492** · vpx 752 · x264 **1,748**, and the pooled asm
+figure **+4,814**. The three bold columns are 23, 8 and 5 lower than the 11-01 reading, and why is not measured here. As before,
+`covered`, `vex` and `total` move in no column. The 1,137 AVX-512 split and its second method are the 11-01 reading and are not
+re-measured. The registry sentence above is discharged: D374's, D375's and D376's units are all registered at this tree.
+K1's shas are the 11-01 base's; the shipped-base kernel reading is the K2 row. Predictions and the 11-01 Results are left as written.
+**K2 at the shipped base (2026-11-06/07, katmai, `kernel_delta.py --base d7f3e13 --head 0fedfd4 --repeats 12`, both arms).** The
+measured shas are the pre-correction tips: `d7f3e13 → 8904234` (D376's base) and `0fedfd4 → a237ea8` (this branch) each differ in
+`docs/DECISIONS.md` alone, so the measured `.lean` trees are the shipped ones. **ms delta gate CLEAN** (12 repeats, run directly at
+12 after D376's 6-repeat UNMEASURABLE on `Tests.Vectors`) and **ARM A′ CLEAN**, so the row lands on the ms verdict (D251).
+`Tests.Vectors` 11.1 → 10.5 (−0.6, ±5.2, budget 11.4), `X86.Syntax` 819.0 → 857.0 (+38.0, ±6.4, budget 153.2), `X86.Semantics`
++1.1 (budget 8.9), `Tests.Coverage` +500 (budget 2,995.2). The NEW `Tests.AnchorsVexSilJ` reads 13,400.0 ms against its 40,350
+@on katmai and **5,084,765 ku in A′, exactly its K1 registration**. The retired absolute table's five `over/over` rows are the same
+five, base and head alike. **Off-ref shas, declared:** K1's `cbc52e8 → e09965c` (the 11-01 base); K2's `d7f3e13` and `0fedfd4`.
+**Reading 3, added 2026-11-07 on paper's #179 read (LOW 1); the Readings above went 1 → 2 → 4 and are left as written.**
+3. **HELD for both mutants, run red-backwards at `d557e53`** (yukon, `lean_route.py build Tests.AnchorsVexSilJ` through
+   saltbuild; `X86/Semantics.lean` mutated in place, then restored and `cmp`-checked against the original, then the
+   unmutated control built rc 0 with 0 tagged errors). The unit has 28 theorems: 4 frame lemmas, 18 `pabs` pins and 6
+   `pmulld` pins. (A) a SATURATING abs (`if (-y).msb then ~~~y else -y` in `vabsApply`, so the minimum maps to the
+   maximum): rc 1, 18 theorems red, **exactly the 18 `pabs` pins** (legacy, VEX.128 and VEX.256, register and memory),
+   and the 4 frame lemmas and 6 `pmulld` pins stay green. (B) a HIGH-HALF `pmulld` (`extractLsb' 32 32` of the 64-bit
+   product): rc 1, 6 theorems red, **exactly the 6 `pmulld` pins**. Each errored only in this unit.
+   **Prediction 2's (e) is NOT PINNED.** The unit carries no unaligned legacy memory row: its `vabsm` theorems are the
+   frame lemma and the aligned pins, so the model's alignment halt for `pabs` m128 has no `decide` receipt here, and
+   reading 2's "(see 2)" pointed at the prediction rather than at a reading. The one-row pin paper names is queued as its
+   own item rather than added here, because a `.lean` row would re-open this entry's K2.
+
+**Re-key K2 (2026-11-12, katmai, `ec1fc5d → 678661d`, 12 repeats), applied before this entry's PR merges.** This entry's K2 row
+(`d7f3e13 → 0fedfd4`) was keyed to #178's pre-merge head, which is on no step of master's chain once #178 merged at `ec1fc5d`.
+Re-measured at the real base, the head carrying #178's runner line (`678661d`): `kernel_delta` rc 0 "delta gate: CLEAN",
+`ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands on the ms verdict), and the `d7f3e13` row
+deleted in the same commit. If master moves before the merge, the row is re-recorded.
