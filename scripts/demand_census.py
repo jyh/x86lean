@@ -1985,7 +1985,7 @@ def selftest():
                          ("andnl",   "BMI1",             (False, "silicon")),
                          ("adcxq",   "ADX",              (True,  "mapped")),
                          # ⚠️ D379 moved `pmulld` from this arm's "unmapped" example into the silicon class; the
-                         # unmapped example is now `phaddw`, which no table names at the stack's top (D393 took pmuldq)
+                         # unmapped example is now `phaddw`, which no table names at the stack's top (pmuldq is mapped by a later wave of the stack)
                          ("phaddw",  "SSE-legacy (xmm)", (False, "unmapped")),
                          # D342 (a): a VEX-table mnemonic at VEX-128 is its own class; a VEX siliconTable
                          # mnemonic is silicon; a VEX spelling of neither is still out of scope
