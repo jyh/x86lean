@@ -529,6 +529,8 @@ SILICON_PATHS = (
     ("mk_vexsilg_rows.py", "vexsile_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
     # D375: the lane insert/extract, also `x_*` (`x_v{insert,extract}{i,f}128_{r,m}_i…`, disjoint from the paths above).
     ("mk_vexsilh_rows.py", "vexsilf_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
+    # D376: movntdqa and the VEX half-moves, also `x_*` (`x_movntdqa`, `x_vmov{h,l}p{s,d}_{ld,st}`, disjoint from the paths above).
+    ("mk_vexsili_rows.py", "vexsilf_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
 )
 
 

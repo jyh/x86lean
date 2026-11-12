@@ -80,6 +80,8 @@ SILICON_REFEREES = (
     ("D374", ("AMD EPYC 9V74", "Intel Core i7-8700B")),
     # D375: the VEX.256 lane insert/extract (hwprobe run 41148735460); both legs NAMED by their processor.
     ("D375", ("AMD EPYC 9V74", "Intel Core i7-8700B")),
+    # D376: movntdqa and the VEX.128 half-moves (hwprobe run 41150000436); both legs NAMED by their processor.
+    ("D376", ("AMD EPYC 9V74", "Intel Core i7-8700B")),
 )
 SILICON_PAIRS = "; ".join(" + ".join(rs) + " (" + d + ")" for d, rs in SILICON_REFEREES)
 SILICON_LABEL = ("silicon-refereed only (AMD + Intel hwprobe: " + SILICON_PAIRS
