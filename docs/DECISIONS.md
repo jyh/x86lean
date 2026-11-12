@@ -25174,3 +25174,9 @@ five, base and head alike. **Off-ref shas, declared:** K1's `cbc52e8 → e09965c
    frame lemma and the aligned pins, so the model's alignment halt for `pabs` m128 has no `decide` receipt here, and
    reading 2's "(see 2)" pointed at the prediction rather than at a reading. The one-row pin paper names is queued as its
    own item rather than added here, because a `.lean` row would re-open this entry's K2.
+
+**Re-key K2 (2026-11-12, katmai, `ec1fc5d → 678661d`, 12 repeats), applied before this entry's PR merges.** This entry's K2 row
+(`d7f3e13 → 0fedfd4`) was keyed to #178's pre-merge head, which is on no step of master's chain once #178 merged at `ec1fc5d`.
+Re-measured at the real base, the head carrying #178's runner line (`678661d`): `kernel_delta` rc 0 "delta gate: CLEAN",
+`ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands on the ms verdict), and the `d7f3e13` row
+deleted in the same commit. If master moves before the merge, the row is re-recorded.
