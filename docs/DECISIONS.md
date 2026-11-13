@@ -25512,3 +25512,8 @@ which the legacy forms already referee against x86isa. Stacked on D393 (`fc9f804
 1,043,936 unfoldings ⇒ `Tests.AnchorsVexSilM @ku 1043936`; both registered as printed (copied from the two logs, not retyped).
 No existing row is refused or UNMEASURABLE in either arm (the ms log's one REFUSED row is the new unit; A′ reports one
 finding). The measured head is `53299ce`; the tip that registers them changes only this file and the two registries.
+
+**K2 at the real base (2026-11-13, katmai, `2b9a1d8 → ac788af`, 12 repeats), before this entry's PR opens.** The K1 above was
+taken at D394's stacked base (D393's tip `fc9f804`); once D393 merged (#183, `2b9a1d8`), the carry (`ac788af`, with #183's runner
+line) was measured at the real base: `kernel_delta` rc 0 "delta gate: CLEAN", `ku_delta` A′ rc 0 CLEAN; recorded with
+`--record --readings --a-prime` (D251: lands on the ms verdict). If master moves before the merge, the row is re-recorded.
