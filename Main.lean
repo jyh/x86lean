@@ -56,6 +56,7 @@ LANE. Personal lane, public sources only.
 -/
 import X86
 import Tests.Vectors
+import Std.Data.HashMap
 
 open X86
 open X86.Tests
@@ -222,8 +223,12 @@ def parseKV (s : String) : List (String × String) :=
     | [k, v] => some (k, v)
     | _ => none
 
+/-- ⭐ Row 130 (systems' CI census, 2026-11-06): the records accumulate in an
+`Array` and the result is `toList`.  The old body grew a `List` by `out ++ [rec]`,
+which copies the whole prefix at every record: quadratic in the case count, and
+the case count only grows.  The order of the returned list is unchanged. -/
 def parseRecords (lines : List String) : List Rec := Id.run do
-  let mut out : List Rec := []
+  let mut out : Array Rec := #[]
   let mut cur : Option (String × String) := none
   let mut post : List (String × String) := []
   let mut und : List String := []
@@ -231,7 +236,7 @@ def parseRecords (lines : List String) : List Rec := Id.run do
   for l in lines do
     if l.startsWith "CASE " then
       match cur with
-      | some (id, mn) => out := out ++ [{ id, mnemonic := mn, post, undef := und, leak }]
+      | some (id, mn) => out := out.push { id, mnemonic := mn, post, undef := und, leak }
       | none => pure ()
       let kv := parseKV (l.drop 5).toString
       cur := some ((kv.lookup "id").getD "?", (kv.lookup "mnemonic").getD "?")
@@ -244,9 +249,9 @@ def parseRecords (lines : List String) : List Rec := Id.run do
     else if l.startsWith "LEAK " then
       leak := (l.drop 5).trimAscii.toString == "1"
   match cur with
-  | some (id, mn) => out := out ++ [{ id, mnemonic := mn, post, undef := und, leak }]
+  | some (id, mn) => out := out.push { id, mnemonic := mn, post, undef := und, leak }
   | none => pure ()
-  return out
+  return out.toList
 
 /-- A disagreement, with its class. -/
 structure Disagreement where
@@ -601,7 +606,13 @@ structure Report where
   missing : Nat := 0
   details : List Disagreement := []
 
-def compareRecs (divs : List KnownDivergence) (as bs : List Rec) : Report := Id.run do
+/-- ⛔ THE REFERENCE, KEPT ON PURPOSE.  This is `compareRecs` as it stood until
+row 130: a linear `bs.find?` for every record of `as`, i.e. O(|as|·|bs|).  At
+n = 8 that was 95.5 % of a selftest arm's time (a 10 s `sample` of a live arm:
+7,359 of 7,706 main-thread samples in `List.find?` at `compareRecs`).  It stays
+because `compare-index-selftest` asserts that the indexed `compareRecs` renders
+BYTE-EQUAL to it, and a contract checked against a copy of itself is no check. -/
+def compareRecsListRef (divs : List KnownDivergence) (as bs : List Rec) : Report := Id.run do
   let mut r : Report := {}
   for a in as do
     r := { r with cases := r.cases + 1 }
@@ -622,6 +633,51 @@ def compareRecs (divs : List KnownDivergence) (as bs : List Rec) : Report := Id.
           unexplained := r.unexplained + unex.length
           details := r.details ++ ds }
   return r
+
+/-- The first record carrying each id, keyed by id.  ⭐ FIRST-MATCH, BECAUSE
+`List.find?` IS FIRST-MATCH: the insert is skipped when the id is already
+present, so a duplicate id resolves to the EARLIER record exactly as the linear
+search did.  The ids were unique when this landed: 0 duplicates in the
+105,424 cases of an `emit` run (n = 8, the row 130 census, 2026-11-06), and
+`compare-index-selftest` counts and prints the duplicates of the n = 4 set it
+reads (126,168 cases at master 1c4b114).  So the rule changes nothing now; it is
+what keeps the index result-identical if a duplicate ever appears.  The same
+selftest holds it with a duplicate-id fixture and a last-match mutant. -/
+def firstById (bs : List Rec) : Std.HashMap String Rec :=
+  bs.foldl (fun m b => if m.contains b.id then m else m.insert b.id b) {}
+
+/-- ⭐ Row 130: one hash lookup per record instead of a linear search, and the
+disagreements accumulate in an `Array` (the old `details ++ ds` copied the
+growing list at every disagreeing case).  The contract is `compareRecsListRef`'s
+output, byte for byte through `renderReport`; `compare-index-selftest` checks
+it over real model pairs. -/
+def compareRecsBy (idx : Std.HashMap String Rec) (divs : List KnownDivergence)
+    (as : List Rec) : Report := Id.run do
+  let mut r : Report := {}
+  let mut details : Array Disagreement := #[]
+  for a in as do
+    r := { r with cases := r.cases + 1 }
+    if a.leak then r := { r with leaks := r.leaks + 1 }
+    match idx.get? a.id with
+    | none => r := { r with missing := r.missing + 1 }
+    | some b =>
+      let ds := classify divs a b
+      if ds.isEmpty then r := { r with matched := r.matched + 1 }
+      else
+        let expl := ds.filter (fun d => d.cls == "undefined-region")
+        let dvg := ds.filter (fun d => d.cls == "oracle-divergence")
+        let unex := ds.filter (fun d => d.cls != "undefined-region"
+                                        && d.cls != "oracle-divergence")
+        r := { r with
+          explained := r.explained + expl.length
+          diverged := r.diverged + dvg.length
+          unexplained := r.unexplained + unex.length }
+        details := details ++ ds.toArray
+  return { r with details := details.toList }
+
+/-- The comparator every caller uses: `compareRecsBy` over the first-match index. -/
+def compareRecs (divs : List KnownDivergence) (as bs : List Rec) : Report :=
+  compareRecsBy (firstById bs) divs as
 
 def renderReport (r : Report) : String :=
   let head := s!"cases={r.cases} matched={r.matched} explained={r.explained} \
@@ -4930,6 +4986,110 @@ wall-clock decided by whichever shard inherited the expensive neighbours. -/
 def shardIndices (k n : Nat) : List Nat :=
   (List.range selftestArms.length).filter (fun i => i % n == k - 1)
 
+/-! ## The indexed comparator's own gate (row 130)
+
+`compareRecs` was linear search until row 130 and is a first-match hash index
+now.  These checks hold the new body to the old one's output, so the speed-up
+cannot change a verdict. -/
+
+/-- Every disagreement, one line each, in order: a stricter receipt than
+`renderReport`, which shows counts and the first twenty only. -/
+def renderAllDetails (r : Report) : String :=
+  String.intercalate "\n" (r.details.map fun d =>
+    s!"[{d.cls}] {d.id} ({d.mnemonic}) {d.field}: {d.lhs} | {d.rhs}")
+
+/-- ⛔ THE MUTANT, KEPT IN THE BINARY SO THE GATE PROVES IT CAN FAIL: the index
+built LAST-match, i.e. a plain overwriting insert.  The duplicate-id arm must
+tell it from `firstById`. -/
+def lastByIdMutant (bs : List Rec) : Std.HashMap String Rec :=
+  bs.foldl (fun m b => m.insert b.id b) {}
+
+/-- The duplicate-id fixture: one record in `as`, two records with its id in
+`bs`, the FIRST equal to it and the second differing in `rax`.  First-match
+reads it matched; last-match reads one unexplained `spec` disagreement. -/
+def dupIdFixture : List Rec × List Rec :=
+  let a : Rec := { id := "fixture.dup/0", mnemonic := "fixture",
+                   post := [("rax", "0x1")], undef := [], leak := false }
+  (([a] : List Rec), ([a, { a with post := [("rax", "0x2")] }] : List Rec))
+
+/-- The duplicate-id arm, over a given index builder: does the fixture read
+first-match (matched 1, no details), as `compareRecsListRef` reads it? -/
+def dupIdArm (build : List Rec → Std.HashMap String Rec) : Bool :=
+  let (as, bs) := dupIdFixture
+  let r := compareRecsBy (build bs) [] as
+  let ref := compareRecsListRef [] as bs
+  r.matched == 1 && r.details.isEmpty && renderReport r == renderReport ref
+    && renderAllDetails r == renderAllDetails ref
+
+/-- Run the gate.  Arms: (1) the duplicate-id fixture reads first-match;
+(2) the last-match mutant FAILS arm 1, so the arm can fail; (3) over three
+wrong models, the indexed comparator renders byte-equal to the reference, in
+both directions, with and without the declared divergences, on a case set that
+holds every disagreeing case plus a stride sample, against a REVERSED `bs` so
+no lookup lands at the front by luck; each pair must disagree at least once.
+
+⚠️ LIMIT, printed beside the PASS line too: the case set is every disagreement
+the INDEXED comparator finds, plus a 1-in-`stride` sample (~1000 cases).  A case
+the indexed path wrongly reads as matched, outside the sample, is in neither
+report, so equality cannot see it: a defect at a rate under ~1/1000 of the
+non-disagreeing cases is invisible here.  The full reference would close that and
+costs the old quadratic time (2,255.8 s for one pair on yukon), so it is declared
+rather than run. -/
+def compareIndexSelftest : IO Bool := do
+  let mut ok := true
+  if dupIdArm firstById then
+    IO.println "  ✔ duplicate id: the index keeps the FIRST record, as `find?` did"
+  else
+    IO.println "  ⛔ duplicate id: the index does not read first-match"; ok := false
+  if dupIdArm lastByIdMutant then
+    IO.println "  ⛔ mutant: a LAST-match index passes the duplicate-id arm, so the arm \
+cannot fail"; ok := false
+  else
+    IO.println "  ✔ mutant: a LAST-match index FAILS the duplicate-id arm (the arm can fail)"
+  let good := parseRecords (emitAll step 4)
+  let dupGood := good.length - (firstById good).size
+  IO.println s!"  ids: {good.length} cases in the correct model's records, \
+{dupGood} duplicate id(s)"
+  let n := selftestArms.length
+  let picks := [0, n / 2, n - 1].eraseDups
+  let mut pairs := 0
+  for i in picks do
+    match selftestArms[i]? with
+    | none => IO.println s!"  ⛔ no selftest arm at index {i}"; ok := false
+    | some (name, wrong, _) =>
+      let bad := parseRecords (emitAll wrong 4)
+      for (lbl, xs, ys) in [("good→wrong", good, bad), ("wrong→good", bad, good)] do
+        -- the disagreeing ids, found with the FAST comparator, then re-checked by the
+        -- reference over the chosen set.  ⚠️ This cannot see a case the fast path
+        -- misreads as MATCHED outside the stride sample (see the LIMIT above).
+        let hot := (compareRecs [] xs ys).details.map (·.id)
+        let hotSet := hot.foldl (fun (m : Std.HashMap String Unit) k => m.insert k ()) {}
+        let stride := max 1 (xs.length / 1000)
+        let chosen := (xs.zipIdx).filterMap fun (x, k) =>
+          if hotSet.contains x.id || k % stride == 0 then some x else none
+        let ysRev := ys.reverse
+        for (dl, divs) in [("no divs", ([] : List KnownDivergence)),
+                           ("declared divs", knownDivergences)] do
+          let rNew := compareRecs divs chosen ysRev
+          let sNew := renderReport rNew ++ "\n" ++ renderAllDetails rNew
+          let rRef := compareRecsListRef divs chosen ysRev
+          let sRef := renderReport rRef ++ "\n" ++ renderAllDetails rRef
+          pairs := pairs + 1
+          if sNew != sRef then
+            IO.println s!"  ⛔ {name} {lbl} ({dl}): the indexed report DIFFERS from \
+the reference over {chosen.length} cases"; ok := false
+          else if rRef.details.isEmpty then
+            IO.println s!"  ⛔ {name} {lbl} ({dl}): no disagreement in {chosen.length} \
+cases, so equality here is vacuous"; ok := false
+          else
+            IO.println s!"  ✔ {name} {lbl} ({dl}): byte-equal over {chosen.length} of \
+{xs.length} cases, {rRef.details.length} disagreements, \
+{rRef.diverged} classed oracle-divergence"
+  IO.println s!"  {pairs} report pairs compared"
+  IO.println "  limit: the case set is every disagreement the indexed path finds plus a \
+~1/1000 stride sample, so a misread-as-matched case outside the sample is not seen"
+  return ok && pairs == 2 * 2 * picks.length
+
 def main (args : List String) : IO UInt32 := do
   match args with
   | ["emit", out] =>
@@ -5098,6 +5258,15 @@ still true."
 {sorted.length} arm slots for {total} arms; some arm is missed or duplicated"
           return 1
       | _ => IO.println "⛔ selftest-shards takes a number"; return 2
+
+  -- ⭐ ROW 130: the indexed comparator's gate.  About 3.5 minutes (three wrong
+  -- models emitted once each, plus the correct one); it calls no `driveWrong`.
+  | ["compare-index-selftest"] =>
+      IO.println "compare-index selftest — the indexed compareRecs against the linear reference:"
+      if ← compareIndexSelftest then
+        IO.println "compare-index selftest: PASS"; return 0
+      else
+        IO.println "compare-index selftest: FAIL"; return 1
 
   | ["selftest", pat] =>
       let arms := selftestArms.filter (fun a => ((a.1.splitOn pat).length > 1))

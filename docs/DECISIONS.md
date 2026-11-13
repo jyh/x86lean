@@ -24552,6 +24552,14 @@ prediction 1's hwprobe runs ran at `41ef1d7`. On the branch the probe step is `8
 (`hwprobe/mk_vexsile_rows.py`, `vexsile_ops.S`, `vexsile_probe.c`) are blob-identical at `41ef1d7` and at this entry's tip.
 Prediction 2's `a7ce936` is `05bd5f8` on the branch, its one file blob-identical. This branch's own hwprobe run re-reads the silicon.
 
+**Re-key K2 (2026-11-07, katmai, `012b969 → ba06bc7`, 6 repeats), applied before this entry's PR merges.** #176 changed
+`Main.lean`, and every `.lean` is a reading input, so master's reading tree moved (`90f872a39f7c5947` at `88832ef` →
+`7b8be963d172de98` at `02c9aae`/`012b969`). This entry's `02d3712 → 89d5fee` row then matched no step of the walk (D390: the
+BASE digest refuses), and the drift partition arm went red on a synthesized forge merge. Re-measured at the real base:
+`kernel_delta` rc 0 "delta gate: CLEAN", `ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands
+on the ms verdict) and the stale row deleted in the same commit (`4b31d38`). On a synthesized merge of `012b969` + `4b31d38`
+the drift selftest is CLEAN and `--gap` reads 0. If master moves before the merge, the row is re-recorded.
+
 ## D362 — the legacy silicon memory remainder: `pextrd`/`pextrq` to memory and `pinsrq` from m64, refereed by silicon (predictions and price before any model, row or hardware work)
 
 **Why these.** After D361 the census's silicon memory gap is **11** instructions, all legacy SSE: `pextrd` with an m32
@@ -24663,6 +24671,13 @@ a ~15 ms unit. `X86.Syntax` −7.0 (±5.7) and `X86.Semantics` +0.2. The NEW `Te
 150–600 predicted (its 2,163 @on katmai ceiling: ok) and **352,020 ku** against 80k–300k, exactly its K1 registration (A′
 CLEAN, no drift below it). The row is recorded from the repeats-12 ms file and K2's A′ file (D251).
 
+**Re-key K2 (2026-11-07, katmai, `4117a3c → 229c137`, 12 repeats), applied before this entry's PR merges.** This entry's K2 row
+(`bc1f722 → abff07d`) was keyed to D361's pre-merge head and to the reading tree before #176 moved it (D361's re-key paragraph),
+so it matched no step once #170 merged at `4117a3c`. Re-measured at the real base, the head carrying #170's runner line
+(`229c137`), at 12 repeats from the start (the first K2 above read `Tests.Vectors` UNMEASURABLE at 6): `kernel_delta` rc 0
+"delta gate: CLEAN", `ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands on the ms verdict),
+and the `bc1f722` row deleted in the same commit. If master moves before the merge, the row is re-recorded.
+
 ## D371 — VEX `vmovd`/`vmovq` between an XMM register and a GPR or memory: the VEX twins of D356, refereed by silicon (STATUS row 27; predictions and price before any model work)
 
 **Why.** 6,939 instructions in the census residue (`vmovq` 3,922 · `vmovd` 3,017, all VEX.128: dav1d 2,551 · ffmpeg 1,848 ·
@@ -24748,6 +24763,12 @@ both arms):** ms delta gate CLEAN, ARM A′ CLEAN, so the row lands on the ms ve
 ±8.4; K1 read +6.0 at its base), `X86.Semantics` +0.4, `X86.Vex` +0.1. The NEW `Tests.AnchorsVexSilF` reads 488.5 ms against its
 1,472 @on katmai and **220,986 ku, exactly its K1 registration**.
 
+**Re-key K2 (2026-11-08, katmai, `081f53c → 8a3c5df`, 12 repeats), applied before this entry's PR merges.** This entry's K2 row
+(`9b66f3c → e795506`) was keyed to D362's pre-merge head, which is on no step of master's chain once #171 merged at `081f53c`.
+Re-measured at the real base, the head carrying #171's runner line (`8a3c5df`): `kernel_delta` rc 0 "delta gate: CLEAN",
+`ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands on the ms verdict), and the `9b66f3c` row
+deleted in the same commit. If master moves before the merge, the row is re-recorded.
+
 ## D373 — `pminsw`, `pmulhw`, `pmulhuw`, `pavgb` at xmm: four packed-integer kinds beside D335's eleven, refereed by silicon (STATUS row 35, wave A; predictions and price before any model work)
 
 **Why.** 7,485 instructions in the census residue at master `899a887` (`pmulhw` 2,200 · `pminsw` 2,088 · `pmulhuw` 1,605 ·
@@ -24815,6 +24836,12 @@ gate CLEAN, ARM A′ CLEAN, so the row lands on the ms verdict (D251). `X86.Synt
 +150 (±453.4, budget 2,822). The NEW `Tests.AnchorsSimdB` reads 2,435 ms against its 7,500 @on katmai and **1,267,652 ku, exactly
 its K1 registration**.
 
+**Re-key K2 (2026-11-10, katmai, `2dbdf8a → 8f54ba4`, 12 repeats), applied before this entry's PR merges.** This entry's K2 row
+(`c3eeffe → 4960875`) was keyed to #172's pre-merge base, which is on no step of master's chain once #172 merged at `2dbdf8a`.
+Re-measured at the real base, the head carrying #172's runner line (`8f54ba4`): `kernel_delta` rc 0 "delta gate: CLEAN",
+`ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands on the ms verdict), and the `c3eeffe` row
+deleted in the same commit. If master moves before the merge, the row is re-recorded.
+
 
 ## D374 — the VEX twins of eleven modelled packed-integer kinds, refereed by silicon (STATUS row 36, wave B; predictions and price before any model work)
 
@@ -24879,6 +24906,12 @@ gate CLEAN, ARM A′ CLEAN, so the row lands on the ms verdict (D251). `X86.Synt
 +400 (±349, budget 2,862). The NEW `Tests.AnchorsVexSilG` reads 11,800 ms against its 36,000 @on katmai and **5,371,473 ku, exactly
 its K1 registration**.
 
+**Re-key K2 (2026-11-10, katmai, `460b713 → 86f7922`, 12 repeats), applied before this entry's PR merges.** This entry's K2 row
+(`ca713e5 → 38d52f7`) was keyed to #173's pre-merge head, which is on no step of master's chain once #173 merged at `460b713`.
+Re-measured at the real base, the head carrying #173's runner line (`86f7922`): `kernel_delta` rc 0 "delta gate: CLEAN",
+`ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands on the ms verdict), and the `ca713e5` row
+deleted in the same commit. If master moves before the merge, the row is re-recorded.
+
 
 ## D375 — VEX.256 128-bit lane insert and extract (`vinserti128` `vinsertf128` `vextracti128` `vextractf128`), refereed by silicon (STATUS row 37, wave C1; predictions and price before any model work)
 
@@ -24937,6 +24970,12 @@ D374's pre-re-carry model step; the shipped-base kernel reading is the K2 row.
 **K2 at the shipped base (2026-11-05, katmai, `kernel_delta.py --base f28ee84 --head 04f6b5c --repeats 6`, both arms):** ms delta
 gate CLEAN, ARM A′ CLEAN, so the row lands on the ms verdict (D251). `X86.Syntax` +24.0 (±7.5, budget 142.8). The NEW
 `Tests.AnchorsVexSilH` reads 4,230 ms against its 12,855 @on katmai and **1,977,574 ku, exactly its K1 registration**.
+
+**Re-key K2 (2026-11-11, katmai, `cfd1ede → a5a9a44`, 12 repeats), applied before this entry's PR merges.** This entry's K2 row
+(`f28ee84 → 04f6b5c`) was keyed to #174's pre-merge head, which is on no step of master's chain once #174 merged at `cfd1ede`.
+Re-measured at the real base, the head carrying #174's runner line (`a5a9a44`): `kernel_delta` rc 0 "delta gate: CLEAN",
+`ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands on the ms verdict), and the `f28ee84` row
+deleted in the same commit. If master moves before the merge, the row is re-recorded.
 
 
 ## D376 — `movntdqa` and the VEX half-moves (`vmovhps` `vmovhpd` `vmovlps` `vmovlpd`), refereed by silicon (STATUS row 38, wave C2; DESIGN ONLY, predictions and price before any model work)
@@ -25019,6 +25058,16 @@ K1 read it at its own base), `X86.Semantics` +1.0. The NEW `Tests.AnchorsVexSilI
 and **1,537,866 ku in A′, exactly its K1 registration**. The retired absolute table's five `over/over` rows are the same five,
 base and head alike. **Off-ref shas, declared:** K1's `244dac3 → 681dd86` is the 10-31 base's (`681dd86` is also the sha `kernel_ceilings.txt`
 and `ku_delta_budget.txt` cite for the NEW unit; it is reachable today only from the pre-re-carry branches); the hwprobe run is at `5d52058`.
+
+**Re-key K2 (2026-11-11, katmai, `5f2231f → 35cc3ac`, 12 repeats), applied before this entry's PR merges.** This entry's K2 row
+(`2d26935 → 622e73e`) was keyed to #175's pre-merge head, which is on no step of master's chain once #175 merged at `5f2231f`.
+Re-measured at the real base, the head carrying #175's runner line (`35cc3ac`): **`kernel_delta` rc 3 UNMEASURABLE on ONE unit**,
+`Tests.Vectors` +7.1 ms (band ±5.2, budget 10.9, so not OVER; the gate calls it a commit-cost refusal at ~23 repeats a side); every
+other unit `ok`, and the NEW `Tests.AnchorsVexSilI` `NEW ok` against its own katmai ceiling. `ku_delta` A′ rc 0 CLEAN, and it reads `Tests.Vectors` at **197 → 197 unfoldings (Δku 0)**: the commit does not change that
+unit's kernel work, so the +7.1 ms is timing, not cost. So by D251
+the step **lands on the A′ verdict** (landed_on {katmai, a-prime, ms_rc 3}), as #176's row `bb8d553` did; recorded with
+`--record --readings --a-prime`, and the `2d26935` row deleted in the same commit. If master moves before the merge, the row is
+re-recorded.
 
 ## D379 — `pabs{b,w,d}` · `pmulld` and their VEX twins, refereed by silicon (STATUS row 35's last two names, wave D; DESIGN ONLY, predictions and price before any model work)
 
@@ -25126,6 +25175,12 @@ five, base and head alike. **Off-ref shas, declared:** K1's `cbc52e8 → e09965c
    reading 2's "(see 2)" pointed at the prediction rather than at a reading. The one-row pin paper names is queued as its
    own item rather than added here, because a `.lean` row would re-open this entry's K2.
 
+**Re-key K2 (2026-11-12, katmai, `ec1fc5d → 678661d`, 12 repeats), applied before this entry's PR merges.** This entry's K2 row
+(`d7f3e13 → 0fedfd4`) was keyed to #178's pre-merge head, which is on no step of master's chain once #178 merged at `ec1fc5d`.
+Re-measured at the real base, the head carrying #178's runner line (`678661d`): `kernel_delta` rc 0 "delta gate: CLEAN",
+`ku_delta` A′ rc 0 CLEAN; recorded with `--record --readings --a-prime` (D251: lands on the ms verdict), and the `d7f3e13` row
+deleted in the same commit. If master moves before the merge, the row is re-recorded.
+
 ## D384 — wave E: `psubsw` · `pavgw` · `pmuldq` and their VEX twins, refereed by silicon (STATUS row 44; DESIGN ONLY, predictions and price before any model work)
 
 **Why.** Row 44 named the next three packed kinds the census leaves unmodelled. Each is the mirror of a kind the model
@@ -25224,6 +25279,16 @@ theorems red, **exactly the 6 `pavgw` pins** (legacy `xx`/`xm`, VEX.128 and VEX.
 green and only this unit errors. `X86/Semantics.lean` restored and `cmp`-checked, then the unmutated control built rc 0 with 0
 tagged errors (yukon, `lean_route.py build Tests.AnchorsVexSilK` through saltbuild).
 
+**Re-key K2 (2026-11-12, katmai, `b1ac171 → 9038ecf`, 12 repeats), applied before this entry's PR merges.** This entry's K2 row
+(`a237ea8 → 78e35a6`) was keyed to #179's pre-merge head, which is on no step of master's chain once #179 merged at `b1ac171`.
+Re-measured at the real base, the head carrying #179's runner line (`9038ecf`): **`kernel_delta` rc 3 UNMEASURABLE on ONE unit**,
+`Tests.Vectors` +6.6 ms (band ±4.3, budget 10.8, so not OVER); every other unit `ok`, and the NEW `Tests.AnchorsVexSilK` `NEW ok`
+against its own katmai ceiling. `ku_delta` A′ rc 0 CLEAN, and it reads `Tests.Vectors` at **197 → 197 unfoldings (Δku 0)**: the
+commit does not change that unit's kernel work, so the +6.6 ms is timing, not cost. So by D251 the step **lands on the A′ verdict**
+(landed_on {katmai, a-prime, ms_rc 3}), the shape the helm's 11-11 15:37 widening of the stack's merge rule admits under its
+(i) and (ii); recorded with `--record --readings --a-prime`, and the `a237ea8` row deleted in the same commit. If master moves
+before the merge, the row is re-recorded.
+
 ## D393 — wave F: the five VEX unpacks the model does not take (`vpunpckldq` · `vpunpcklqdq` · `vpunpckhbw` · `vpunpckhdq` · `vpunpckhqdq`), refereed by silicon (STATUS row 58; DESIGN ONLY, predictions and price before any model work)
 
 **Why.** The VEX unpack family is half modelled. D345 (V7) took `vpunpcklbw`, `vpunpcklwd` and `vpunpckhwd` at VEX.128 and
@@ -25314,6 +25379,13 @@ retyped). No existing row is refused or UNMEASURABLE in either arm (the ms log's
 reports one finding). Base and head both sit over the same five box-scoped ceilings (`Tests.Anchors`, `Tests.Coverage
 @decl vectorCoverage`, `Tests.Coverage @residue`, `X86.Syntax`, `X86.Theorems`; D111, D122). The measured head is
 `f042629`; the branch tip `dc11ff6` adds only the reading-3 lane-mutant addendum to this file, so no reading input moved.
+
+**K2 at the real base (2026-11-12, katmai, `e3fd36d → 03289af`, 12 repeats), before this entry's PR opens.** The K1 above was
+taken at D393's stacked base (D384's tip); once the stack #172–#180 closed at `e3fd36d`, the carry (`03289af`, with #180's
+runner line) was measured at the real base: `kernel_delta` rc 0 "delta gate: CLEAN", `ku_delta` A′ rc 0 CLEAN; recorded with
+`--record --readings --a-prime` (D251: lands on the ms verdict). Tries 1–3 were YIELDED by katmai's build door, not refused by
+the tree: yukon's Tailscale was stopped by an App Store update at 17:49, the door's upstreams timed out, and the build yielded
+(rc 75); try 4 ran clean after the 18:15 restart. If master moves before the merge, the row is re-recorded.
 
 ## D394 — wave G: VEX scalar floating point (`vmovsd` · `vmulsd` · `vaddsd` · `vsubsd` · `vmovss` · `vdivsd`, and the four `ss` arithmetic twins), refereed by silicon (STATUS row 59; DESIGN ONLY, predictions and price before any model work)
 
