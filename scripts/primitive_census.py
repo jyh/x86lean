@@ -539,6 +539,8 @@ SILICON_PATHS = (
     ("mk_vexsilk_rows.py", "vexsile_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
     # D393 (wave F): the five VEX unpacks (`x_vpunpck{ldq,lqdq,hbw,hdq,hqdq}{128,256}_{r,m}`, disjoint from the paths above).
     ("mk_vexsill_rows.py", "vexsile_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
+    # D394 (wave G): the VEX scalar floating-point forms (`x_v{add,sub,mul,div}s{s,d}_{r,m}`, `x_vmovs{s,d}_{r,l,s}`).
+    ("mk_vexsilm_rows.py", "vexsilm_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
 )
 
 

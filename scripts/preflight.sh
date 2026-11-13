@@ -110,6 +110,9 @@ else printf "  ⛔ FAIL hwprobe/mk_vexsilk_anchors --check\n"; rc=1; fi
 # D393: wave F's pins (the five VEX unpacks, one unit).
 if python3 hwprobe/mk_vexsill_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsill_anchors --check\n"
 else printf "  ⛔ FAIL hwprobe/mk_vexsill_anchors --check\n"; rc=1; fi
+# D394: wave G's pins (the VEX scalar floating-point forms, one unit).
+if python3 hwprobe/mk_vexsilm_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsilm_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsilm_anchors --check\n"; rc=1; fi
 # ⛔⛔ ADDED 2026-09-20 (paris): `mk_anchors --check` proves Tests/Anchors.lean matches the
 #   GENERATOR byte for byte. It proves NOTHING about whether the generator's PINNED set is still
 #   CORRECT -- PINNED is DECLARED, and its reach half is measured by a command nothing ran.

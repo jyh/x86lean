@@ -90,6 +90,9 @@ SILICON_REFEREES = (
     # D393: wave F, the five VEX unpacks (hwprobe runs 42389772285 and 42390014629, Intel i7-8700B + Xeon 8573C, and
     # 42390234925, AMD EPYC 9V45 + Intel i7-8700B); both vendors NAMED by their processor.
     ("D393", ("AMD EPYC 9V45", "Intel Core i7-8700B")),
+    # D394: wave G, VEX scalar floating point (hwprobe runs 42670416049 and 42677501619, AMD EPYC 7763 + Intel i7-8700B);
+    # both vendors NAMED by their processor.
+    ("D394", ("AMD EPYC 7763", "Intel Core i7-8700B")),
 )
 SILICON_PAIRS = "; ".join(" + ".join(rs) + " (" + d + ")" for d, rs in SILICON_REFEREES)
 SILICON_LABEL = ("silicon-refereed only (AMD + Intel hwprobe: " + SILICON_PAIRS

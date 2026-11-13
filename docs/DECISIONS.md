@@ -25386,3 +25386,134 @@ runner line) was measured at the real base: `kernel_delta` rc 0 "delta gate: CLE
 `--record --readings --a-prime` (D251: lands on the ms verdict). Tries 1–3 were YIELDED by katmai's build door, not refused by
 the tree: yukon's Tailscale was stopped by an App Store update at 17:49, the door's upstreams timed out, and the build yielded
 (rc 75); try 4 ran clean after the 18:15 restart. If master moves before the merge, the row is re-recorded.
+
+## D394 — wave G: VEX scalar floating point (`vmovsd` · `vmulsd` · `vaddsd` · `vsubsd` · `vmovss` · `vdivsd`, and the four `ss` arithmetic twins), refereed by silicon (STATUS row 59; DESIGN ONLY, predictions and price before any model work)
+
+**Why.** The legacy scalar FP forms are modelled at tier `.exact`: `varith` (D268, D270, D271: `addss/sd`, `subss/sd`,
+`mulss/sd`, `divss/sd`, rounded under MXCSR.RC, writing OE/UE/PE/IE/DE/ZE) and `vmovs`/`vmovsld`/`vmovsst` (P2 batch 11). Their
+VEX twins have no credit of any kind, and they are the largest single block of glibc's residue: libm is built with `-mavx` paths.
+**This wave is NOT D393's shape in one respect, and it is the one that sets its price:** D393 admitted five existing `VBinKind`s
+to `vexSilTaken`. The scalar FP forms are not `VBinKind`s. They are their own `Op` constructors, so there is no predicate to
+widen: the wave adds `VexOp` constructors.
+**The census, derived by script from `docs/DEMAND-CENSUS.md.json` at `fc9f804` (D393's tip), never typed.** Residue = the
+in-scope `miss_by_ext` buckets minus `silicon_all` and `vex_all`, both 0 for all ten names. Every spelling is VEX-128; no
+AVX-512 spelling exists for any of them.
+```
+  name      glibc  ffmpeg  x264 | in scope
+  vmovsd    1,336     117     6 |   1,459
+  vmulsd    1,141       0     0 |   1,141
+  vaddsd    1,011       1     0 |   1,012
+  vsubsd      819       0     0 |     819
+  vmovss      218      19     4 |     241
+  vdivsd       78       0     0 |      78
+  ------------------------------+--------  the six STATUS row 59 names: 4,750
+  vaddss       11       4     2 |      17
+  vmulss        5       0     4 |       9
+  vsubss        7       0     0 |       7
+  vdivss        1       1     0 |       2
+                                  IN SCOPE = 4,785   (glibc 4,627 · ffmpeg 142 · x264 16)
+```
+⚖️ **Departure from the row, declared:** STATUS row 59 lists six names. The four `ss` arithmetic twins (35 spellings) are the
+same constructor at `sz = .d`, so leaving them out would cost the same work and leave a hole the next census names. They are in.
+**The referee (P1, 2026-11-08 11:3x, yukon, `oracle_availability.measure()` unmodified, 88 pre-states, every verdict predicted
+before the run, 0 disagreements; bus @99,183,629).** `vaddsd` · `vsubsd` · `vmulsd` · `vdivsd` (x,x,x) · `vaddsd`/`vmulsd` (m,x,x) ·
+`vmovsd` (rr, load, store) · `vmovss` (rr, load) · `vaddss`: all 12 REFUSE 88/88. Same run: the legacy `addsd`, `mulsd` and the
+`movsd` load EXECUTE 88/88; controls `vpxor` executes, `vpunpckhdq` refuses. ⇒ x86isa has VEX integer forms and no VEX scalar FP;
+**silicon**, in D371's frame. ⚠️ `vsubss`, `vmulss`, `vdivss`, the memory arithmetic at `sz = .d` and the `vmovss` store were NOT in P1. They are the same
+opcodes at the other `pp`, so the prediction is "refuse"; the wave's P1 re-run carries them before the generator is written.
+**The model (five `VexOp` constructors, no new arithmetic, no new state).** Each is its legacy twin's function with `src1`
+(VEX.vvvv) in the legacy destination's place, written through `setXmmVex128` (bits 255:128 ZEROED):
+```
+  vexarith  op sz dst src1 src   low lane = varithLow op sz rc (getXmm src1) (low of getXmm src); [127:sz] FROM src1
+  vexarithm op sz dst src1 ea    the same, the second operand read from memory (m32/m64), NO alignment check
+  vexmovs   sz dst src1 src      low lane from src, [127:sz] FROM src1   (the legacy merge, with src1 as the merge source)
+  vexmovsld sz dst ea            low lane loaded, [127:sz] ZEROED        (the legacy load's value; 255:128 also zeroed)
+  vexmovsst sz ea src            sz bytes stored, no register written    (the legacy store's meaning exactly)
+```
+MXCSR is read and written exactly as by `varith` (the VEX forms state the same SIMD floating-point exceptions, SDM Vol. 2,
+Exception Type 3). Each constructor needs its `memRefs`, `lock`, mnemonic and printer lines in `X86/Syntax.lean` and its
+`stepVex` arm in `X86/Semantics.lean`; the ten names join `siliconTable` in `X86/Coverage.lean`.
+**Predictions (each wrong if the named reading differs):**
+1. **Silicon.** Every generated row agrees on an AMD leg and an Intel leg, values AND the post-op MXCSR (the harness already
+   loads a per-row MXCSR and stores the result, `ldmxcsr 208(%r11)` / `stmxcsr 216(%r11)`). These forms have no undefined bits.
+2. **Generator, before any processor.** Named wrong rules are each refused on a named row: (a) bits [127:sz] taken from the
+   DESTINATION's old value (the legacy rule) instead of `src1`, which needs dst ≠ src1 and distinct bytes in both; (b) bits
+   255:128 kept rather than zeroed; (c) `src1` and `src` swapped (visible on `vsubsd` and `vdivsd` only, so the reach table must
+   name those rows and not claim it for `vaddsd`/`vmulsd`); (d) the rounding mode ignored (the legacy rounding classes already
+   in `hwprobe/mk_anchors.py`: nearest, down, up, zero, the ties); (e) a flag bit left unwritten (an inexact row and an invalid
+   row per op); (f) the `vmovsd` load MERGING instead of zeroing, and the register form zeroing instead of merging; (g) a memory
+   form refusing an unaligned address.
+3. **Model.** Every row pinned by `decide` in a NEW metered unit `Tests.AnchorsVexSilM`. A lane mutant that writes [127:sz]
+   from `dst` rather than `src1` in `vexarith` reds exactly that unit's register-arithmetic pins whose `dst ≠ src1`, and nothing
+   outside the unit (the legacy `varith` arms do not call the VEX arm).
+4. **Census.** Silicon rises by **4,785 exactly** (glibc +4,627 · ffmpeg +142 · x264 +16); `covered`, `vex` and `total` move in
+   no column. `silicon_mem` rises; its size is NOT predicted, because the census records memory forms per column and not per
+   name, and a number typed now would be a guess.
+**Limits, named before the build.**
+- **DAZ and FTZ are not modelled** (`daz`/`ftz` occur 0 times in `X86/Semantics.lean`, `X86/Flags.lean` and
+  `hwprobe/mk_anchors.py`, while `varithLow` is found in the first). Every row seeds MXCSR with DAZ = FTZ = 0, as the legacy
+  twins' rows do; a row with either bit set is outside this wave and would be a finding about the legacy forms too.
+- **Exceptions are masked in every row.** An unmasked exception raises #XM; that path is the legacy forms' limit as well.
+- **VEX.L is ignored by these forms (LIG).** The census reads mnemonics, so an `L = 1` spelling is credited; the generator
+  assembles `L = 0` only. `vmovsd`/`vmovss` register forms have two encodings (`10 /r` and `11 /r`); the encoding cross-check
+  assembles one, and both reach the same constructor.
+**Price.** Larger than D393 because it writes constructors: five `VexOp` constructors with their Syntax lines, five `stepVex`
+arms (no new arithmetic: each is one line over `varithLow` or the legacy move), ten `siliconTable` rows, one generator
+(`hwprobe/mk_vexsilm_rows.py`) over 10 names × register/memory × the rounding and merge classes, one probe on AMD and Intel,
+one metered unit, one census regeneration, K1 and K2 on katmai. Its risk is the merge rule (prediction 2(a)), not the arithmetic,
+which the legacy forms already referee against x86isa. Stacked on D393 (`fc9f804`), and it lands after D393 does.
+
+**Readings (2026-11-09, `paris/d394-vex-scalar-fp`):**
+0. **P1 re-run HELD, 0 of 13 verdicts disagree (2026-11-09 10:0x, yukon, `oracle_availability.measure()` unmodified, 88 pre-states,
+   every verdict predicted before the run).** The five encodings the 11-08 P1 did not carry REFUSE 88/88: `vsubss`, `vmulss`,
+   `vdivss` (x,x,x), `vaddss` (m32,x,x) and the `vmovss` store. In the same run the controls `movl %ecx,(%rbx)` and `vpxor` and the
+   legacy twins `subss`, `mulss`, `divss`, `addss (%rbx)` and the `movss` store EXECUTE 88/88, and `vpunpckhdq` refuses 88/88. A row
+   is AGREE only when all 88 pre-states land in the predicted bucket; 0 stalled and 0 unreadable on every row. With 11-08's twelve,
+   every VEX scalar-FP shape this wave takes is now measured refused, so the referee is silicon for all of them.
+2. **HELD for the generator.** `hwprobe/mk_vexsilm_rows.py`: 309 rows over 22 functions. The arithmetic rows are the legacy
+   B1/B2 rows' own operand pairs and MXCSR values (`mk_rows.build()`, 195 cases, every rounding mode, the sticky-flag preset),
+   each at the register form, plus the round-to-nearest cases at the memory form alternating offset 0 and an odd offset (66);
+   the moves are 8 rows a function (48). The low lane's value and flags are `mk_rows.mul`/`mk_rows.arith`, imported, never
+   restated; every row's rule equals its byte-list re-derivation. `--reach`: (a) [127:w] from DEST 277, every row but the 32
+   loads and stores · (b) YMM3[255:128] kept 293, every row but the 16 stores · (c) SRC1/SRC2 swapped 60 · (d) RC ignored 50 ·
+   (e) flags unwritten 201 · (f) the load merging / the register move zeroing 32, every such row · (g) the aligned read 40.
+   The SDM-derived bytes equal clang's on the 10 forms the selftest names.
+   ⚖️ **Price, amended:** every earlier VEX-silicon probe checks the buffer UNCHANGED, so the two store forms need a probe
+   that compares it with expected bytes. `hwprobe/vexsilm_probe.c` is `vexsile_probe.c` plus that one field (`wmem`).
+   ⚠️ **A smoke run, NOT a referee:** on yukon under Rosetta 2 (`ROSETTA_ADVERTISE_AVX=1`, `/usr/bin/arch -x86_64`; the
+   probe's CPUID line reads AVX=1 AVX2=1), the probe reads `rows 309 disagreements 0`, `--plant` reds exactly
+   `vaddsd_r_exact/nearest`, `--plant-hi` exactly `vmulss_r_exact/nearest`, and `--plant-op` refuses `x_vaddss_r` (rc 2).
+   Rosetta is a translator, a third implementation, so this says the harness works and says nothing about silicon.
+   Prediction 1 waits on the hwprobe workflow's AMD and Intel legs.
+3. **HELD exactly (2026-11-09, yukon, through `saltbuild`).** The model: five `VexOp` constructors (`vexarith` · `vexarithm` ·
+   `vexmovs` · `vexmovsld` · `vexmovsst`), their `operands`/`lock`/mnemonic lines in `X86/Syntax.lean`, five `stepVex` arms, the
+   memory-destination arm in `Tests/Coverage.lean`, ten `siliconTable` rows and their ten AST-printed mnemonics in the Coverage
+   gate. `Tests.AnchorsVexSilM` pins all 309 rows by `decide` (22 theorems, built in 2.8 s), generated and gated byte for byte by
+   `hwprobe/mk_vexsilm_anchors.py --check`; its `vmAgrees` adds one conjunct to D393's, the operand's qwords read AFTER the step,
+   so a store row checks what it wrote. `lake build Tests x86lean-diff`: 77 jobs, 0 errors; `docs/COVERAGE.md` regenerated
+   (+10 rows). **The named lane mutant** — `.vexarith` taking bits 127:sz from DEST rather than `src1`, the low lane unchanged —
+   reds **exactly the 8 register-arithmetic theorems of the new unit** (`d394_v{add,sub,mul,div}s{s,d}_r_pins`), and no other
+   target of `Tests` fails. `X86/Semantics.lean` restored and `cmp`-checked; the rebuild is green.
+4. **HELD exactly. Silicon +4,785** (glibc +4,627 · ffmpeg +142 · x264 +16), each of the ten names' `silicon_all` now its in-scope
+   count (1,459 · 1,141 · 1,012 · 819 · 241 · 78 · 17 · 9 · 7 · 2), so no in-scope spelling is left uncredited; `covered`, `vex` and
+   `total` move in no column; `silicon_mem` and `silicon_mem_modelled` rise by glibc 2,072 · ffmpeg 132 · x264 6 (not predicted,
+   as the design said). Regenerated against `~/x86lean-corpus/corpus`; `demand_census.py --check` CLEAN (310 mnemonics).
+   **Prediction 1, partly:** the push run 42670416049 at `034cc92` concluded **success**, the D394 step green on both legs (read
+   anonymously at the step level): `macos-15-intel`, an Intel leg, and `ubuntu-latest`, whose processor is printed only in the log,
+   which read 403 without a credential. *(This sentence read "HELD for Intel; the second vendor UNREAD" until 2026-11-10, when the
+   credential returned.)* **HELD, both vendors, read from the logs:** the ubuntu-latest leg prints `model name : AMD EPYC 7763 64-Core
+   Processor` (job 129345167539, log line 154) and the macos-15-intel leg `Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz` (job 129345166962,
+   line 154); the second push run 42677501619 at `53299ce` reads the same pair (jobs 129362750552 and 129362749929, line 154 each), and
+   on both of its legs the D394 step prints `rows 309 disagreements 0` with all three plants at their wanted rc (`plant rc=1 · badop
+   rc=2 · hi rc=1`). So `SILICON_REFEREES` carries `("D394", ("AMD EPYC 7763", "Intel Core i7-8700B"))`, named from those lines.
+
+**K1 (2026-11-09, katmai, `fc9f804 → 53299ce`, 6 repeats).** Both arms refuse exactly the NEW unit and nothing else:
+`kernel_delta` reads `Tests.AnchorsVexSilM` at 2,280.0 ms ⇒ `Tests.AnchorsVexSilM 6840 @on katmai`; `ku_delta` (A′) reads
+1,043,936 unfoldings ⇒ `Tests.AnchorsVexSilM @ku 1043936`; both registered as printed (copied from the two logs, not retyped).
+No existing row is refused or UNMEASURABLE in either arm (the ms log's one REFUSED row is the new unit; A′ reports one
+finding). The measured head is `53299ce`; the tip that registers them changes only this file and the two registries.
+
+**K2 at the real base (2026-11-13, katmai, `2b9a1d8 → ac788af`, 12 repeats), before this entry's PR opens.** The K1 above was
+taken at D394's stacked base (D393's tip `fc9f804`); once D393 merged (#183, `2b9a1d8`), the carry (`ac788af`, with #183's runner
+line) was measured at the real base: `kernel_delta` rc 0 "delta gate: CLEAN", `ku_delta` A′ rc 0 CLEAN; recorded with
+`--record --readings --a-prime` (D251: lands on the ms verdict). If master moves before the merge, the row is re-recorded.

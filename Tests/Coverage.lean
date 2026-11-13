@@ -138,7 +138,13 @@ theorem silicon_rows_name_ast_mnemonics :
       -- D393: wave F, the five VEX unpacks, one row per mnemonic.
       (Op.vex (.vexbin .unpckld .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .unpcklq .x3 .x1 .x2)).mnemonic,
       (Op.vex (.vexbin .unpckhb .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .unpckhd .x3 .x1 .x2)).mnemonic,
-      (Op.vex (.vexbin .unpckhq .x3 .x1 .x2)).mnemonic] := by decide
+      (Op.vex (.vexbin .unpckhq .x3 .x1 .x2)).mnemonic,
+      -- D394: wave G, the VEX scalar floating-point forms, one row per mnemonic.
+      (Op.vex (.vexarith .add .d .x3 .x1 .x2)).mnemonic, (Op.vex (.vexarith .add .q .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexarith .sub .d .x3 .x1 .x2)).mnemonic, (Op.vex (.vexarith .sub .q .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexarith .mul .d .x3 .x1 .x2)).mnemonic, (Op.vex (.vexarith .mul .q .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexarith .div .d .x3 .x1 .x2)).mnemonic, (Op.vex (.vexarith .div .q .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexmovs .d .x3 .x1 .x2)).mnemonic, (Op.vex (.vexmovs .q .x3 .x1 .x2)).mnemonic] := by decide
 
 /-! ### ⭐⭐⭐ THE GATE THE ROSTER'S DOCSTRING CLAIMED AND DID NOT HAVE (2026-09-06)
 
@@ -1202,7 +1208,11 @@ def isMemDestVector (v : Vec) : Bool :=
       | .vexloadq .. => false
       | .vexstoreq .. => true
       -- D379, in the SAME COMMIT as the constructors: `vpabs` writes a vector register; its memory operand is a SOURCE.
-      | .vexabs .. | .vexabsm .. | .vexabs256 .. | .vexabsm256 .. => false)
+      | .vexabs .. | .vexabsm .. | .vexabs256 .. | .vexabsm256 .. => false
+      -- D394, in the SAME COMMIT as the constructors: the scalar FP STORE writes 4 or 8 bytes of memory; the arithmetic
+      -- and the other moves write a vector register, and their memory operand is a SOURCE.
+      | .vexarith .. | .vexarithm .. | .vexmovs .. | .vexmovsld .. => false
+      | .vexmovsst .. => true)
     | .vaes .. => false
     -- ⭐ P2 BATCH 22 — `prefetch` names an address and WRITES NOTHING, so it is
     -- not a memory destination.  It is the first form here that names an `Ea` it

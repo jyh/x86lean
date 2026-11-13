@@ -637,6 +637,10 @@ jobs:
           python3 hwprobe/mk_vexsill_rows.py --selftest
           python3 hwprobe/mk_vexsill_anchors.py --selftest
           python3 hwprobe/mk_vexsill_anchors.py --check
+          # D394: wave G's pins, the VEX scalar floating-point forms (mk_vexsilm_rows.py), one unit.
+          python3 hwprobe/mk_vexsilm_rows.py --selftest
+          python3 hwprobe/mk_vexsilm_anchors.py --selftest
+          python3 hwprobe/mk_vexsilm_anchors.py --check
           # The pins are only right if the RULE that selected them still is. `--check`
           # cannot see that: it compares the file to the generator, and PINNED is declared.
           # ARM 3 reds when a vector is added to a form without a STREAMS line, which is the
