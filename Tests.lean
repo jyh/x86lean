@@ -11,6 +11,7 @@ import Tests.AnchorsBmi
 import Tests.AnchorsShuf
 import Tests.AnchorsShufM
 import Tests.AnchorsSimd
+import Tests.AnchorsSimdB
 import Tests.AnchorsSha
 import Tests.AnchorsAes
 import Tests.AnchorsVexSil
@@ -18,6 +19,12 @@ import Tests.AnchorsVexSilB
 import Tests.AnchorsVexSilC
 import Tests.AnchorsVexSilE
 import Tests.AnchorsVexSilF
+import Tests.AnchorsVexSilG
+import Tests.AnchorsVexSilH
+import Tests.AnchorsVexSilI
+import Tests.AnchorsVexSilJ
+import Tests.AnchorsVexSilK
+import Tests.AnchorsVexSilL
 import Tests.AnchorsVex
 import Tests.Nonvacuity
 import Tests.Vectors

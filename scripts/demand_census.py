@@ -74,6 +74,22 @@ SILICON_REFEREES = (
     ("D361", ("AMD EPYC 7763", "Intel Xeon Platinum 8573C", "Intel Core i7-8700B")),
     # D371: VEX vmovd/vmovq (hwprobe run 41041988507); both legs NAMED by their processor.
     ("D371", ("AMD EPYC 7763", "Intel Core i7-8700B")),
+    # D373: pminsw/pmulhw/pmulhuw/pavgb, set B of the packed-integer path (hwprobe run 41144876498); both legs NAMED.
+    ("D373", ("AMD EPYC 7763", "Intel Core i7-8700B")),
+    # D374: the VEX twins of eleven modelled kinds (hwprobe run 41147377467); both legs NAMED by their processor.
+    ("D374", ("AMD EPYC 9V74", "Intel Core i7-8700B")),
+    # D375: the VEX.256 lane insert/extract (hwprobe run 41148735460); both legs NAMED by their processor.
+    ("D375", ("AMD EPYC 9V74", "Intel Core i7-8700B")),
+    # D376: movntdqa and the VEX.128 half-moves (hwprobe run 41150000436); both legs NAMED by their processor.
+    ("D376", ("AMD EPYC 9V74", "Intel Core i7-8700B")),
+    # D379: pabs and pmulld, legacy and VEX (hwprobe runs 41270561289, Intel i7-8700B + Xeon 8573C, and 41270709768,
+    # AMD EPYC 9V45 + Intel i7-8700B); both vendors NAMED by their processor.
+    ("D379", ("AMD EPYC 9V45", "Intel Core i7-8700B")),
+    # D384: wave E, legacy and VEX (hwprobe run 41338494131, AMD EPYC 7763 + Intel i7-8700B); both NAMED by processor.
+    ("D384", ("AMD EPYC 7763", "Intel Core i7-8700B")),
+    # D393: wave F, the five VEX unpacks (hwprobe runs 42389772285 and 42390014629, Intel i7-8700B + Xeon 8573C, and
+    # 42390234925, AMD EPYC 9V45 + Intel i7-8700B); both vendors NAMED by their processor.
+    ("D393", ("AMD EPYC 9V45", "Intel Core i7-8700B")),
 )
 SILICON_PAIRS = "; ".join(" + ".join(rs) + " (" + d + ")" for d, rs in SILICON_REFEREES)
 SILICON_LABEL = ("silicon-refereed only (AMD + Intel hwprobe: " + SILICON_PAIRS
@@ -1973,7 +1989,9 @@ def selftest():
                          ("pmaddwd", "MMX (mm)",         (False, "outscope")),
                          ("andnl",   "BMI1",             (False, "silicon")),
                          ("adcxq",   "ADX",              (True,  "mapped")),
-                         ("pmulld",  "SSE-legacy (xmm)", (False, "unmapped")),
+                         # ⚠️ D379 moved `pmulld` from this arm's "unmapped" example into the silicon class; the
+                         # unmapped example is now `phaddw`, which no table names at the stack's top (pmuldq is mapped by a later wave of the stack)
+                         ("phaddw",  "SSE-legacy (xmm)", (False, "unmapped")),
                          # D342 (a): a VEX-table mnemonic at VEX-128 is its own class; a VEX siliconTable
                          # mnemonic is silicon; a VEX spelling of neither is still out of scope
                          ("vpxor",   "VEX-128 (v… xmm)", (False, "vex")),
@@ -2094,7 +2112,7 @@ def selftest():
                               ("pmaddwd", "vector", "AA", "SSE-legacy (xmm)"): 30,
                               ("andnl",   "plain",  "CC", "BMI1"):             5,
                               ("paddw",   "vector", "AA", "MMX (mm)"):         4,
-                              ("pmulld",  "vector", "AA", "SSE-legacy (xmm)"): 2})
+                              ("phaddw",  "vector", "AA", "SSE-legacy (xmm)"): 2})  # D379: was pmulld
     ref = differential_reference(_M)
     with contextlib.redirect_stdout(io.StringIO()):
         honest = report("fixture", fx, _M, io.StringIO(), {}, 1, 1)

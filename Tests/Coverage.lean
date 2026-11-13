@@ -84,6 +84,9 @@ theorem silicon_rows_name_ast_mnemonics :
       (Op.vbin .subusw .x0 .x1).mnemonic, (Op.vbin .subusb .x0 .x1).mnemonic,
       (Op.vbin .maxsw .x0 .x1).mnemonic, (Op.vbin .sadbw .x0 .x1).mnemonic,
       (Op.vbin .packssdw .x0 .x1).mnemonic,
+      -- D373: four more `VBinKind` kinds.
+      (Op.vbin .minsw .x0 .x1).mnemonic, (Op.vbin .mulhw .x0 .x1).mnemonic,
+      (Op.vbin .mulhuw .x0 .x1).mnemonic, (Op.vbin .avgb .x0 .x1).mnemonic,
       -- D338 (V2): one `ShaKind` kind per row, on `Op.vsha`.
       (Op.vsha .msg1 .x1 .x2).mnemonic, (Op.vsha .msg2 .x1 .x2).mnemonic,
       (Op.vsha .rnds2 .x1 .x2).mnemonic,
@@ -106,7 +109,36 @@ theorem silicon_rows_name_ast_mnemonics :
       (Op.vex (.vexbin .maddwd .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .mulhrsw .x3 .x1 .x2)).mnemonic,
       (Op.vex (.vexbin .maddubsw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .packssdw .x3 .x1 .x2)).mnemonic,
       -- D350 (V8c): VPBROADCASTD.
-      (Op.vex (.vexbcastd .x3 .x2)).mnemonic] := by decide
+      (Op.vex (.vexbcastd .x3 .x2)).mnemonic,
+      -- D374: the VEX twins of eleven modelled kinds.
+      (Op.vex (.vexbin .addsw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .maxsw .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .minsw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .subusb .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .sadbw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .mullw .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .avgb .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .subusw .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .mulhw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .mulhuw .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .muludq .x3 .x1 .x2)).mnemonic,
+      -- D375: the lane insert and extract, one row per mnemonic.
+      (Op.vex (.vexins128 false .x3 .x1 .x2 0)).mnemonic, (Op.vex (.vexins128 true .x3 .x1 .x2 0)).mnemonic,
+      (Op.vex (.vexext128 false .x3 .x1 0)).mnemonic, (Op.vex (.vexext128 true .x3 .x1 0)).mnemonic,
+      -- D376: movntdqa and the VEX half-moves, one row per mnemonic.
+      (Op.vloadnt .x3 { base := some .rbx }).mnemonic,
+      (Op.vex (.vexloadq .hi .ps .x3 .x1 { base := some .rbx })).mnemonic,
+      (Op.vex (.vexloadq .hi .pd .x3 .x1 { base := some .rbx })).mnemonic,
+      (Op.vex (.vexloadq .lo .ps .x3 .x1 { base := some .rbx })).mnemonic,
+      (Op.vex (.vexloadq .lo .pd .x3 .x1 { base := some .rbx })).mnemonic,
+      -- D379: pabs and pmulld, legacy then VEX, one row per mnemonic.
+      (Op.vabs .b .x3 .x1).mnemonic, (Op.vabs .w .x3 .x1).mnemonic, (Op.vabs .d .x3 .x1).mnemonic,
+      (Op.vbin .mulld .x3 .x1).mnemonic,
+      (Op.vex (.vexabs .b .x3 .x1)).mnemonic, (Op.vex (.vexabs .w .x3 .x1)).mnemonic,
+      (Op.vex (.vexabs .d .x3 .x1)).mnemonic, (Op.vex (.vexbin .mulld .x3 .x1 .x2)).mnemonic,
+      -- D384: wave E, legacy then VEX, one row per mnemonic.
+      (Op.vbin .subsw .x3 .x1).mnemonic, (Op.vbin .avgw .x3 .x1).mnemonic, (Op.vbin .muldq .x3 .x1).mnemonic,
+      (Op.vex (.vexbin .subsw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .avgw .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .muldq .x3 .x1 .x2)).mnemonic,
+      -- D393: wave F, the five VEX unpacks, one row per mnemonic.
+      (Op.vex (.vexbin .unpckld .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .unpcklq .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .unpckhb .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .unpckhd .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .unpckhq .x3 .x1 .x2)).mnemonic] := by decide
 
 /-! ### ⭐⭐⭐ THE GATE THE ROSTER'S DOCSTRING CLAIMED AND DID NOT HAVE (2026-09-06)
 
@@ -1125,6 +1157,10 @@ def isMemDestVector (v : Vec) : Bool :=
     -- the store writes eight bytes of memory, the load does not.
     | .vloadq .. => false
     | .vstoreq .. => true
+    -- D376, in the SAME COMMIT as the constructor: `movntdqa` READS 16 bytes and writes an XMM register.
+    | .vloadnt .. => false
+    -- D379, in the SAME COMMIT as the constructors: `pabs` writes an XMM register; its memory operand is a SOURCE.
+    | .vabs .. | .vabsm .. => false
     -- ⭐ P2 BATCH 36, added in the SAME COMMIT as the constructors, which is what
     -- this function's own doc comment asks for.  NONE of the three is a memory
     -- destination: the cross moves have no memory operand at all, and
@@ -1157,7 +1193,16 @@ def isMemDestVector (v : Vec) : Bool :=
       -- D371, in the SAME COMMIT as the constructors: the VEX movd/movq STORE is a memory destination; the GPR and
       -- load forms are not.
       | .vexmovg .. | .vexmovgld .. => false
-      | .vexmovgst .. => true)
+      | .vexmovgst .. => true
+      -- D375, in the SAME COMMIT as the constructors: an extract to memory is a 16-byte memory destination; the
+      -- insert from memory READS it, and the register forms name none.
+      | .vexins128 .. | .vexins128m .. | .vexext128 .. => false
+      | .vexext128m .. => true
+      -- D376, in the SAME COMMIT as the constructors: the half-move STORE writes 8 bytes of memory; the load READS them.
+      | .vexloadq .. => false
+      | .vexstoreq .. => true
+      -- D379, in the SAME COMMIT as the constructors: `vpabs` writes a vector register; its memory operand is a SOURCE.
+      | .vexabs .. | .vexabsm .. | .vexabs256 .. | .vexabsm256 .. => false)
     | .vaes .. => false
     -- ⭐ P2 BATCH 22 — `prefetch` names an address and WRITES NOTHING, so it is
     -- not a memory destination.  It is the first form here that names an `Ea` it
