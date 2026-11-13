@@ -25379,3 +25379,10 @@ retyped). No existing row is refused or UNMEASURABLE in either arm (the ms log's
 reports one finding). Base and head both sit over the same five box-scoped ceilings (`Tests.Anchors`, `Tests.Coverage
 @decl vectorCoverage`, `Tests.Coverage @residue`, `X86.Syntax`, `X86.Theorems`; D111, D122). The measured head is
 `f042629`; the branch tip `dc11ff6` adds only the reading-3 lane-mutant addendum to this file, so no reading input moved.
+
+**K2 at the real base (2026-11-12, katmai, `e3fd36d → 03289af`, 12 repeats), before this entry's PR opens.** The K1 above was
+taken at D393's stacked base (D384's tip); once the stack #172–#180 closed at `e3fd36d`, the carry (`03289af`, with #180's
+runner line) was measured at the real base: `kernel_delta` rc 0 "delta gate: CLEAN", `ku_delta` A′ rc 0 CLEAN; recorded with
+`--record --readings --a-prime` (D251: lands on the ms verdict). Tries 1–3 were YIELDED by katmai's build door, not refused by
+the tree: yukon's Tailscale was stopped by an App Store update at 17:49, the door's upstreams timed out, and the build yielded
+(rc 75); try 4 ran clean after the 18:15 restart. If master moves before the merge, the row is re-recorded.
