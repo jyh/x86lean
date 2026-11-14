@@ -909,7 +909,12 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False, ceilings=None):
         # With EVERY head pass unread, `hs` was empty, the GONE path set h = 0.0 and the band came from base alone, so
         # the run read CLEAN at delta -base: no reading scored as zero again, one level up (at the median, not the
         # pass). An all-unread BASE side entered the NEW-unit arm the same way. Either side short ⇒ REFUSE, rc 3.
-        _ur = {s: sum(1 for r in data["readings"][s] if u in (r.get("unread") or [])) for s in ("base", "head")}
+        # ⛔ ROW 61b (paper's LOW 1 on #185, driven): `units_of` emits a module's `@decl` / `@residue` units only when
+        # the module total was READ, and `unread` names the MODULE. So a sub-unit of an unread module was never counted
+        # here, fell to the GONE path at 0.0, and printed `0.0 … ok` under "GONE from head". A unit is unread when its
+        # MODULE (the prefix before " @") is.
+        _mod = u.split(" @", 1)[0]
+        _ur = {s: sum(1 for r in data["readings"][s] if _mod in (r.get("unread") or [])) for s in ("base", "head")}
         _short = [(s, len(xs), _ur[s]) for s, xs in (("base", bs), ("head", hs)) if _ur[s] and len(xs) < 2]
         if _short:
             refuse = True
@@ -1656,6 +1661,38 @@ def selftest():
     _gone["readings"]["head"] = [{"modules": {}, "decls": {}, "load1": 1.0} for _ in range(3)]
     run("row 61's control: a unit GONE with NO unread tag keeps the GONE behaviour (flagged, not UNREAD)",
         _gone, None, {"M": ("abs", 2000.0)}, 0, "GONE from head")
+
+    # ⛔ ROW 61b (paper's LOW 1 on #185, driven by paper with this exact shape): a module with a named declaration,
+    # three base passes read and three head passes UNREAD for the module. Every row of M (the module, its @decl, its
+    # @residue) must refuse as UNREAD, none may take the GONE path, and none may print 0.0 for the head. The control
+    # is the same readings with the head READ: rc 0, three rows ok.
+    def _subunits(head_read):
+        def rd(tot, foo):
+            return {"modules": {"M": tot}, "decls": {"M": {"foo": foo}}, "load1": 1.0}
+        base = [rd(1000.0, 600.0), rd(1010.0, 605.0), rd(990.0, 595.0)]
+        head = ([rd(1005.0, 603.0), rd(1015.0, 607.0), rd(995.0, 598.0)] if head_read else
+                [{"modules": {}, "decls": {}, "load1": 1.0, "unread": ["M"], "pass": 4 + i} for i in range(3)])
+        return {"base_rev": "0" * 40, "head_rev": "1" * 40, "planted": False,
+                "box": "BOX synthetic — no measurement in this run", "decl_map": {"M": ["foo"]},
+                "readings": {"base": base, "head": head}}
+    _bud = {"M": ("abs", 200.0), "M @decl foo": ("abs", 200.0), "M @residue": ("abs", 200.0)}
+    for _name, _head_read, _want_rc in (
+            ("row 61b: an UNREAD module's @decl and @residue units REFUSE with it, never 0.0 under GONE", False, 3),
+            ("row 61b's control: the same module READ on the head reads CLEAN, three rows ok", True, 0)):
+        _rc, _lines = verdict(_subunits(_head_read), None, _bud, quiet=True)
+        _rows = [l for l in _lines if l.startswith("M ") or l.startswith("M\t") or l.split()[:1] == ["M"]]
+        if _head_read:
+            _ok = _rc == 0 and sum(1 for l in _rows if l.rstrip().endswith("ok")) == 3
+        else:
+            _ok = (_rc == 3 and sum(1 for l in _rows if "UNREAD — REFUSED" in l) == 3
+                   and not any("GONE" in l for l in _lines)
+                   and not any(" 0.0 " in l for l in _rows))
+        arms.append(_name)
+        print(("  ✔ " if _ok else "  ⛔ ") + _name + ("" if _ok else f"   (rc={_rc}, wanted {_want_rc})"))
+        if not _ok:
+            bad.append(_name)
+            for l in _lines:
+                print("      " + l)
     # ⛔ THE ARM THAT MATTERS MOST FOR HONESTY: a budget under the run's own
     # measured spread is not a verdict about the commit, and must not be reported
     # as one — in EITHER direction.
