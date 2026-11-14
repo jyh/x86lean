@@ -1359,6 +1359,15 @@ def _explicit(base_vals, head_vals, unit="M"):
 # ⇒ `measure` is stubbed, so nothing is profiled. These arms say nothing about
 # whether the profiler can see a code change; they say what arm 1 DOES with the
 # three verdicts it can be handed. [[feedback-make-the-probe-cheap]]
+def _with_unread_pass(data, side, unit):
+    """`data` plus one more `side` pass that read every unit of that side's first pass EXCEPT `unit`, which it names
+    in `unread` (kernel_cost's omit-not-zero shape, row 61)."""
+    first = data["readings"][side][0]
+    r = dict(first, modules={k: v for k, v in first["modules"].items() if k != unit}, unread=[unit])
+    data["readings"][side].append(r)
+    return data
+
+
 def _stub_readings(base_vals, head_vals, syn=250.0):
     def side(vals):
         return [{"modules": {"Tests.Coverage": v, "X86.Syntax": syn}, "decls": {},
@@ -1423,6 +1432,12 @@ def selftest_measure_judgement():
         # This last case is the only one where arm 2's plant lands: the PASS path.
         ("CLEAN arm 1 and a landed plant PASS (rc 0)", "CLEAN", "planted constructors ⇒ rc 1",
          _stub_readings([24700, 24710, 24690], [24700, 24705, 24695]), False, 0),
+        # ⛔ ROW 61, kent's finding on #185 (CI run 43594826839): a LATER pass UNREAD for a unit has no key for it, and
+        # arm 1 took its keys from the FIRST reading and indexed every one: KeyError, a crash and not a verdict. The
+        # CLEAN case's readings plus a fourth base pass unread for X86.Syntax must read CLEAN as before.
+        ("a LATER pass UNREAD for a unit does not crash arm 1 (CLEAN, as without it)", "CLEAN",
+         "clears every unit's budget", _with_unread_pass(
+             _stub_readings([24700, 24710, 24690], [24700, 24705, 24695]), "base", "X86.Syntax"), False, 1),
     ]
     for name, want_verdict, want_line, data, want_bad, want_rc in cases:
         planted = _stub_readings([24700, 24710, 24690], [24700, 24705, 24695])
@@ -2171,12 +2186,24 @@ def selftest_measure():
     rc0, lines0 = verdict(d0, default_ms, budgets, floor, quiet=True,
                           ceilings=read_ceilings())
     us = {s: [units_of(r, d0["decl_map"]) for r in d0["readings"][s]] for s in ("base", "head")}
-    keys = set(us["base"][0]) & set(us["head"][0])
+    # ⛔ ROW 61 (kent's finding on #185, CI run 43594826839): an UNREAD pass is OMITTED from that pass's dict, so a
+    # unit's readings are the passes that READ it. This line once took the keys from the FIRST reading of each side
+    # and then indexed EVERY reading, which raised KeyError on CI when Tests.AnchorsVexSilF went unread on base pass 4.
+    # The same rule as `verdict`: a unit is measured here only with at least two readings on each side; the rest are
+    # NAMED, never dropped in silence and never scored 0.0.
+    def _side(s, k):
+        return [x[k] for x in us[s] if k in x]
+    _all = set().union(*[set(x) for x in us["base"] + us["head"]])
+    keys = {k for k in _all if len(_side("base", k)) >= 2 and len(_side("head", k)) >= 2}
+    _short = sorted(_all - keys)
+    if _short:
+        print(f"   ⚠️ arm 1 measures {len(keys)} unit(s); {len(_short)} lack two readings on a side "
+              f"(unread on enough passes) and are NOT in it: {', '.join(_short)}")
     # ⛔ NAME THE UNIT, DO NOT ONLY SIZE IT. "worst unit delta 350 ms" is a number
     # a reader cannot act on; the unit is what says whether the instrument's noise
     # lands where the gate is tight or where it is loose.
-    per_unit = {k: statistics.median([x[k] for x in us["head"]]) -
-                   statistics.median([x[k] for x in us["base"]]) for k in keys}
+    per_unit = {k: statistics.median(_side("head", k)) -
+                   statistics.median(_side("base", k)) for k in keys}
     worst_unit = max(per_unit, key=lambda k: abs(per_unit[k]))
     worst = abs(per_unit[worst_unit])
     # ⛔⛔ WHAT THIS ARM MAY AND MAY NOT REQUIRE, AFTER D141. Identical trees have
@@ -2228,8 +2255,8 @@ def selftest_measure():
     cut = bias_cut(repeats, len(keys))
     detectable = bias_detectable(repeats, cut)
     for k in sorted(keys):
-        bs = [x[k] for x in us["base"]]
-        hs = [x[k] for x in us["head"]]
+        bs = _side("base", k)
+        hs = _side("head", k)
         d, se = per_unit[k], resolution(bs, hs)
         if se not in (float("inf"),) and abs(d) > cut * se:
             biased.append((k, d, cut * se))
@@ -2246,8 +2273,8 @@ def selftest_measure():
     # [[feedback-widening-a-gate-needs-a-second-source]]
     unpoliced = []
     for k in sorted(keys):
-        bs = [x[k] for x in us["base"]]
-        se_k = resolution(bs, [x[k] for x in us["head"]])
+        bs = _side("base", k)
+        se_k = resolution(bs, _side("head", k))
         bud_k = effective(budgets.get(k, default_ms), statistics.median(bs), floor) \
             if (k in budgets or default_ms is not None) else None
         if bud_k is not None and (se_k == float("inf") or cut * se_k > bud_k):
@@ -2316,8 +2343,16 @@ def selftest_measure():
     # ⚠️ SIZED FROM ARM 1, NOT FROM TASTE. The plant has to exceed the budget of
     # the unit it lands in by a margin larger than the instrument's own noise,
     # and arm 1 is where that noise was just measured on these very trees.
-    syn_base = statistics.median([units_of(r, d0["decl_map"])["X86.Syntax"]
-                                  for r in d0["readings"]["base"]])
+    # ⛔ ROW 61: the passes that READ X86.Syntax (an UNREAD pass has no key for it; indexing every pass raised
+    # KeyError, the second site of kent's #185 finding, found by the arm built for the first). None read ⇒ arm 2
+    # cannot size its plant, and says so: unmeasured (rc 3), never a crash and never a plant sized off 0.0.
+    _syn = [u["X86.Syntax"] for u in (units_of(r, d0["decl_map"]) for r in d0["readings"]["base"])
+            if "X86.Syntax" in u]
+    if not _syn:
+        print("   ⛔ arm 2 NOT RUN: no base pass of arm 1 read X86.Syntax (every one UNREAD), so the plant cannot be "
+              "sized from this run. Unmeasured, not a verdict.")
+        return 3
+    syn_base = statistics.median(_syn)
     syn_budget = effective(budgets.get("X86.Syntax", default_ms), syn_base, floor)
     # ⛔⛔ THE PLANT SIZE IS CALIBRATED, AND THE FIRST SIZE WAS TOO SMALL TO CREATE
     # THE CONDITION — MEASURED, and the arm FAILED rather than passing quietly.
@@ -2353,8 +2388,11 @@ def selftest_measure():
     rc1, lines1 = verdict(d1, default_ms, budgets, floor, quiet=True,
                           ceilings=read_ceilings())
     us1 = {s: [units_of(r, d1["decl_map"]) for r in d1["readings"][s]] for s in ("base", "head")}
-    dsyn = (statistics.median([x["X86.Syntax"] for x in us1["head"]]) -
-            statistics.median([x["X86.Syntax"] for x in us1["base"]]))
+    # ⛔ ROW 61, the third site: the passes that READ X86.Syntax on each side; a side with none ⇒ the delta is not a
+    # number (NaN, printed as such), never a crash and never a median of zeros.
+    _h1 = [x["X86.Syntax"] for x in us1["head"] if "X86.Syntax" in x]
+    _b1 = [x["X86.Syntax"] for x in us1["base"] if "X86.Syntax" in x]
+    dsyn = (statistics.median(_h1) - statistics.median(_b1)) if (_h1 and _b1) else float("nan")
     ok1 = rc1 == 1 and "OVER BUDGET" in "\n".join(lines1)
     print(("  ✔ " if ok1 else "  ⛔ ") +
           f"{n} planted constructors ⇒ rc {rc1} (wanted 1); X86.Syntax delta "
