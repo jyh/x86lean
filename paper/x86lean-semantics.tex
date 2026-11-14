@@ -63,14 +63,11 @@ step\_dshift\_mem\_undefined\_refuses.}
 % re-pin (act 2). The instruction-library item names objects that exist on x86lean paris/c3-effects (4f08f91) and
 % enter this text only once they are on master at the pin; until then it is marked [AT THE PIN].
 
-x86lean is a formal semantics of user-level x86-64, written in Lean~4, that is used in three ways from
-one definition. It \emph{runs}: \lean{step} is a total, executable function from an instruction and a
-machine state to a machine state, so the same definition that proofs are about can be compiled and run
-against a processor. It is \emph{proved about}: theorems are stated over \lean{step}, and the library
-gives them an interface, a characterization equation per form, a program-level step relation, and a
-small program logic. And it \emph{checks its own claims}: the figures and statements made about the
-semantics, coverage, what was validated against what, which bits are undefined, are derived from the
-artifact and checked in CI against the prose that states them.
+x86lean is a formal semantics of user-level x86-64 in Lean~4, used in three ways from one definition. It
+\emph{runs}: \lean{step} is a total, executable function, so the definition proofs are about is also run against
+a processor. Theorems are \emph{stated over} it, through a characterization equation per form, a program-level
+step relation and a small program logic. And it \emph{checks its own claims}: coverage, what was validated
+against what, and which bits are undefined are derived from the artifact and checked in CI against the prose.
 
 This paper describes x86lean as a tool: what it does, how it is built, how it is used, and how it is
 evaluated.
@@ -81,14 +78,12 @@ evaluated.
   undefined flags are derived from the semantics rather than declared, undefined registers are checked from two
   sources, and a case the model declines is stated as a theorem (Section~\ref{sec:undef}).
   \src{X86/Theorems.lean step\_dshift\_mem\_undefined\_refuses}
-\item \emph{How it is evaluated.} A differential harness whose classes of disagreement, units, and controls that run
-  a deliberately wrong model are explicit, a statement that two of the three models it could be compared against are
-  not independent (one is translated from the other), and the cases where the reference model is not the
+\item \emph{How it is evaluated.} A differential harness with explicit disagreement classes, units, and wrong-model
+  controls; two of its three candidate references are not independent; and the reference model is not always the
   specification (Section~\ref{sec:validation}).
-\item \emph{How its claims are kept true.} Row and form coverage figures derived from two sources, mnemonic and vector
-  counts read from the table the model generates, and validation figures re-derived from their records, checked in CI
-  against the prose that states them, the figures this paper quotes from a machine-readable manifest among them, with
-  a measurement of how often unchecked claims in this project were wrong or irreproducible (Section~\ref{sec:gated}).
+\item \emph{How its claims are kept true.} Coverage and validation figures derived from their records and checked in CI
+  against the prose, this paper's among them, with a measurement of how often unchecked claims here were wrong
+  (Section~\ref{sec:gated}).
 \item \emph{How it is used in proofs.} A measurement, on a sample, of what safety proofs over the semantics cost, and a
   property the cheaper proof tier cannot see (Section~\ref{sec:proofs}).
   \src{X86/Program.lean runP\_safe; Tests/Program.lean countdown\_writes\_no\_memory, fill\_safe, memcpy\_safe,
@@ -104,20 +99,17 @@ Most of these ideas have public precedents, which Section~\ref{sec:related} cite
 combination is checkable in one clone of a public repository.
 
 \paragraph{Uses.}
-x86lean is developed as part of SaltBench~\cite{saltbench}, a benchmark for machine-checked program
-construction. It is the semantics a planned SaltBench suite of x86 assembly tasks will verify against:
-a task asks for code meeting a requirement, and the referee is a theorem about the machine state that
-x86lean's \lean{step} produces. A pilot of that suite (CRC-32) has run and its records are public in
-SaltBench; the full suite is not yet built, and nothing in this paper depends on either.
+x86lean is developed as part of SaltBench~\cite{saltbench}, a benchmark for machine-checked program construction,
+as the semantics its planned x86 assembly suite refereed by a theorem about \lean{step}'s machine state will use. A
+CRC-32 pilot has run, its records public; nothing in this paper depends on it.
 \src{README.md, the section "Part of SaltBench"; saltbench harness/systems-x86/RESULT-x86-crc32-*.md (four files, 2026-09-26 and 2026-09-29)}
 
 \paragraph{Scope.}
 Against its neighbours, x86lean is smaller. At the commits its manifest names, it tests 199 mnemonics
 differentially, where K reports 774, and the proof support reported here is a safety theorem for each of
 six small routines, where x86isa proves full functional correctness of a copy loop of any length below
-$2^{14}$. One more x86 model underlies a proof about real libraries' compiled x86 code, reported on
-2026-10-22~\cite{anthropic-fv}; the semantics that report releases are its RISC-V and operating-system ones, not the x86
-one, and Section~\ref{sec:related} says what it states.
+$2^{14}$. One more x86 model underlies a proof about real libraries' compiled x86 code~\cite{anthropic-fv}
+(Section~\ref{sec:related}).
 Other formal x86-64 models exist beyond the three we compare against, and one of them, libLISA,
 describes itself as the most extensive to date, with over 118{,}000 instruction groups enumerated on a
 processor~\cite{liblisa}; Section~\ref{sec:related} says what we have and have not read.
@@ -1033,13 +1025,6 @@ section 3.2, ``only the part initially satisfying P has been changed'' and ``The
 to that of separation logic, easily follows''; FMCAD 2008 section III, the frame rule derived from the triple; FMCAD 2012 sections II and III, Phase 1 and Fig.~1;
 Tests/Program.lean cites step\_* effect theorems and never step itself; docs/TACAS-G6-RELATED-WORK.md 5;
 docs/DECISIONS.md D222}
-That a model should state its own fidelity is not our idea either: the Isabelle/HOL model above describes
-its semantics as over-approximative~\cite{afp-x86}. What the fidelity tier of
-Section~\ref{sec:model} adds is that the statement is made per mnemonic, as data that is checked against the model's roster.
-\src{isa-afp.org/entries/X86\_Semantics.html, ``purposefully incomplete, but overapproximative''; X86/Coverage.lean inductive Tier and
-the two-direction table test cited in Section~\ref{sec:model}; docs/DECISIONS.md D223. This sentence also cited the lifting work
-(verbeek-lifting) until 2026-09-14; its over-approximation is of a binary's execution paths, and it assumes the instruction
-semantics (PLDI 2022 section 1), so it states no model's fidelity: docs/DECISIONS.md D246}
 
 % ---------------------------------------------------------------------------------------------
 \section{Limitations and Conclusion}
