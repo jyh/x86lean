@@ -167,4 +167,94 @@ theorem runP_block_jcc (p : Program) (is : List Instr) (c : Cc) (d : Val) (jlen 
   rw [hb]
   simp [runBlock, List.foldl_append]
 
+/-! ## (3) — CALL AND RET UNDER ONE CONVENTION
+
+The convention is the hardware's own: `call rel` pushes the return address at `rsp - 8`, the body runs, and a `ret`
+fetched with `rsp` back at that slot and the slot intact returns to the instruction after the call, with `rsp`
+restored. What the body may do to the rest of memory is the CALLER's frame question, not this lemma's: a compiler
+proves the slot intact from a disjointness premise (the stack region apart from every live cell), which its layout
+discharges. That premise is a HYPOTHESIS here, through `hslot`, and is never assumed.
+
+The 8-byte round trip it needs (`readSize_writeSize_q`) is a memory fact x86lean did not state. Its three byte
+lemmas are ported, with their proofs, from vir's `bridge/VIRBridge/Mem.lean` (github.com/jyh/vir, master 9613d47;
+`writeN_frame`, `writeN_in`, `readN_bytes`, `readN_writeN`), same author, Apache-2.0 like this repository. -/
+
+/-- A store of `n` bytes at `a` leaves every byte outside its span as it was. -/
+theorem writeN_frame (m : Mem) (a b v : BitVec 64) : ∀ n : Nat, (∀ j : Nat, j < n → a + BitVec.ofNat 64 j ≠ b) →
+    (m.writeN a v n).read b = m.read b
+  | 0, _ => rfl
+  | n + 1, h => by
+    show ((m.write a (v.setWidth 8)).writeN (a + 1) (v >>> 8) n).read b = m.read b
+    rw [writeN_frame _ (a + 1) b (v >>> 8) n (fun j hj e => h (j + 1) (by omega) (by rw [← e]; bv_omega))]
+    exact Mem.read_write_ne _ _ _ _ (fun e => h 0 (by omega) (by rw [e]; bv_omega))
+
+/-- Inside its span (`n ≤ 8`), a store of `n` bytes reads back byte `k` of the value at `a + k`. -/
+theorem writeN_in (m : Mem) : ∀ (n : Nat) (a v : BitVec 64) (k : Nat), k < n → n ≤ 8 →
+    (m.writeN a v n).read (a + BitVec.ofNat 64 k) = (v >>> (8 * k)).setWidth 8
+  | 0, _, _, _, hk, _ => absurd hk (Nat.not_lt_zero _)
+  | n + 1, a, v, k, hk, hn => by
+    show ((m.write a (v.setWidth 8)).writeN (a + 1) (v >>> 8) n).read (a + BitVec.ofNat 64 k) = _
+    cases k with
+    | zero =>
+      rw [writeN_frame _ (a + 1) _ (v >>> 8) n (fun j hj e => by bv_omega),
+        show a + BitVec.ofNat 64 0 = a by simp, Mem.read_write_same]
+      simp
+    | succ k =>
+      rw [show a + BitVec.ofNat 64 (k + 1) = a + 1 + BitVec.ofNat 64 k by bv_omega,
+        writeN_in _ n (a + 1) (v >>> 8) k (by omega) (by omega), ← BitVec.shiftRight_add]
+      congr 2; omega
+
+/-- A read of `n` bytes from a memory whose byte at `a + k` is `v`'s byte `k`: `v`'s low `8n` bits. -/
+theorem readN_bytes (m : Mem) : ∀ (n : Nat) (a v : BitVec 64),
+    (∀ k : Nat, k < n → m.read (a + BitVec.ofNat 64 k) = (v >>> (8 * k)).setWidth 8) →
+    ∀ i : Nat, (m.readN a n).getLsbD i = (decide (i < 8 * n) && v.getLsbD i)
+  | 0, _, _, _, i => by simp [Mem.readN]
+  | n + 1, a, v, h, i => by
+    have h0 := h 0 (by omega)
+    simp only [Nat.mul_zero, BitVec.ushiftRight_zero, BitVec.add_zero] at h0
+    have ih := readN_bytes m n (a + 1) (v >>> 8) (fun k hk => by
+      rw [show a + 1 + BitVec.ofNat 64 k = a + BitVec.ofNat 64 (k + 1) by bv_omega, h (k + 1) (by omega),
+        ← BitVec.shiftRight_add]
+      congr 2; omega)
+    show (((m.readN (a + 1) n) <<< 8) ||| (m.read a).setWidth 64).getLsbD i = _
+    rw [BitVec.getLsbD_or, BitVec.getLsbD_shiftLeft, BitVec.getLsbD_setWidth, h0, BitVec.getLsbD_setWidth]
+    by_cases hi : i < 8
+    · simp [hi, show i < 64 by omega, show i < 8 * (n + 1) by omega]
+    · rw [ih (i - 8), BitVec.getLsbD_ushiftRight, show 8 + (i - 8) = i by omega]
+      by_cases h64 : i < 64
+      · simp [hi, h64, show (i - 8 < 8 * n) ↔ (i < 8 * (n + 1)) by omega]
+      · simp [hi, h64, BitVec.getLsbD_of_ge v i (by omega)]
+
+/-- **THE ROUND TRIP.** A quadword written at `a` reads back at `a`. -/
+theorem readSize_writeSize_q (m : Mem) (a v : BitVec 64) : (m.writeSize .q a v).readSize .q a = v := by
+  show (m.writeN a v 8).readN a 8 = v
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hi
+  rw [readN_bytes _ 8 a v (fun k hk => writeN_in m 8 a v k hk (Nat.le_refl _)) i]
+  simp [show i < 8 * 8 by omega]
+
+/-- **CALL, BODY, RET.** From a `call rel d` at `s.rip`: if some run of the body from the post-call state reaches a
+state `u` satisfying `B` that fetches a `ret`, with `rsp` back at the pushed slot and the slot still holding the
+return address, then one more step returns to the instruction after the call with `rsp` restored, and memory,
+flags and every other register are exactly as the body left them. -/
+theorem call_ret {p : Program} {s : Cpu} {len rl : Nat} (d : Val) (B : Cpu → Prop)
+    (hs : s.stopped = false) (hcall : p.at? s.rip = some ⟨.call (.rel d), len⟩)
+    (hr : canonical (s.rip + BitVec.ofNat 64 len) = true)
+    (hbody : ∃ n, B (runP p n (step ⟨.call (.rel d), len⟩ s)) ∧
+      (runP p n (step ⟨.call (.rel d), len⟩ s)).stopped = false ∧
+      p.at? (runP p n (step ⟨.call (.rel d), len⟩ s)).rip = some ⟨.ret, rl⟩ ∧
+      (runP p n (step ⟨.call (.rel d), len⟩ s)).regs.get .rsp = s.regs.get .rsp - 8 ∧
+      (runP p n (step ⟨.call (.rel d), len⟩ s)).mem.readSize .q (s.regs.get .rsp - 8) =
+        s.rip + BitVec.ofNat 64 len) :
+    ∃ n u, B u ∧ runP p n s =
+      { u with regs := u.regs.set .rsp (s.regs.get .rsp), rip := s.rip + BitVec.ofNat 64 len } := by
+  obtain ⟨n, hB, hus, hret, hrsp, hslot⟩ := hbody
+  refine ⟨1 + n + 1, runP p n (step ⟨.call (.rel d), len⟩ s), hB, ?_⟩
+  have hlive : Live (runP p n (step ⟨.call (.rel d), len⟩ s)) := live_of_not_stopped (by rw [hus]; exact Bool.false_ne_true)
+  rw [runP_add, runP_add, show runP p 1 s = step ⟨.call (.rel d), len⟩ s by
+      rw [runP_succ, runP_zero, stepP_of_at hs hcall], runP_succ, runP_zero, stepP_of_at hus hret,
+    step_ret_taken hlive (by simp only [Cpu.readMem]; rw [hrsp, hslot]; exact hr)]
+  simp only [Cpu.setReg, Cpu.readMem, hrsp, hslot, BitVec.sub_add_cancel]
+  rfl
+
 end X86
