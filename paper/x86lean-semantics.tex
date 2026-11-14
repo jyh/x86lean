@@ -59,37 +59,57 @@ step\_dshift\_mem\_undefined\_refuses.}
 \section{Introduction}
 \label{sec:intro}
 % Register: docs/TACAS-PRICING.md 4a; docs/TACAS-G1-POSITIONING.md 1 and 3.
+% CAV 2027 TOOL-PAPER RE-FRAME (row 63, act 1; the CAV 2027 plan, paper's brief of 2026-11-11, change 1). DRAFT on paris/o38-cav-reframe from b5a5310. The figures below are b5a5310's and are re-cited at the
+% re-pin (act 2). The instruction-library item names objects that exist on x86lean paris/c3-effects (4f08f91) and
+% enter this text only once they are on master at the pin; until then it is marked [AT THE PIN].
 
-A formal semantics of a processor is used as a specification, so the first question about one is
-whether it is right. The public semantics of x86-64 answer it by execution: x86isa is co-simulated
-against a processor, and K was tested against thousands of instruction-level cases
-(Section~\ref{sec:related}). This paper is about the second question, which a reader of any of them
-also has to take on trust: are the claims made \emph{about} the semantics right? A coverage figure, a
-list of what was validated against what, a statement of which bits are undefined, a count of
-disagreements: each is ordinarily prose, and prose is not checked against the artifact it describes.
+x86lean is a formal semantics of user-level x86-64, written in Lean~4, that is used in three ways from
+one definition. It \emph{runs}: \lean{step} is a total, executable function from an instruction and a
+machine state to a machine state, so the same definition that proofs are about can be compiled and run
+against a processor. It is \emph{proved about}: theorems are stated over \lean{step}, and the library
+gives them an interface, a characterization equation per form, a program-level step relation, and a
+small program logic. And it \emph{checks its own claims}: the figures and statements made about the
+semantics, coverage, what was validated against what, which bits are undefined, are derived from the
+artifact and checked in CI against the prose that states them.
 
-What x86lean contributes is a discipline for the claims around a semantics, applied throughout:
+This paper describes x86lean as a tool: what it does, how it is built, how it is used, and how it is
+evaluated.
 \begin{itemize}
-\item an undefined-bit design in which one Lean definition serves execution and proof, the undefined flags
-  are derived from the semantics rather than declared, undefined registers are checked from two sources,
-  and a case the model declines is stated as a theorem (Section~\ref{sec:undef});
+\item \emph{What it models, and how it declines.} The state, the instruction AST, a fidelity tier per
+  mnemonic, and a halt field that records why the model stopped when it faults or declines a case
+  (Section~\ref{sec:model}); an undefined-bit design in which one Lean definition serves execution and proof, the
+  undefined flags are derived from the semantics rather than declared, undefined registers are checked from two
+  sources, and a case the model declines is stated as a theorem (Section~\ref{sec:undef}).
   \src{X86/Theorems.lean step\_dshift\_mem\_undefined\_refuses}
-\item a differential harness whose classes of disagreement, units, and controls that run a deliberately wrong
-  model are explicit, a statement that two of the three models it could be compared against are not
-  independent (one is translated from the other), and the
-  cases where the reference model is not the specification (Section~\ref{sec:validation});
-\item row and form coverage figures derived from two sources, mnemonic and vector counts read from the table the model generates, and validation figures re-derived from their records,
-  checked in CI against the prose that states them, the figures this paper quotes from a machine-readable
-  manifest among them, with a measurement of how often unchecked claims in this project were wrong or
-  irreproducible (Section~\ref{sec:gated});
-\item a measurement, on a sample, of what safety proofs over the semantics cost, and a property the
-  cheaper proof tier cannot see (Section~\ref{sec:proofs}).
+\item \emph{How it is evaluated.} A differential harness whose classes of disagreement, units, and controls that run
+  a deliberately wrong model are explicit, a statement that two of the three models it could be compared against are
+  not independent (one is translated from the other), and the cases where the reference model is not the
+  specification (Section~\ref{sec:validation}).
+\item \emph{How its claims are kept true.} Row and form coverage figures derived from two sources, mnemonic and vector
+  counts read from the table the model generates, and validation figures re-derived from their records, checked in CI
+  against the prose that states them, the figures this paper quotes from a machine-readable manifest among them, with
+  a measurement of how often unchecked claims in this project were wrong or irreproducible (Section~\ref{sec:gated}).
+\item \emph{How it is used in proofs.} A measurement, on a sample, of what safety proofs over the semantics cost, and a
+  property the cheaper proof tier cannot see (Section~\ref{sec:proofs}).
   \src{X86/Program.lean runP\_safe; Tests/Program.lean countdown\_writes\_no\_memory, fill\_safe, memcpy\_safe,
   scan\_writes\_no\_memory, prologue\_preserves\_caller\_frame, guarded\_writes\_only\_in\_buffer; the property the
   cheaper tier cannot see is not proved: the section Proofs Over the Semantics, ``What the cheaper tier cannot see''}
+% [AT THE PIN] \item \emph{As a compiler's target.} An instruction library a verified compiler lowers to: effect
+%   equations for the forms it emits, a straight-line-block lemma with a conditional exit, call and return under the
+%   hardware's convention, and one iteration of a driver loop as a machine fact, used by a verified compiler for a
+%   small functional language. \src{X86/Effects.lean stepP_of_at, runP_block, runP_block_jcc, call_ret,
+%   driver_iteration} -- cite at the pin, with its non-author read; the compiler's own claims are its repository's.
 \end{itemize}
 Most of these ideas have public precedents, which Section~\ref{sec:related} cites. Their
 combination is checkable in one clone of a public repository.
+
+\paragraph{Uses.}
+x86lean is developed as part of SaltBench~\cite{saltbench}, a benchmark for machine-checked program
+construction. It is the semantics a planned SaltBench suite of x86 assembly tasks will verify against:
+a task asks for code meeting a requirement, and the referee is a theorem about the machine state that
+x86lean's \lean{step} produces. A pilot of that suite (CRC-32) has run and its records are public in
+SaltBench; the full suite is not yet built, and nothing in this paper depends on either.
+\src{README.md, the section "Part of SaltBench"; saltbench harness/systems-x86/RESULT-x86-crc32-*.md (four files, 2026-09-26 and 2026-09-29)}
 
 \paragraph{Scope.}
 Against its neighbours, x86lean is smaller. At the commits its manifest names, it tests 199 mnemonics
@@ -104,16 +124,22 @@ processor~\cite{liblisa}; Section~\ref{sec:related} says what we have and have n
 \src{docs/CLAIMS.tsv[coverage\_mnemonics, k\_mnemonics, proof\_sample\_routines, liblisa\_groups]; docs/TACAS-G1-POSITIONING.md, the scale and proof-support rows and 1d; docs/DECISIONS.md D220}
 x86lean's decoding is trusted to Intel XED, and its differential validation is against one executable model.
 
-x86lean is developed as part of SaltBench~\cite{saltbench}, a benchmark for machine-checked program
-construction. It is the semantics a planned SaltBench suite of x86 assembly tasks will verify against:
-a task asks for code meeting a requirement, and the referee is a theorem about the machine state that
-x86lean's \lean{step} produces. A pilot of that suite (CRC-32) has run and its records are public in
-SaltBench; the full suite is not yet built, and nothing in this paper depends on either.
-\src{README.md, the section "Part of SaltBench"; saltbench harness/systems-x86/RESULT-x86-crc32-*.md (four files, 2026-09-26 and 2026-09-29)}
-
 % ---------------------------------------------------------------------------------------------
-\section{The Model}
+\section{Architecture}
 \label{sec:model}
+% CAV re-frame: was "The Model"; the label is kept so every cross-reference holds.
+
+\paragraph{Components.}
+x86lean is one Lean library and the tools around it. The \emph{semantics} is the machine state, the instruction
+AST and \lean{step}. The \emph{coverage table} is a Lean value that states what the model claims, one row per
+mnemonic, and the published coverage document is generated from it. The \emph{differential harness} runs the model
+and a reference model on the same states and classifies every disagreement. The \emph{proof interface} is the
+characterization equations, a program-level step relation and a small program logic. The \emph{gates} are CI checks
+that re-derive each published figure from the artifact. Decoding is outside the library: the AST is produced from
+Intel XED, and that trust is recorded in the table.
+\src{X86/State.lean structure Cpu; X86/Syntax.lean structure Instr; X86/Semantics.lean step; X86/Coverage.lean;
+Main.lean, the comparator; X86/Theorems.lean; X86/Program.lean stepP; X86/Logic.lean Spec; .github/workflows/ci.yml;
+TRUSTBASE.md, Decode trust}
 % Register: X86/State.lean Cpu; X86/Basic.lean GPR, Xmms; X86/Syntax.lean Instr; X86/Semantics.lean step,
 % run; X86/Coverage.lean Tier, DecodeTrust; TRUSTBASE.md; docs/COVERAGE.md.
 
