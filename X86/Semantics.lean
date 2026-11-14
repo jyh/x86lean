@@ -397,6 +397,12 @@ truncated.  The count is a Nat here and stays one. -/
 def vlanes1 (w : Nat) (f : BitVec w → BitVec w) (a : BitVec 128) : BitVec 128 :=
   vlanes1Aux w f a (128 / w)
 
+/-- ⭐ D379 — PABS's lane, over 128 bits, through `vlanes1` (the unary combinator): `|x|` as an UNSIGNED result. `-x`
+in `BitVec` is two's-complement negation, so the minimum maps to itself, which is the SDM's "80H → 80H" (it wraps; a
+saturating abs would give 7FH). -/
+def vabsApply (w : VAbsW) (b : BitVec 128) : BitVec 128 :=
+  vlanes1 w.bits (fun y => if y.msb then -y else y) b
+
 /-- ⭐⭐⭐ ONE LANE OF A PACKED SHIFT — THE SATURATING COUNT RULE, WHICH IS THE
 WHOLE CONTENT OF THE GROUP (SDM Vol. 2B, PSLLW/PSRLW/PSRAW and their D and Q
 forms).
@@ -589,7 +595,8 @@ def vinsrApply (sz : Size) (dst : BitVec 128) (v : Val) (imm : BitVec 8) : BitVe
   (dst &&& ~~~m) ||| (((Value.trunc sz v).setWidth 128) <<< sh)
 
 /-- PEXTRD/PEXTRQ (SDM Vol. 2B): lane `vlaneSel sz imm` of `src`, zero above the
-width (the GPR write then zero-extends a 32-bit lane by the ordinary rule). -/
+width (a GPR write then zero-extends a 32-bit lane by the ordinary rule; a memory
+write stores `sz.bits / 8` bytes of it, D362). -/
 def vextrApply (sz : Size) (src : BitVec 128) (imm : BitVec 8) : Val :=
   (src.extractLsb' (sz.bits * vlaneSel sz imm) sz.bits).setWidth 64
 
@@ -884,6 +891,8 @@ def vbinApply (k : VBinKind) (a b : BitVec 128) : BitVec 128 :=
   | .maddwd   => vlanes 32 vmaddwdLane a b
   | .maddubsw => vlanes 16 vmaddubswLane a b
   | .mullw    => vlanes 16 (· * ·) a b
+  -- ⭐ D379: the dword twin, the low 32 bits of each product (`*` on `BitVec 32` is mod 2^32).
+  | .mulld    => vlanes 32 (· * ·) a b
   | .mulhrsw  => vlanes 16 vmulhrswLane a b
   -- the EVEN dwords, UNSIGNED, full 64-bit product: the low dword of each quadword lane
   | .muludq   => vlanes 64 (fun x y => (x.setWidth 32).setWidth 64 * (y.setWidth 32).setWidth 64) a b
@@ -895,6 +904,20 @@ def vbinApply (k : VBinKind) (a b : BitVec 128) : BitVec 128 :=
   | .maxsw    => vlanes 16 (fun x y => if y.slt x then x else y) a b
   | .sadbw    => vlanes 64 vsadLane a b
   | .packssdw => vpackss a b
+  -- ⭐ D373 — refereed by silicon (`mk_simda_rows.py --set-b`).  ⛔ `slt` again:
+  -- `DEST < SRC` (SIGNED) keeps DEST, else SRC.
+  | .minsw    => vlanes 16 (fun x y => if x.slt y then x else y) a b
+  -- bits 31:16 of the 32-bit product; the two differ ONLY in how a word is widened.
+  | .mulhw    => vlanes 16 (fun x y => (x.signExtend 32 * y.signExtend 32).extractLsb' 16 16) a b
+  | .mulhuw   => vlanes 16 (fun x y => (x.setWidth 32 * y.setWidth 32).extractLsb' 16 16) a b
+  -- the sum in 9 bits, so FFH + FFH + 1 does not wrap before the shift.
+  | .avgb     => vlanes 8 (fun x y => (x.setWidth 9 + y.setWidth 9 + 1).extractLsb' 1 8) a b
+  -- ⭐ D384 (wave E) — refereed by silicon (`mk_simda_rows.py --set-c`, `mk_vexsilk_rows.py`).  Each sits beside
+  -- the kind it mirrors: `addsw` with the sum turned to a difference, `avgb` at 16 bits (the sum in 17), and
+  -- `muludq` with each even dword SIGN-extended instead of zero-extended.
+  | .subsw    => vlanes 16 (fun x y => ssatW (x.signExtend 32 - y.signExtend 32)) a b
+  | .avgw     => vlanes 16 (fun x y => (x.setWidth 17 + y.setWidth 17 + 1).extractLsb' 1 16) a b
+  | .muldq    => vlanes 64 (fun x y => (x.setWidth 32).signExtend 64 * (y.setWidth 32).signExtend 64) a b
 
 /-- ⭐⭐ P2 BATCH 38 — THE SCALAR MIN/MAX WRITE (SDM Vol. 2B, MINSS/MINSD/MAXSS/
 MAXSD): the destination's low lane becomes `fmin`/`fmax` of `d`'s low lane and
@@ -1220,6 +1243,105 @@ theorem about a VEX form keeps its proof, and only its statement gains the `.vex
       if k.aligned && !alignedVex true a then
         s.halt (.byDesign "an aligned VEX.256 move at an address that is not 32-byte aligned (#GP(0))")
       else ((s.writeMem128 a (s.getXmm src)).writeMem128 (a + 16) (s.getYmmHi src)).setRip nr
+  -- ⭐⭐ V10 (D361) — the VEX memory twins of the silicon rows: each arm is its register twin's with ModRM.rm read from
+  -- memory (`readMem128` at `a`, and at `a + 16` for a VEX.256 high lane), no alignment check.  No arithmetic of its own.
+  | .vexshufbm dst src1 ea =>
+      (s.setXmmVex128 dst (vshufbApply (s.getXmm src1) (s.readMem128 (ea.addr s nr)))).setRip nr
+  | .vexalignrm dst src1 ea imm =>
+      (s.setXmmVex128 dst (valignrApply (s.getXmm src1) (s.readMem128 (ea.addr s nr)) imm)).setRip nr
+  | .vexparithm op dst src1 ea =>
+      if op == .div then s.halt (.unimplemented "vdivps m128: a VEX memory twin not taken (D361)") else
+      let p := vparithAll op false (mxcsrRC s.mxcsr) (s.getXmm src1) (s.readMem128 (ea.addr s nr))
+      s.withSimd p.2 fun s => (s.setXmmVex128 dst p.1).setRip nr
+  | .vexparithm256 op dst src1 ea =>
+      if op == .div then s.halt (.unimplemented "vdivps m256: a VEX.256 memory twin not taken (D361)") else
+      let a := ea.addr s nr
+      let rc := mxcsrRC s.mxcsr
+      let plo := vparithAll op false rc (s.getXmm src1) (s.readMem128 a)
+      let phi := vparithAll op false rc (s.getYmmHi src1) (s.readMem128 (a + 16))
+      s.withSimd (plo.2 ||| phi.2) fun s => (s.setYmm dst plo.1 phi.1).setRip nr
+  -- ⚠️ THE COUNT IS THE LOW 64 BITS OF THE m128 AT `a`, at BOTH lengths (D361 wrong rule (c) reads all 128).
+  | .vexsraxm w dst src1 ea =>
+      if !(vshiftEncodable .sra w) then
+        s.halt (.illegalOperands "there is no packed byte shift, and no psraq outside AVX-512")
+      else
+        let c := ((s.readMem128 (ea.addr s nr)).setWidth 64).toNat
+        (s.setXmmVex128 dst (vshiftApply .sra w (s.getXmm src1) c)).setRip nr
+  | .vexsraxm256 w dst src1 ea =>
+      if !(vshiftEncodable .sra w) then
+        s.halt (.illegalOperands "there is no packed byte shift, and no psraq outside AVX-512")
+      else
+        let c := ((s.readMem128 (ea.addr s nr)).setWidth 64).toNat
+        (s.setYmm dst (vshiftApply .sra w (s.getXmm src1) c)
+                      (vshiftApply .sra w (s.getYmmHi src1) c)).setRip nr
+  -- ⭐ D371 — VEX `vmovd`/`vmovq`: `vmovg`'s, `vmovgld`'s and `vmovgst`'s formulas with an XMM destination written
+  -- through `setXmmVex128` (YMM bits 255:128 ZEROED). The GPR write and the store are the legacy ones exactly.
+  | .vexmovg toXmm sz x r =>
+      if toXmm then
+        (s.setXmmVex128 x ((s.getReg sz r).setWidth 128)).setRip nr
+      else
+        (s.setReg sz r ((s.getXmm x).setWidth 64)).setRip nr
+  | .vexmovgld sz dst ea =>
+      let a := ea.addr s nr
+      (s.setXmmVex128 dst (((s.readMem sz a).setWidth sz.bits).setWidth 128)).setRip nr
+  | .vexmovgst sz ea src =>
+      let a := ea.addr s nr
+      (s.writeMem sz a ((s.getXmm src).setWidth 64)).setRip nr
+  -- ⭐⭐ D394 (wave G) — the VEX scalar floating-point forms. Each arm is its legacy twin's (`varith`, `varithm`, `vmovs`,
+  -- `vmovsld`, `vmovsst`) with `src1` in the legacy destination's place and `setXmmVex128` in place of `setXmm`, so bits
+  -- 127:sz come FROM `src1` and YMM bits 255:128 are ZEROED. No arm here has arithmetic of its own: the rounding and the
+  -- MXCSR flags are `varithLow`'s, through `withSimd`, exactly as the legacy arms reach them.
+  | .vexarith op sz dst src1 src =>
+      let p := varithLow op sz (mxcsrRC s.mxcsr) (s.getXmm src1) ((s.getXmm src).setWidth 64)
+      s.withSimd p.2 fun s => (s.setXmmVex128 dst p.1).setRip nr
+  | .vexarithm op sz dst src1 ea =>
+      let p := varithLow op sz (mxcsrRC s.mxcsr) (s.getXmm src1) (s.readMem sz (ea.addr s nr))
+      s.withSimd p.2 fun s => (s.setXmmVex128 dst p.1).setRip nr
+  | .vexmovs sz dst src1 src =>
+      let n := sz.bits
+      let keep := ((s.getXmm src1) >>> n) <<< n
+      let low  := ((s.getXmm src).setWidth n).setWidth 128
+      (s.setXmmVex128 dst (keep ||| low)).setRip nr
+  | .vexmovsld sz dst ea =>
+      let a := ea.addr s nr
+      (s.setXmmVex128 dst (((s.readMem sz a).setWidth sz.bits).setWidth 128)).setRip nr
+  | .vexmovsst sz ea src =>
+      let a := ea.addr s nr
+      (s.writeMem sz a ((s.getXmm src).setWidth 64)).setRip nr
+  -- ⭐ D375 — the VEX.256 lane insert/extract. Lane 0 is `getXmm`, lane 1 `getYmmHi`; `imm[0]` selects.
+  | .vexins128 _ dst src1 src imm =>
+      let v := s.getXmm src
+      (if imm.getLsbD 0 then s.setYmm dst (s.getXmm src1) v
+       else s.setYmm dst v (s.getYmmHi src1)).setRip nr
+  | .vexins128m _ dst src1 ea imm =>
+      let v := s.readMem128 (ea.addr s nr)
+      (if imm.getLsbD 0 then s.setYmm dst (s.getXmm src1) v
+       else s.setYmm dst v (s.getYmmHi src1)).setRip nr
+  | .vexext128 _ dst src imm =>
+      (s.setXmmVex128 dst (if imm.getLsbD 0 then s.getYmmHi src else s.getXmm src)).setRip nr
+  | .vexext128m _ ea src imm =>
+      (s.writeMem128 (ea.addr s nr) (if imm.getLsbD 0 then s.getYmmHi src else s.getXmm src)).setRip nr
+  -- ⭐ D376 — the VEX.128 half-moves: legacy `vloadq`'s merge with SRC1 where the legacy form keeps its own
+  -- destination, written through `setXmmVex128` (YMM bits 255:128 ZEROED); the store is legacy `vstoreq`'s. No
+  -- alignment branch (VEX Exception Type 5, as the legacy forms have none).
+  | .vexloadq h _ dst src1 ea =>
+      let m := (s.readMem .q (ea.addr s nr)).setWidth 128
+      match h with
+      | .hi => (s.setXmmVex128 dst ((m <<< 64) ||| ((s.getXmm src1).setWidth 64).setWidth 128)).setRip nr
+      | .lo => (s.setXmmVex128 dst (((((s.getXmm src1) >>> 64).setWidth 64).setWidth 128 <<< 64) ||| m)).setRip nr
+  | .vexstoreq h _ ea src =>
+      let a := ea.addr s nr
+      match h with
+      | .hi => (s.writeMem .q a (((s.getXmm src) >>> 64).setWidth 64)).setRip nr
+      | .lo => (s.writeMem .q a ((s.getXmm src).setWidth 64)).setRip nr
+  -- ⭐ D379 — VPABS*: VEX.128 zeroes YMM bits 255:128; VEX.256 applies the lane rule to both halves; no alignment branch.
+  | .vexabs w dst src => (s.setXmmVex128 dst (vabsApply w (s.getXmm src))).setRip nr
+  | .vexabsm w dst ea => (s.setXmmVex128 dst (vabsApply w (s.readMem128 (ea.addr s nr)))).setRip nr
+  | .vexabs256 w dst src =>
+      (s.setYmm dst (vabsApply w (s.getXmm src)) (vabsApply w (s.getYmmHi src))).setRip nr
+  | .vexabsm256 w dst ea =>
+      let a := ea.addr s nr
+      (s.setYmm dst (vabsApply w (s.readMem128 a)) (vabsApply w (s.readMem128 (a + 16)))).setRip nr
 
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=
@@ -1283,6 +1405,19 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       if k.aligned && !aligned16 a then
         s.halt (.byDesign "an aligned 128-bit move at an address that is not 16-byte aligned (#GP(0))")
       else (s.setXmm dst (s.readMem128 a)).setRip nr
+  -- ⭐ D376 — `movntdqa`: `movdqa`'s aligned load (the non-temporal hint is not state), a LEGACY write through `setXmm`.
+  | .vloadnt dst ea =>
+      let a := ea.addr s nr
+      if !aligned16 a then
+        s.halt (.byDesign "movntdqa at an address that is not 16-byte aligned (#GP(0))")
+      else (s.setXmm dst (s.readMem128 a)).setRip nr
+  -- ⭐ D379 — PABS*: a LEGACY write through `setXmm`; the m128 form keeps `vbinm`'s 16-byte #GP.
+  | .vabs w dst src => (s.setXmm dst (vabsApply w (s.getXmm src))).setRip nr
+  | .vabsm w dst ea =>
+      let a := ea.addr s nr
+      if !aligned16 a then
+        s.halt (.byDesign "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
+      else (s.setXmm dst (vabsApply w (s.readMem128 a))).setRip nr
 
   -- ⭐⭐ MOVHPS (SDM Vol. 2B) — the HIGH quadword moves and the LOW one is UNTOUCHED.
   --
@@ -1751,8 +1886,9 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       | .d | .q => (s.setXmm dst (vinsrApply sz (s.getXmm dst) (s.readOperand sz nr src) imm)).setRip nr
       | _ => s.halt (.illegalOperands "pinsr at an 8- or 16-bit width (pinsrb/pinsrw are other mnemonics)")
   | .vextr sz dst src imm =>
-      match sz with
-      | .d | .q => (s.setReg sz dst (vextrApply sz (s.getXmm src) imm)).setRip nr
+      if dst.isImm then s.halt (.illegalOperands "pextrd/pextrq with an immediate destination")
+      else match sz with
+      | .d | .q => (s.writeOperand sz nr dst (vextrApply sz (s.getXmm src) imm)).setRip nr
       | _ => s.halt (.illegalOperands "pextr at an 8- or 16-bit width (pextrb/pextrw are other mnemonics)")
 
   -- ⭐ D338 (V2): SHA256MSG1, SHA256MSG2, SHA256RNDS2.  x86isa refuses all three;

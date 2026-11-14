@@ -2386,22 +2386,33 @@ theorem vlaneSel_q (imm : BitVec 8) : vlaneSel .q imm = imm.toNat % 2 := rfl
 `.d` it zero-extends, by `setReg`), nothing else written. -/
 theorem step_vextr (h : Live s) (r : GPR) (x : XmmReg) (imm : BitVec 8)
     (hsz : sz = .d ∨ sz = .q) :
-    step ⟨.vextr sz r x imm, len⟩ s =
+    step ⟨.vextr sz (.reg r) x imm, len⟩ s =
       (s.setReg sz r (vextrApply sz (s.getXmm x) imm)).setRip (s.rip + BitVec.ofNat 64 len) := by
-  rcases hsz with rfl | rfl <;> simp [step, h, Op.lockIllegal, Op.anyLocked, Op.lockable]
+  rcases hsz with rfl | rfl <;>
+    simp [step, h, Op.lockIllegal, Op.anyLocked, Op.lockable, Operand.isImm, Cpu.writeOperand]
+
+/-- D362: PEXTRD/PEXTRQ to memory, an unlocked operand: the selected lane is
+written at the operand's address at width `sz`, and nothing else is written. -/
+theorem step_vextr_mem (h : Live s) (ea : Ea) (x : XmmReg) (imm : BitVec 8)
+    (hl : ea.lock = false) (hsz : sz = .d ∨ sz = .q) :
+    step ⟨.vextr sz (.mem ea) x imm, len⟩ s =
+      (s.writeMem sz (ea.addr s (s.rip + BitVec.ofNat 64 len)) (vextrApply sz (s.getXmm x) imm)).setRip
+        (s.rip + BitVec.ofNat 64 len) := by
+  rcases hsz with rfl | rfl <;>
+    simp [step, h, hl, Op.lockIllegal, Op.anyLocked, Op.lockable, Operand.isImm, Cpu.writeOperand]
 
 /-- ⛔ NO FLAG: PSHUFB, PALIGNR, PINSR* and PEXTR* leave RFLAGS as they found it. -/
 theorem step_vextr_flags (h : Live s) (r : GPR) (x : XmmReg) (imm : BitVec 8)
     (hsz : sz = .d ∨ sz = .q) :
-    (step ⟨.vextr sz r x imm, len⟩ s).flags = s.flags := by
+    (step ⟨.vextr sz (.reg r) x imm, len⟩ s).flags = s.flags := by
   rw [step_vextr h r x imm hsz]; simp
 
 /-- ⛔ PINSR*/PEXTR* AT 8 OR 16 BITS ARE OTHER MNEMONICS, and `step` refuses them. -/
 theorem step_vextr_narrow_refuses (r : GPR) (x : XmmReg) (imm : BitVec 8) (h : Live s)
     (hsz : sz = .b ∨ sz = .w) :
-    (step ⟨.vextr sz r x imm, len⟩ s).stopped = true := by
+    (step ⟨.vextr sz (.reg r) x imm, len⟩ s).stopped = true := by
   rcases hsz with rfl | rfl <;> simp [step, h, Cpu.halt, Cpu.stopped, Op.lockIllegal,
-    Op.anyLocked, Op.lockable]
+    Op.anyLocked, Op.lockable, Operand.isImm]
 
 end V1b
 
@@ -2449,6 +2460,37 @@ largest sum, eight differences of 255, is 7F8H. -/
 theorem sad_max : vsadLane 0xFFFFFFFFFFFFFFFF 0 = 0x7F8 := by decide
 
 end V1a
+
+/-! ⭐ D373 — `pminsw`, `pmulhw`, `pmulhuw`, `pavgb`: four more kinds with no
+differential partner (x86isa refuses all four), checked on silicon by
+`hwprobe/mk_simda_rows.py --set-b` and pinned in `Tests/AnchorsSimdB.lean`.  The frame
+theorems above apply for the same reason as D335's: none is min/max. -/
+section D373
+
+theorem d373_kinds_not_minmax :
+    [VBinKind.minsw, .mulhw, .mulhuw, .avgb].all (fun k => !k.isMinMax) = true := by decide
+
+/-- ⛔ PMINSW IS SIGNED: 8000H (−32768) is below 7FFFH, where an unsigned minimum
+would keep 7FFFH. -/
+theorem minsw_signed :
+    vbinApply .minsw 0x80008000800080008000800080008000 0x7FFF7FFF7FFF7FFF7FFF7FFF7FFF7FFF
+      = 0x80008000800080008000800080008000 := by decide
+
+/-- ⭐ THE TWO HIGH HALVES DIFFER ONLY IN SIGNEDNESS: FFFFH × FFFFH is 1 signed
+(high word 0) and FFFE0001H unsigned (high word FFFEH). -/
+theorem mulhw_mulhuw_ones :
+    vbinApply .mulhw 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF = 0 ∧
+    vbinApply .mulhuw 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+      = 0xFFFEFFFEFFFEFFFEFFFEFFFEFFFEFFFE := by decide
+
+/-- ⭐ PAVGB ROUNDS UP AND DOES NOT WRAP: FFH and FFH average to FFH, 0 and 1 to 1. -/
+theorem avgb_rounds_up :
+    vbinApply .avgb 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+      = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF ∧
+    vbinApply .avgb 0 0x01010101010101010101010101010101
+      = 0x01010101010101010101010101010101 := by decide
+
+end D373
 
 /-! ## D338 (V2) — SHA256MSG1, SHA256MSG2, SHA256RNDS2 (SHA-NI, legacy SSE)
 
