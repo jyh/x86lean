@@ -257,4 +257,35 @@ theorem call_ret {p : Program} {s : Cpu} {len rl : Nat} (d : Val) (B : Cpu → P
   simp only [Cpu.setReg, Cpu.readMem, hrsp, hslot, BitVec.sub_add_cancel]
   rfl
 
+/-! ## (4) — THE DRIVER, MACHINE HALF
+
+vir's C0 (a) driver is a fixed loop: call the compiled step, test its exit code, `jcc` to the exit, else jump back
+to the head. The LOOP rule is already `Spec.loop` (X86/Logic.lean: an invariant and a `Nat` variant, no step
+count). What a driver proof additionally needs is ONE ITERATION as a machine fact: the call returns (`call_ret`),
+then the check block runs and its `jcc` decides (`runP_block_jcc`). `driver_iteration` is that composition and names
+no program; the L2 half (that the step refines the L2 step relation, and the variant) is vir's, and feeds
+`Spec.loop` through it. -/
+
+/-- **ONE DRIVER ITERATION.** `call rel d`, the body (as in `call_ret`), then a check block `blk` ending in
+`jcc c dj`: some run from the call is exactly that `jcc`'s step applied to the block's end, from the returned
+state. With `step_jcc` it lands at the exit when `c` holds and at the instruction after the `jcc` otherwise. -/
+theorem driver_iteration {p : Program} {s : Cpu} {len rl jlen : Nat} (d : Val) (B : Cpu → Prop)
+    (blk : List Instr) (c : Cc) (dj : Val)
+    (hs : s.stopped = false) (hcall : p.at? s.rip = some ⟨.call (.rel d), len⟩)
+    (hr : canonical (s.rip + BitVec.ofNat 64 len) = true)
+    (hbody : ∃ n, B (runP p n (step ⟨.call (.rel d), len⟩ s)) ∧
+      (runP p n (step ⟨.call (.rel d), len⟩ s)).stopped = false ∧
+      p.at? (runP p n (step ⟨.call (.rel d), len⟩ s)).rip = some ⟨.ret, rl⟩ ∧
+      (runP p n (step ⟨.call (.rel d), len⟩ s)).regs.get .rsp = s.regs.get .rsp - 8 ∧
+      (runP p n (step ⟨.call (.rel d), len⟩ s)).mem.readSize .q (s.regs.get .rsp - 8) =
+        s.rip + BitVec.ofNat 64 len)
+    (hblk : ∀ u, B u → BlockFetches p (blk ++ [⟨.jcc c dj, jlen⟩])
+      { u with regs := u.regs.set .rsp (s.regs.get .rsp), rip := s.rip + BitVec.ofNat 64 len }) :
+    ∃ n u, B u ∧ runP p n s = step ⟨.jcc c dj, jlen⟩
+      (runBlock blk { u with regs := u.regs.set .rsp (s.regs.get .rsp), rip := s.rip + BitVec.ofNat 64 len }) := by
+  obtain ⟨n, u, hB, hrun⟩ := call_ret d B hs hcall hr hbody
+  refine ⟨n + (blk.length + 1), u, hB, ?_⟩
+  rw [runP_add, hrun]
+  exact runP_block_jcc p blk c dj jlen _ (hblk u hB)
+
 end X86
