@@ -778,28 +778,72 @@ def profile_module(f):
     # pass. Both streams are searched now, and a module that yields NO reading
     # is an error rather than a zero.
     blob = r.stdout + "\n" + r.stderr
-    m = re.search(r'^\s*type checking\s+([\d.]+)(ms|s)\s*$', blob, re.M)
-    if not m:
-        # A pure re-export module (X86.lean is nothing but `import` lines)
-        # type-checks nothing, so the profiler prints its cumulative block with
-        # no `type checking` entry.  That is a real zero.  A run with NO
-        # cumulative block at all is a failed measurement and must not be
-        # silently read as zero — the distinction is the whole difference
-        # between "nothing to check" and "we did not look".
-        if "cumulative profiling times" in blob:
-            cpu["ms"] = 0.0
-            return cpu
+    if "cumulative profiling times" not in blob:
         print(f"⛔ {f}: the profiler produced no cumulative block at all. "
               f"A missing reading is not a zero.")
         sys.exit(2)
-    v = float(m.group(1))
-    cpu["ms"] = v * 1000 if m.group(2) == "s" else v
+    with open(f, encoding="utf-8") as fh:
+        src = fh.read()
+    cpu["ms"] = parse_type_checking_ms(blob, src)
+    if cpu["ms"] is None:
+        # ⛔ NO READING, NEVER A ZERO (STATUS row 61; paper's finding on #172, 2026-11-10): one head pass of a
+        # kernel_delta run read X86.Syntax = 0.0 against 922–1250 on the other 23, and that one value widened the
+        # row's band from ±71.5 to ±226.2 and made it UNMEASURABLE. This branch used to score ANY cumulative block
+        # without a `type checking` line as a real zero. It is a real zero only for a re-export module; for a
+        # module that declares things it is a pass that did not see its subject. The caller decides: the ceiling
+        # gate refuses, and the delta walk OMITS that pass's reading and says so — one bad pass must not end a
+        # five-hour run, and must not be averaged in either. What made the line go missing is UNMEASURED.
+        cpu["unread"] = ("a cumulative block with no `type checking` line, and the module declares things — "
+                         "no reading, not a zero")
+        tail = "\n".join(blob.strip().splitlines()[-12:])
+        sys.stderr.write(f"⛔ {f}: {cpu['unread']}. The profiler output's last lines:\n{tail}\n")
     return cpu
 
 
+def _strip_lean_comments(src):
+    """`src` with every `--` line comment and every (nested) `/- … -/` block removed. Strings are not tracked:
+    a module whose only content is imports and comments has no string literal to confuse this."""
+    out, i, depth, n = [], 0, 0, len(src)
+    while i < n:
+        if src.startswith("/-", i):
+            depth += 1; i += 2; continue
+        if depth and src.startswith("-/", i):
+            depth -= 1; i += 2; continue
+        if depth:
+            if src[i] == "\n":
+                out.append("\n")
+            i += 1; continue
+        if src.startswith("--", i):
+            j = src.find("\n", i)
+            i = n if j < 0 else j
+            continue
+        out.append(src[i]); i += 1
+    return "".join(out)
+
+
+def reexport_only(src):
+    """True iff the module is nothing but `import` lines (and comments): the one shape that type-checks nothing."""
+    lines = [l.strip() for l in _strip_lean_comments(src).splitlines() if l.strip()]
+    return all(l.startswith("import ") for l in lines)
+
+
+def parse_type_checking_ms(blob, src):
+    """The profiler's cumulative `type checking` in ms; 0.0 for a re-export module whose block has no such line;
+    None — NO READING — for any other module whose block lacks it."""
+    m = re.search(r'^\s*type checking\s+([\d.]+)(ms|s)\s*$', blob, re.M)
+    if m:
+        v = float(m.group(1))
+        return v * 1000 if m.group(2) == "s" else v
+    return 0.0 if reexport_only(src) else None
+
+
 def kernel_ms(f):
-    """The gated quantity, unchanged: the profiler's cumulative `type checking`."""
-    return profile_module(f)["ms"]
+    """The gated quantity, unchanged: the profiler's cumulative `type checking`. No reading REFUSES (row 61)."""
+    ms = profile_module(f)["ms"]
+    if ms is None:
+        print(f"⛔ {f}: no `type checking` reading on this pass (see stderr). A missing reading is not a zero.")
+        sys.exit(2)
+    return ms
 
 # ⭐ THE DENOMINATOR FOR A TABLE-DRIVEN MODULE, AND WHY IT CAN BE TRUSTED.
 #
@@ -1071,9 +1115,12 @@ def emit_json():
     # box at 0.0%, and was the highest of five readings on one tree.  One sample
     # cannot say which minute the number belongs to; two bound it.
     cond_before = conditions()
-    mods, cpu, decls, missing = {}, {}, {}, []
+    mods, cpu, decls, missing, unread = {}, {}, {}, [], []
     for f in modules():
         r = profile_module(f)
+        if r["ms"] is None:                 # row 61: omitted and NAMED, never written as 0.0
+            unread.append(mod_name(f))
+            continue
         mods[mod_name(f)] = r["ms"]
         cpu[mod_name(f)] = {k: r[k] for k in ("user_s", "sys_s", "real_s")}
     for m in want:
@@ -1102,7 +1149,7 @@ def emit_json():
                       # `conditions_before/after`, which no formatter touches.
                       "load1": _sentinel(cond_before["load1"]),
                       "load5": _sentinel(cond_before["load5"]),
-                      "t": time.time(), "modules": mods, "decls": decls,
+                      "t": time.time(), "modules": mods, "unread": unread, "decls": decls,
                       "missing": missing,
                       # ⭐ QUEUE item 4d's candidate quantity, and items 7/8's
                       # conditions.  Additive: nothing above changed meaning.
@@ -1779,9 +1826,14 @@ def conditions_selftest():
     # [[feedback-an-implied-assertion-is-not-a-second-gate]]
     _wt2 = tempfile.mkdtemp(prefix="x86lean-postflight-gone-")
     _wtp2 = os.path.join(_wt2, "wt")
+    _wtp2_reg = os.path.realpath(_wtp2)                  # re-resolved after the add, below
     try:
         subprocess.run(["git", "worktree", "add", "--detach", _wtp2, "HEAD"],
                        cwd=root, capture_output=True, text=True, timeout=120)
+        # The path git REGISTERED, resolved while the directory still exists: on macOS $TMPDIR is /var/folders/…, a
+        # symlink to /private/var/…, and git stores the resolved form. Once the directory is gone the link cannot be
+        # followed, and `git worktree remove /var/…` fails "is not a working tree" (rc 128, driven 11-14).
+        _wtp2_reg = os.path.realpath(_wtp2)
         _sh_wt.rmtree(_wt2, ignore_errors=True)          # the directory, not the registration
         gone = [t for t in (stale_worktrees() or [])
                 if os.path.realpath(t["path"]) == os.path.realpath(_wtp2)]
@@ -1789,15 +1841,27 @@ def conditions_selftest():
                     "a registration whose DIRECTORY IS GONE is found and flagged as "
                     "such — the one case `git worktree prune` alone would clear"))
     finally:
-        subprocess.run(["git", "worktree", "prune"], cwd=root,
-                       capture_output=True, text=True, timeout=120)
+        # ⛔ REMOVE THE PLANT'S OWN REGISTRATION, NEVER `git worktree prune`. A prune clears EVERY registration whose
+        # directory is gone, so a stranded worktree another party left here before this run (in the baseline) was
+        # deleted by the cleanup and the restore arm below read red: 36/37 at 3c71bb8 and again at d5b46b8 (11-13),
+        # the evidence gone with the prune. `remove --force` on a path whose directory is gone drops that one
+        # registration and no other (driven on git 2.48.1 with a foreign stranded registration beside it).
+        # ⛔ BY THE REGISTERED PATH (`_wtp2_reg`): the unresolved one left the plant registered and redded the restore
+        # arm on the planted run of 11-13/14, while the foreign plant beside it survived as intended.
+        _rm2 = subprocess.run(["git", "worktree", "remove", "--force", _wtp2_reg], cwd=root,
+                              capture_output=True, text=True, timeout=120)
+        if _rm2.returncode != 0:
+            print(f"     ⚠️ removing the gone-directory plant failed, rc {_rm2.returncode}: {_rm2.stderr.strip()[:300]}")
         _sh_wt.rmtree(_wt2, ignore_errors=True)
 
     # ⛔ AND THE RESTORE IS ITSELF AN ARM: an arm that leaves its plant behind
     # makes every later run of this selftest report the plant as a finding.
-    out.append((_wt_paths() == _base_wt,
+    _wt_end = _wt_paths()
+    out.append((_wt_end == _base_wt,
                 "...and the plant is REMOVED — the registry is back to the baseline, so "
-                "this selftest does not leave the very leak it was written to catch"))
+                "this selftest does not leave the very leak it was written to catch"
+                + ("" if _wt_end == _base_wt else
+                   f" — ⛔ ADDED {sorted(_wt_end - _base_wt)} · REMOVED {sorted(_base_wt - _wt_end)}")))
 
     # ⛔ ARM 4 — THE DUPLICATED PARSE HAS NOT DIVERGED.  `threads_ab` carries its
     # own copy of the `type checking` parse (its docstring says "copied from
@@ -1850,6 +1914,26 @@ def conditions_selftest():
                and mod_name("X86.lean") == "X86")
     out.append((name_ok, "a module name is the same on both platforms — "
                          f"`X86{bs}Basic.lean` and `X86/Basic.lean` both give X86.Basic"))
+
+    # ⛔ ARM 7 — NO READING IS NOT A ZERO (STATUS row 61, paper's finding on #172). A cumulative block with no
+    # `type checking` line is 0.0 ONLY for a re-export module; for a module that declares things it is None.
+    blk = "cumulative profiling times\n    elaboration 3ms\n"
+    rexp = "/-\n# a doc /- nested, with def inside -/ still comment\n-/\nimport X86.Basic\n-- def not_code\nimport X86.Syntax\n"
+    decl = "/- header -/\nimport X86.Basic\n\ndef foo : Nat := 1\n"
+    parse_ok = (parse_type_checking_ms(blk, rexp) == 0.0
+                and parse_type_checking_ms(blk, decl) is None
+                and parse_type_checking_ms(blk + "    type checking 1.01s\n", decl) == 1010.0
+                and parse_type_checking_ms(blk, "import A\n/- unclosed -/ theorem t : True := trivial\n") is None)
+    out.append((parse_ok, "a block with no `type checking` line reads 0.0 for a re-export module and NO READING "
+                          "(None) for a declaring one; a nested comment holding `def` does not make code"))
+    # ⛔ AND THE POPULATION: on THIS tree the re-export rule must license exactly the modules that legitimately read
+    # 0.0 (X86 and Tests at #172's run), so the classifier is checked against the tree, not only against fixtures.
+    rex = sorted(mod_name(f) for f in modules() if reexport_only(open(f, encoding="utf-8").read()))
+    # A typed list, kept as a TRIPWIRE: a new re-export module reds this arm on purpose. Read the new module first
+    # (imports and comments only?), then add it here; never add a module that declares anything.
+    out.append((rex == ["Tests", "X86"], f"the re-export modules of this tree are exactly Tests and X86 (read {rex})"
+                + ("" if rex == ["Tests", "X86"] else " — a NEW re-export module: read it, and add it to this list only "
+                   "if it holds nothing but `import` lines and comments")))
     return out
 
 
