@@ -574,6 +574,9 @@ jobs:
           # D335: the packed-integer arithmetic pins are hwprobe's SIMD rows (mk_simda_rows.py), same rule.
           python3 hwprobe/mk_simda_anchors.py --selftest
           python3 hwprobe/mk_simda_anchors.py --check
+          # D373: set B (pminsw pmulhw pmulhuw pavgb), its pins in Tests/AnchorsSimdB.lean, same rule.
+          python3 hwprobe/mk_simda_anchors.py --set-b --selftest
+          python3 hwprobe/mk_simda_anchors.py --set-b --check
           # D338: the SHA-NI pins are hwprobe's SHA rows (mk_sha_rows.py), same rule; the generator's own selftest
           # holds its textbook SHA-256 to FIPS 180-4's digests and every known-answer row to the rule.
           python3 hwprobe/mk_sha_rows.py --selftest
@@ -604,6 +607,40 @@ jobs:
           python3 hwprobe/mk_vexsile_rows.py --selftest
           python3 hwprobe/mk_vexsile_anchors.py --selftest
           python3 hwprobe/mk_vexsile_anchors.py --check
+          # D371: the VEX movd/movq pins are hwprobe's vexsilf rows (mk_vexsilf_rows.py), same rule.
+          python3 hwprobe/mk_vexsilf_rows.py --selftest
+          python3 hwprobe/mk_vexsilf_anchors.py --selftest
+          python3 hwprobe/mk_vexsilf_anchors.py --check
+          # D374: the VEX twins' pins are hwprobe's vexsilg rows (mk_vexsilg_rows.py), same rule.
+          python3 hwprobe/mk_vexsilg_rows.py --selftest
+          python3 hwprobe/mk_vexsilg_anchors.py --selftest
+          python3 hwprobe/mk_vexsilg_anchors.py --check
+          # D375: the lane insert/extract pins are hwprobe's vexsilh rows (mk_vexsilh_rows.py), same rule.
+          python3 hwprobe/mk_vexsilh_rows.py --selftest
+          python3 hwprobe/mk_vexsilh_anchors.py --selftest
+          python3 hwprobe/mk_vexsilh_anchors.py --check
+          # D376: movntdqa and the VEX half-moves are hwprobe's vexsili rows (mk_vexsili_rows.py), same rule.
+          python3 hwprobe/mk_vexsili_rows.py --selftest
+          python3 hwprobe/mk_vexsili_anchors.py --selftest
+          python3 hwprobe/mk_vexsili_anchors.py --check
+          # D379: pabs and pmulld are hwprobe's vexsilj rows (mk_vexsilj_rows.py), same rule.
+          python3 hwprobe/mk_vexsilj_rows.py --selftest
+          python3 hwprobe/mk_vexsilj_anchors.py --selftest
+          python3 hwprobe/mk_vexsilj_anchors.py --check
+          # D384: wave E's pins, set C (mk_simda_rows.py --set-c) and its VEX twins (mk_vexsilk_rows.py), one unit.
+          python3 hwprobe/mk_simda_anchors.py --set-c --selftest
+          python3 hwprobe/mk_simda_anchors.py --set-c --check
+          python3 hwprobe/mk_vexsilk_rows.py --selftest
+          python3 hwprobe/mk_vexsilk_anchors.py --selftest
+          python3 hwprobe/mk_vexsilk_anchors.py --check
+          # D393: wave F's pins, the five VEX unpacks (mk_vexsill_rows.py), one unit.
+          python3 hwprobe/mk_vexsill_rows.py --selftest
+          python3 hwprobe/mk_vexsill_anchors.py --selftest
+          python3 hwprobe/mk_vexsill_anchors.py --check
+          # D394: wave G's pins, the VEX scalar floating-point forms (mk_vexsilm_rows.py), one unit.
+          python3 hwprobe/mk_vexsilm_rows.py --selftest
+          python3 hwprobe/mk_vexsilm_anchors.py --selftest
+          python3 hwprobe/mk_vexsilm_anchors.py --check
           # The pins are only right if the RULE that selected them still is. `--check`
           # cannot see that: it compares the file to the generator, and PINNED is declared.
           # ARM 3 reds when a vector is added to a form without a STREAMS line, which is the

@@ -79,6 +79,23 @@ form: edge-lane crosses, uniform extremes and seeded random values, derived from
 `simda_probe.c`, which reads CPUID.1 and refuses without SSE2 or SSSE3, refuses unless the declared bytes are the assembled
 ones, and compares ALL 128 bits of %xmm0 plus %xmm1, the m128 source and the six arithmetic flags unchanged. x86isa refuses
 all eleven mnemonics, so every row is pinned (`mk_simda_anchors.py`, generated into a module of its own, `Tests/AnchorsSimd.lean`, so it is metered as its own kernel unit).
+
+D373 adds SET B beside it (`mk_simda_rows.py --set-b`: PMINSW, PMULHW, PMULHUW, PAVGB, 144 rows, the rules and the row
+construction shared with set A, its own seeds): `simdb_ops.S`, the same `simda_probe.c` compiled against `simdb_rows.h`,
+and its pins in `Tests/AnchorsSimdB.lean` (`mk_simda_anchors.py --set-b`). x86isa refuses all four (D373, P1).
+
+D374 adds the VEX twins of eleven modelled packed-integer kinds (VPADDSW VPMAXSW VPMINSW VPSUBUSB VPSADBW VPMULLW VPAVGB
+VPSUBUSW VPMULHW VPMULHUW VPMULUDQ; VEX.128 and VEX.256, register and memory source): `mk_vexsilg_rows.py` (561 rows; the
+128-bit function is `mk_simda_rows.rule`, imported), `vexsilg_ops.S` in D361's frame, and `vexsile_probe.c` compiled
+against `vexsilg_rows.h`. x86isa refuses all of them (D374, P1).
+
+D375 adds the VEX.256 128-bit lane insert and extract (VINSERTI128 VINSERTF128 VEXTRACTI128 VEXTRACTF128, register and
+memory, imm8 ∈ {0, 1, 2, 3, FEH, FFH}): `mk_vexsilh_rows.py` (288 rows), `vexsilh_ops.S` in D371's frame, and
+`vexsilf_probe.c` (its EXPECTED buffer reads the stores) compiled against `vexsilh_rows.h`. x86isa refuses all eight (D375, P1).
+
+D376 adds MOVNTDQA and the VEX half-moves (VMOVHPS VMOVHPD VMOVLPS VMOVLPD, load and store): `mk_vexsili_rows.py`
+(306 rows; MOVNTDQA at aligned offsets only), `vexsili_ops.S` in D371's frame, and `vexsilf_probe.c` compiled against
+`vexsili_rows.h`. x86isa refuses all nine (D376, P1).
 Controls: `--plant` (bit 64 of row 0's expectation) and `--plant-op`; `--reach` counts the rows on which one named wrong
 rule per mnemonic disagrees with the right one (it must be non-zero).
 
@@ -237,6 +254,21 @@ control, as V8c's.
 | `vexsile_ops.S` | one function per form, length and imm8; RBX = `&mem[off]` |
 | `mk_vexsile_rows.py` | the rows; the memory operand extracted two ways; `--plant` / `--plant-op` / `--plant-hi`; `--summary`, `--reach`, `--refuse-wrong`, `--selftest` |
 | `vexsile_probe.c` | runs each row and compares YMM1-3, RAX, MXCSR, RFLAGS and the 64-byte buffer |
+
+**VEX `vmovd`/`vmovq` between an XMM register and a GPR or memory (D371)** are a thirteenth program on V10's path:
+`vexsilf_ops.S` (8 functions: r → xmm, xmm → r, m → xmm, xmm → m, at 32 and 64 bits, all VEX.128),
+`mk_vexsilf_rows.py` (72 rows) and `vexsilf_probe.c`. Every value is derived twice (an integer rule, a byte-list
+textbook); YMM3's upper half is seeded nonzero so the VEX zeroing is read; every memory case runs at offset 0 and at an
+odd offset. **The probe compares the buffer with an EXPECTED buffer**, because the two store forms write it, and
+`--plant-mem` flips a bit just past one store's bytes: the buffer comparison's own control, which V8c's and V10's lack.
+`--refuse-wrong` refuses D371's four wrong rules on named rows. x86isa refuses all 8 encodings (D371 P1). Controls:
+`--plant` (`vmovd_ld_ones_a`), `--plant-op`, `--plant-hi` (`vmovq_gx_ones_r`), `--plant-mem` (`vmovd_st_ones_u`).
+
+| file | role |
+|---|---|
+| `vexsilf_ops.S` | one function per form and width; RBX = `&mem[off]` |
+| `mk_vexsilf_rows.py` | the rows, both references; four plants; `--summary`, `--reach`, `--refuse-wrong`, `--selftest` |
+| `vexsilf_probe.c` | runs each row and compares YMM1-3, RAX, MXCSR, RFLAGS and the buffer against the expected buffer |
 
 Locally, on an x86-64 machine:
 

@@ -503,6 +503,9 @@ SILICON_PATHS = (
     ("mk_int_rows.py", "int_probe.c", "i_", r'^  \{"[^"]+", (i_\w+), 0x'),
     ("mk_shuf_rows.py", "shuf_probe.c", "s_", r'^  \{"[^"]+", (s_\w+), 0x'),
     ("mk_simda_rows.py", "simda_probe.c", "v_", r'^  \{"[^"]+", (v_\w+), \{'),
+    # D373: set B of the same generator and probe (`--set-b`), also `v_*`; its function names (pminsw, pmulhw,
+    # pmulhuw, pavgb) are disjoint from set A's. An entry may carry the generator's arguments after its name.
+    ("mk_simda_rows.py --set-b", "simda_probe.c", "v_", r'^  \{"[^"]+", (v_\w+), \{'),
     # D338 (V2): the SHA-NI path (SHA256MSG1/MSG2/RNDS2), its functions `h_*`.
     ("mk_sha_rows.py", "sha_probe.c", "h_", r'^  \{"[^"]+", (h_\w+), \{'),
     # D342 (V4): the AES-NI / VPCLMULQDQ / VEX-shuffle path, its functions `e_*`.
@@ -518,6 +521,26 @@ SILICON_PATHS = (
     # D361 (V10): the VEX memory forms of the silicon rows, also `x_*`; no name collides with V7's, V8b's or V8c's (checked
     # mechanically when this line was added: the four paths' function sets are disjoint); its rows open the same way.
     ("mk_vexsile_rows.py", "vexsile_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
+    # D371: VEX vmovd/vmovq, also `x_*` (`x_vmov[dq]_{gx,xg,ld,st}`, disjoint from the four paths above); its rows open
+    # the same way.
+    ("mk_vexsilf_rows.py", "vexsilf_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
+    # D374: the VEX twins of eleven modelled kinds, also `x_*` (`x_vp…{128,256}_{r,m}`, disjoint from the paths above);
+    # its rows open the same way.
+    ("mk_vexsilg_rows.py", "vexsile_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
+    # D375: the lane insert/extract, also `x_*` (`x_v{insert,extract}{i,f}128_{r,m}_i…`, disjoint from the paths above).
+    ("mk_vexsilh_rows.py", "vexsilf_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
+    # D376: movntdqa and the VEX half-moves, also `x_*` (`x_movntdqa`, `x_vmov{h,l}p{s,d}_{ld,st}`, disjoint from the paths above).
+    ("mk_vexsili_rows.py", "vexsilf_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
+    # D379: pabs and pmulld, also `x_*` (`x_[v]pabs{b,w,d}[y]_{r,m}`, `x_[v]pmulld[y]_{r,m}`, disjoint from the paths above).
+    ("mk_vexsilj_rows.py", "vexsilf_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
+    # D384 (wave E): set C's legacy forms (`v_{psubsw,pavgw,pmuldq}_{xx,xm}`, disjoint from sets A and B) and their VEX
+    # twins (`x_vp{subsw,avgw,muldq}{128,256}_{r,m}`, disjoint from the paths above).
+    ("mk_simda_rows.py --set-c", "simda_probe.c", "v_", r'^  \{"[^"]+", (v_\w+), \{'),
+    ("mk_vexsilk_rows.py", "vexsile_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
+    # D393 (wave F): the five VEX unpacks (`x_vpunpck{ldq,lqdq,hbw,hdq,hqdq}{128,256}_{r,m}`, disjoint from the paths above).
+    ("mk_vexsill_rows.py", "vexsile_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
+    # D394 (wave G): the VEX scalar floating-point forms (`x_v{add,sub,mul,div}s{s,d}_{r,m}`, `x_vmovs{s,d}_{r,l,s}`).
+    ("mk_vexsilm_rows.py", "vexsilm_probe.c", "x_", r'^  \{"[^"]+", (x_\w+), \{0x[0-9a-f]+ULL'),
 )
 
 
@@ -570,7 +593,8 @@ def silicon_forms(work):
     # forms are pooled ACROSS the probes (all are the silicon instrument), never with the differential.
     nrows, ops = collections.Counter(), []
     for gen, _probe, pre, row_re in SILICON_PATHS:
-        q = subprocess.run([sys.executable, os.path.join(ROOT, "hwprobe", gen)], capture_output=True, text=True)
+        q = subprocess.run([sys.executable, os.path.join(ROOT, "hwprobe", gen.split()[0])] + gen.split()[1:],
+                           capture_output=True, text=True)
         if q.returncode != 0:
             raise SystemExit(f"⛔ silicon: hwprobe/{gen} failed:\n" + q.stderr)
         nr = collections.Counter(re.findall(row_re, q.stdout, re.M))
