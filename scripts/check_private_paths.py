@@ -1520,7 +1520,7 @@ def _history_memory_arm(failures: list) -> str:
     probe = ("import resource, sys; sys.path.insert(0, sys.argv[1]); import check_private_paths as c; "
              "r = c.history_findings() if sys.argv[2] == 'walk' else None; "
              "print(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)")
-    with tempfile.TemporaryDirectory() as repo:
+    with tempfile.TemporaryDirectory(prefix="x86lean-pphist-memarm-") as repo:
         g = ["git", "-C", repo, "-c", "user.name=memory arm", "-c", "user.email=arm@example.invalid"]
         if subprocess.run(["git", "init", "-q", "-b", "trunk", repo], capture_output=True).returncode != 0:
             failures.append("history memory arm: git init failed (the arm could not run)")
