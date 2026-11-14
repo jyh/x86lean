@@ -135,7 +135,7 @@ AST and \lean{step}. The \emph{coverage table} is a Lean value that states what 
 mnemonic, and the published coverage document is generated from it. The \emph{differential harness} runs the model
 and a reference model on the same states and classifies every disagreement. The \emph{proof interface} is the
 characterization equations, a program-level step relation and a small program logic. The \emph{gates} are CI checks
-that re-derive each published figure from the artifact. Decoding is outside the library: the AST is produced from
+that re-derive the published figures from the artifact or from the manifest's recorded commands. Decoding is outside the library: the AST is produced from
 Intel XED, and that trust is recorded in the table.
 \src{X86/State.lean structure Cpu; X86/Syntax.lean structure Instr; X86/Semantics.lean step; X86/Coverage.lean;
 Main.lean, the comparator; X86/Theorems.lean; X86/Program.lean stepP; X86/Logic.lean Spec; .github/workflows/ci.yml;
