@@ -5033,12 +5033,26 @@ def plantedDivergences (ds : List Disagreement) : List KnownDivergence :=
   let mk (d : Disagreement) : KnownDivergence :=
     { vec := vecOf d, field := d.field, source := "compare-index-selftest plant",
       note := "planted, not a measurement" }
+  -- ⭐ paper's LOW on #181: entry 3 matches a whole (vector, field), so if it shared d1's or
+  -- d2's it would also class their cases and mask a broken narrower branch.  d3 is therefore
+  -- the first later disagreement whose (vector, field) is NEITHER d1's NOR d2's.
+  let key (d : Disagreement) : String × String := (vecOf d, d.field)
   match ds with
-  | d1 :: d2 :: d3 :: _ =>
-    [ { mk d1 with states := [caseState d1.id] },
-      { mk d2 with pair := some (d2.lhs, d2.rhs) },
-      mk d3 ]
+  | d1 :: d2 :: rest =>
+    match rest.find? (fun d => key d != key d1 && key d != key d2) with
+    | some d3 =>
+      [ { mk d1 with states := [caseState d1.id] },
+        { mk d2 with pair := some (d2.lhs, d2.rhs) },
+        mk d3 ]
+    | none => []
   | _ => []
+
+/-- The planted entry, by position, that classes NO case when run ALONE (the fast path), or
+`none` when every entry classes at least one.  The combined run shows the classing fires; this
+shows that EACH branch of `classify` (pre-state, pair, whole vector+field) does (paper's LOW on
+#181). -/
+def firstUnclassedEntry (planted : List KnownDivergence) (as bs : List Rec) : Option Nat :=
+  (planted.zipIdx.find? (fun (e, _) => (compareRecs [e] as bs).diverged == 0)).map (·.2)
 
 /-- Run the gate.  Arms: (1) the duplicate-id fixture reads first-match;
 (2) the last-match mutant FAILS arm 1, so the arm can fail; (3) over three
@@ -5076,6 +5090,7 @@ cannot fail"; ok := false
   let n := selftestArms.length
   let picks := [0, n / 2, n - 1].eraseDups
   let mut pairs := 0
+  let mut entryRuns := 0
   for i in picks do
     match selftestArms[i]? with
     | none => IO.println s!"  ⛔ no selftest arm at index {i}"; ok := false
@@ -5094,8 +5109,29 @@ cannot fail"; ok := false
         let ysRev := ys.reverse
         let planted := plantedDivergences hotDs
         if planted.isEmpty then
-          IO.println s!"  ⛔ {name} {lbl}: fewer than three disagreements, nothing to plant"
+          IO.println s!"  ⛔ {name} {lbl}: fewer than three disagreements (the third on a \
+(vector, field) neither of the first two has), nothing to plant"
           ok := false
+        else
+          entryRuns := entryRuns + 1
+          let branches := ["pre-state", "pair", "vector+field"]
+          match firstUnclassedEntry planted chosen ysRev with
+          | some j =>
+            IO.println s!"  ⛔ {name} {lbl}: planted entry {j + 1} ({branches[j]?.getD "?"}) \
+classes 0 cases alone, so that branch of the classing is not shown to fire"; ok := false
+          | none =>
+            -- the arm can fail: an entry-1 mutant pinned to a pre-state no case has
+            let mutant := match planted with
+              | e :: rest => { e with states := [777777777] } :: rest
+              | [] => []
+            match firstUnclassedEntry mutant chosen ysRev with
+            | some 0 =>
+              IO.println s!"  ✔ {name} {lbl}: each planted entry classes ≥ 1 case alone; \
+an entry-1 mutant that classes nothing FAILS this arm (the combined run still classes \
+{(compareRecs mutant chosen ysRev).diverged})"
+            | _ =>
+              IO.println s!"  ⛔ {name} {lbl}: an entry-1 mutant that classes nothing passes \
+the per-entry arm, so the arm cannot fail"; ok := false
         for (dl, divs) in [("no divs", ([] : List KnownDivergence)),
                            ("declared divs", knownDivergences),
                            ("planted divs", planted)] do
@@ -5120,7 +5156,9 @@ so the classing is not compared"; ok := false
   IO.println s!"  {pairs} report pairs compared"
   IO.println "  limit: the case set is every disagreement the indexed path finds plus a \
 ~1/1000 stride sample, so a misread-as-matched case outside the sample is not seen"
-  return ok && pairs == 3 * 2 * picks.length
+  IO.println "  limit: the per-entry arm shows each branch FIRES; a branch that degrades to the \
+whole-(vector, field) match still classes ≥ 1 case and is not seen here"
+  return ok && pairs == 3 * 2 * picks.length && entryRuns == 2 * picks.length
 
 def main (args : List String) : IO UInt32 := do
   match args with
