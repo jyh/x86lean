@@ -1287,6 +1287,27 @@ theorem about a VEX form keeps its proof, and only its statement gains the `.vex
   | .vexmovgst sz ea src =>
       let a := ea.addr s nr
       (s.writeMem sz a ((s.getXmm src).setWidth 64)).setRip nr
+  -- ⭐⭐ D394 (wave G) — the VEX scalar floating-point forms. Each arm is its legacy twin's (`varith`, `varithm`, `vmovs`,
+  -- `vmovsld`, `vmovsst`) with `src1` in the legacy destination's place and `setXmmVex128` in place of `setXmm`, so bits
+  -- 127:sz come FROM `src1` and YMM bits 255:128 are ZEROED. No arm here has arithmetic of its own: the rounding and the
+  -- MXCSR flags are `varithLow`'s, through `withSimd`, exactly as the legacy arms reach them.
+  | .vexarith op sz dst src1 src =>
+      let p := varithLow op sz (mxcsrRC s.mxcsr) (s.getXmm src1) ((s.getXmm src).setWidth 64)
+      s.withSimd p.2 fun s => (s.setXmmVex128 dst p.1).setRip nr
+  | .vexarithm op sz dst src1 ea =>
+      let p := varithLow op sz (mxcsrRC s.mxcsr) (s.getXmm src1) (s.readMem sz (ea.addr s nr))
+      s.withSimd p.2 fun s => (s.setXmmVex128 dst p.1).setRip nr
+  | .vexmovs sz dst src1 src =>
+      let n := sz.bits
+      let keep := ((s.getXmm src1) >>> n) <<< n
+      let low  := ((s.getXmm src).setWidth n).setWidth 128
+      (s.setXmmVex128 dst (keep ||| low)).setRip nr
+  | .vexmovsld sz dst ea =>
+      let a := ea.addr s nr
+      (s.setXmmVex128 dst (((s.readMem sz a).setWidth sz.bits).setWidth 128)).setRip nr
+  | .vexmovsst sz ea src =>
+      let a := ea.addr s nr
+      (s.writeMem sz a ((s.getXmm src).setWidth 64)).setRip nr
   -- ⭐ D375 — the VEX.256 lane insert/extract. Lane 0 is `getXmm`, lane 1 `getYmmHi`; `imm[0]` selects.
   | .vexins128 _ dst src1 src imm =>
       let v := s.getXmm src

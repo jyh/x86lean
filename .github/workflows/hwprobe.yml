@@ -185,6 +185,12 @@ jobs:
           python3 mk_vexsill_rows.py --plant > vexsill_rows_plant.h
           python3 mk_vexsill_rows.py --plant-op > vexsill_rows_badop.h
           python3 mk_vexsill_rows.py --plant-hi > vexsill_rows_hi.h
+          python3 mk_vexsilm_rows.py --selftest
+          python3 mk_vexsilm_rows.py --reach
+          python3 mk_vexsilm_rows.py > vexsilm_rows.h
+          python3 mk_vexsilm_rows.py --plant > vexsilm_rows_plant.h
+          python3 mk_vexsilm_rows.py --plant-op > vexsilm_rows_badop.h
+          python3 mk_vexsilm_rows.py --plant-hi > vexsilm_rows_hi.h
           python3 mk_vexsilf_rows.py --selftest
           python3 mk_vexsilf_rows.py --refuse-wrong
           python3 mk_vexsilf_rows.py --reach
@@ -323,6 +329,12 @@ jobs:
           for v in "" _plant _badop _hi; do
             sed "s/\"vexsile_rows.h\"/\"vexsill_rows$v.h\"/" vexsile_probe.c > vexsill_probe$v.c
             gcc -O1 -o vexsill_probe$v vexsill_probe$v.c vexsill_ops.S
+          done
+          # D394: the VEX scalar floating-point forms; its own probe (vexsile_probe.c plus the buffer's expected bytes,
+          # because the two store forms write memory).
+          for v in "" _plant _badop _hi; do
+            sed "s/\"vexsilm_rows.h\"/\"vexsilm_rows$v.h\"/" vexsilm_probe.c > vexsilm_probe_run$v.c
+            gcc -O1 -o vexsilm_probe$v vexsilm_probe_run$v.c vexsilm_ops.S
           done
           gcc -O1 -o vexsilf_probe vexsilf_probe.c vexsilf_ops.S
           for v in plant badop hi mem; do
@@ -966,6 +978,33 @@ jobs:
           head -1 vexsill.out
           grep -v '^ok  ' vexsill.out || true
           echo "vexsill rc=$rc"
+          test "$rc" = 0
+
+      # D394: the VEX scalar floating-point forms (vadd/vsub/vmul/vdiv ss/sd at a register and a memory source; vmovss/sd
+      # register, load and store), MXCSR in and out per row, the buffer compared with its expected bytes.
+      - name: D394 VEX scalar-FP controls and referee (each plant reds exactly its row; a wrong instruction refuses the run)
+        working-directory: hwprobe
+        run: |
+          ./vexsilm_probe --cpuid
+          set +e
+          ./vexsilm_probe_plant > vexsilm_plant.out; rc_plant=$?
+          ./vexsilm_probe_badop > vexsilm_badop.out; rc_badop=$?
+          ./vexsilm_probe_hi > vexsilm_hi.out; rc_hi=$?
+          ./vexsilm_probe > vexsilm.out; rc=$?
+          set -e
+          head -1 vexsilm_plant.out; grep '^DIFF' vexsilm_plant.out; cat vexsilm_badop.out; grep '^DIFF' vexsilm_hi.out
+          echo "vexsilm plant rc=$rc_plant (want 1) · badop rc=$rc_badop (want 2) · hi rc=$rc_hi (want 1)"
+          test "$rc_plant" = 1
+          test "$(grep -c '^DIFF' vexsilm_plant.out)" = 1
+          grep -q '^DIFF vaddsd_r_exact/nearest ' vexsilm_plant.out
+          test "$rc_badop" = 2
+          grep -q '^REFUSED x_vaddss_r:' vexsilm_badop.out
+          test "$rc_hi" = 1
+          test "$(grep -c '^DIFF' vexsilm_hi.out)" = 1
+          grep -q '^DIFF vmulss_r_exact/nearest ' vexsilm_hi.out
+          head -1 vexsilm.out
+          grep -v '^ok  ' vexsilm.out || true
+          echo "vexsilm rc=$rc"
           test "$rc" = 0
 
       - name: D371 VEX movd/movq controls (each plant reds exactly its row; a wrong instruction refuses the run)

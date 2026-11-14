@@ -608,26 +608,34 @@ def _imported_at(rev, repo=ROOT):
 _IMPORT_MODIFIERS = frozenset({"public", "private", "meta"})
 
 
+def unprofiled_root_at(path, rev, repo=ROOT, _memo=None):
+    """True when, at `rev`, this `.lean` path is a `[[lean_exe]]` root, absent from
+    kernel_cost.modules() and imported by no `.lean`: no profiled unit reads it.
+    ⭐ THE ONE PREDICATE: `unprofiled_root_reason` (the classifier, per step) asks it
+    at both revisions and `reading_tree(..., version=2)` (the digest, per revision)
+    asks it at one, so the two can never disagree about which files are argued away
+    — the disagreement #176 exposed under v1 (paper @98,704,190)."""
+    if not path.endswith(".lean"):
+        return False
+    memo = _memo if _memo is not None else {}
+    if ("roots", rev) not in memo:          # the cheap condition first: most `.lean` paths stop here
+        memo[("roots", rev)] = _exe_roots_at(rev, repo)
+    roots = memo[("roots", rev)]
+    if roots is None or path not in roots:
+        return False
+    if ("deep", rev) not in memo:
+        memo[("deep", rev)] = (_profiled_at(_tree_paths(rev, repo)), _imported_at(rev, repo))
+    profiled, imported = memo[("deep", rev)]
+    return not (path in profiled or kernel_mod_name(path) in imported)
+
+
 def unprofiled_root_reason(path, base, head, repo=ROOT, _memo=None):
     """Why this `.lean` path cannot move a reading at base→head, or None."""
-    if not path.endswith(".lean"):
-        return None
     memo = _memo if _memo is not None else {}
-    mod = kernel_mod_name(path)
-    for rev in (base, head):      # the cheap condition first: most `.lean` paths stop here
-        if ("roots", rev) not in memo:
-            memo[("roots", rev)] = _exe_roots_at(rev, repo)
-        roots = memo[("roots", rev)]
-        if roots is None or path not in roots:
-            return None
-    for rev in (base, head):
-        if ("deep", rev) not in memo:
-            memo[("deep", rev)] = (_profiled_at(_tree_paths(rev, repo)), _imported_at(rev, repo))
-        profiled, imported = memo[("deep", rev)]
-        if path in profiled or mod in imported:
-            return None
+    if not all(unprofiled_root_at(path, rev, repo, memo) for rev in (base, head)):
+        return None
     return (f"a `[[lean_exe]]` root at both revisions, absent from kernel_cost.modules() "
-            f"at both, and imported by no `.lean` at either: no profiled unit reads `{mod}`")
+            f"at both, and imported by no `.lean` at either: no profiled unit reads `{kernel_mod_name(path)}`")
 
 
 def kernel_mod_name(path):
@@ -720,12 +728,48 @@ def reading_input(path):
     return path in PROFILER_PATHS or exempt_reason(path) is None
 
 
-def reading_tree(rev, repo=ROOT):
+# ⭐ READING DIGEST VERSIONS (systems, 2026-11-07; paper's REC (2) @98,704,190). v1 hashed every
+# reading input, so a step the classifier files `neither` because its only `.lean` is an unprofiled
+# `[[lean_exe]]` root (#176: Main.lean) still MOVED the digest and orphaned every row keyed before it.
+# v2 leaves out exactly the files `unprofiled_root_at` argues away at that revision. A row records the
+# version it was keyed with (`reading_v`; absent = 1) and is compared ONLY with a digest of that version,
+# so no row already in the ledger changes meaning and none has to be re-read.
+READING_V = 2
+
+
+def reading_tree(rev, repo=ROOT, *, version):
     """sha256/16 of every reading input at `rev` (READING_INPUTS), as `git ls-tree`
-    names them (mode, blob, path)."""
+    names them (mode, blob, path). version=2 also leaves out every `.lean` that
+    `unprofiled_root_at` argues away at `rev`; version=1 is the D372 digest.
+    ⛔ `version` IS REQUIRED, KEYWORD-ONLY (paper's NIT on #182): a default let the older D372/D390 arms write v2
+    digests into unstamped rows, which are read as v1 — the exact row `stamp_readings` exists to forbid. Every
+    caller now says which digest it means."""
+    if version not in (1, 2):
+        refuse(f"⛔ reading_tree: unknown digest version {version!r} (known: 1, 2)")
     out = kd.git("ls-tree", "-r", "--full-tree", rev, cwd=repo)
-    keep = sorted(ln for ln in out.splitlines() if reading_input(ln.split("\t", 1)[-1]))
-    return hashlib.sha256("\n".join(keep).encode()).hexdigest()[:16]
+    keep, memo = [], {}
+    for ln in out.splitlines():
+        path = ln.split("\t", 1)[-1]
+        if not reading_input(path):
+            continue
+        if version == 2 and unprofiled_root_at(path, rev, repo, memo):
+            continue
+        keep.append(ln)
+    return hashlib.sha256("\n".join(sorted(keep)).encode()).hexdigest()[:16]
+
+
+def stamp_readings(row, base, head, repo=ROOT):
+    """D372 + v2: the digests that let a row slide, AND the version they were taken at — one act, so a row can never
+    carry v2 digests read as v1 (it would never slide, and nothing would say why). `--record` calls this."""
+    row["base_reading"] = reading_tree(base, repo, version=READING_V)
+    row["head_reading"] = reading_tree(head, repo, version=READING_V)
+    row["reading_v"] = READING_V
+    return row
+
+
+def row_reading_v(row):
+    """The digest version a row was keyed with: its `reading_v`, or 1 for every row written before v2."""
+    return row.get("reading_v", 1)
 
 
 def effective_ledger(ledger, steps, repo=ROOT):
@@ -740,10 +784,10 @@ def effective_ledger(ledger, steps, repo=ROOT):
     row and silence its own WRONG-row refusal (paper's LIMIT 1 on D390)."""
     eff, slid, pending, memo = dict(ledger), [], [], {}
 
-    def rt(rev):
-        if rev not in memo:
-            memo[rev] = reading_tree(rev, repo)
-        return memo[rev]
+    def rt(rev, v=1):
+        if (rev, v) not in memo:
+            memo[(rev, v)] = reading_tree(rev, repo, version=v)
+        return memo[(rev, v)]
     # ⭐ D390: a row whose base is on NO step of this walk (a stacked PR measured from the PR below it, whose head a
     # `--no-ff` merge leaves off the first-parent chain) starts in the slide set too, by the same two digests.
     chain = {b for b, _ in steps}
@@ -760,7 +804,8 @@ def effective_ledger(ledger, steps, repo=ROOT):
         if b in eff:
             continue
         for r in pending:
-            if r["base_reading"] == rt(b) and r["head_reading"] == rt(h):
+            v = row_reading_v(r)
+            if r["base_reading"] == rt(b, v) and r["head_reading"] == rt(h, v):
                 pending.remove(r)
                 eff[b] = r
                 slid.append((r["base"], b, h))
@@ -1643,6 +1688,84 @@ def selftest():
        f"⛔ …and an exe root beside an UNARGUED path is `unclassified`, not `neither` (got {_x})",
        plant="exe root + unargued path")
 
+    # ⭐ READING DIGEST v2 (systems, 2026-11-07; paper's REC (2)): the digest leaves out what the classifier argues away,
+    #   so a row SLIDES across a master move whose only `.lean` is an unprofiled exe root — #176's shape — and every row
+    #   keyed before v2 keeps its v1 meaning. Built in the exe-root fixture repo: M0 → (master) M1 changes Main.lean only;
+    #   the PR measured M0 → P on X86/A.lean, is rebased onto M1 and merged --no-ff.
+    def _v2slide(version, stamp=True, also_lib=False):
+        _xn[0] += 1
+        _xg("checkout", "-q", "--orphan", f"v{_xn[0]}")
+        _xg("rm", "-rqf", "--ignore-unmatch", ".")
+        _xput(_BASE); _xg("add", "-A"); _xg("commit", "-qm", "M0"); m0 = _xg("rev-parse", "HEAD")
+        _xg("checkout", "-q", "-b", f"vp{_xn[0]}", m0)
+        _xput({"X86/A.lean": "def a := 1\n"}); _xg("add", "-A"); _xg("commit", "-qm", "P"); p = _xg("rev-parse", "HEAD")
+        _xg("checkout", "-q", f"v{_xn[0]}")
+        _xput(dict(_MAIN2, **({"X86.lean": "import X86.A\n-- lib moved\n"} if also_lib else {})))
+        _xg("add", "-A"); _xg("commit", "-qm", "M1"); m1 = _xg("rev-parse", "HEAD")
+        _xg("checkout", "-q", "-b", f"vr{_xn[0]}", m1)
+        _xput({"X86/A.lean": "def a := 1\n"}); _xg("add", "-A"); _xg("commit", "-qm", "P rebased"); pr = _xg("rev-parse", "HEAD")
+        _xg("checkout", "-q", f"v{_xn[0]}"); _xg("merge", "-q", "--no-ff", "-m", "merge", pr); mm = _xg("rev-parse", "HEAD")
+        row = _row(m0, p, {"X86.A": 1.0})
+        row["base_reading"], row["head_reading"] = reading_tree(m0, _xr, version=version), reading_tree(p, _xr, version=version)
+        if stamp:
+            row["reading_v"] = version
+        moved = []
+        try:
+            gap({m0: row}, mm, repo=_xr, slid=moved)
+        except SystemExit as e:
+            return ("REFUSED", e.code), (m0, m1, mm)
+        return moved, (m0, m1, mm)
+    _r, (_a, _b, _c) = _v2slide(2)
+    ok(_r == [(_a, _b, _c)],
+       "⭐ READING v2 — master moved by Main.lean only (an unprofiled exe root): a v2 row SLIDES to the merge step "
+       f"(got {_r if isinstance(_r, tuple) else len(_r)})")
+    _r, _ = _v2slide(1)
+    ok(_r == ("REFUSED", 2),
+       "RED-FIRST — the same shape with a v1 row (stamped 1) is REFUSED, as #170's row was after #176 (paris @98,701,559)",
+       plant="v1 digest counts the exe root")
+    _r, _ = _v2slide(1, stamp=False)
+    ok(_r == ("REFUSED", 2),
+       "…and a row with NO `reading_v` (every row written before v2) is read as v1: refused the same way",
+       plant="unstamped row read as v2")
+    _r, _ = _v2slide(2, also_lib=True)
+    ok(_r == ("REFUSED", 2),
+       "RED-FIRST — master's move ALSO touches a library `.lean`: v2 still counts it, so the row does not slide",
+       plant="v2 over-exempts a library .lean")
+    ok(reading_tree(_a, _xr, version=2) == reading_tree(_b, _xr, version=2) and reading_tree(_a, _xr, version=1) != reading_tree(_b, _xr, version=1),
+       "…and the digests themselves: across the Main.lean-only move v2 is UNCHANGED and v1 MOVES",
+       plant="digest blind")
+    try:
+        reading_tree(_a, _xr, version=3); _bad_v = False
+    except SystemExit:
+        _bad_v = True
+    ok(_bad_v, "…and an unknown digest version REFUSES (never read as v1 or v2)", plant="unknown version accepted")
+    try:
+        reading_tree(_a, _xr); _no_v = False
+    except TypeError:
+        _no_v = True
+    ok(_no_v, "…and `version` is REQUIRED: a call that does not say which digest it means raises (paper's NIT on #182; "
+       "a default is how the older arms wrote v2 digests into unstamped rows)", plant="a default version")
+    # ⭐ ON THE REAL CHAIN, #176 itself (paper's named red-first case): its step 88832ef → 02c9aae changed Main.lean only.
+    _r176 = [_c_ for _c_ in ("88832ef703d73e4d5a4e03addc13a43fc07f9ba4", "02c9aae474ef303b3ab49d4970eafeb8739bdefc")
+             if subprocess.run(["git", "cat-file", "-e", _c_ + "^{commit}"], cwd=ROOT, capture_output=True).returncode == 0]
+    if len(_r176) == 2:
+        ok(reading_tree(_r176[0], version=2) == reading_tree(_r176[1], version=2)
+           and reading_tree(_r176[0], version=1) != reading_tree(_r176[1], version=1),
+           "⭐ …and on the REAL chain: across #176 (88832ef → 02c9aae, Main.lean only) v2 is UNCHANGED and v1 MOVES",
+           plant="v2 counts #176's exe root")
+    else:
+        print("  ⚠️  #176's two commits are not in this clone: the real-chain v2 arm is UNRUN here (the fixture arms above still ran)")
+    _st = stamp_readings({}, _a, _b, _xr)
+    ok(_st.get("reading_v") == READING_V == 2 and _st["base_reading"] == reading_tree(_a, _xr, version=2)
+       and _st["head_reading"] == reading_tree(_b, _xr, version=2),
+       "…and `stamp_readings` (what --record calls) writes v2 digests AND `reading_v: 2` in one act", plant="record omits the stamp")
+    _src = open(os.path.abspath(__file__), encoding="utf-8").read()
+    ok("stamp_readings(rows[-1], data[\"base_rev\"], data[\"head_rev\"])" in _src
+       and _src.count("rows[-1][\"base_reading\"]") == 0,
+       "…and --record goes through it (LIMIT: read from the source; no arm drives a real --record)", plant="record bypasses the stamp")
+    ok(row_reading_v({}) == 1 and row_reading_v({"reading_v": 2}) == 2,
+       "…and `row_reading_v` reads an absent stamp as 1 (every row in the ledger today)", plant="absent stamp read as 2")
+
     print("\nD372. A ROW SLIDES — the #142 shape, in a scratch repo, with a mutant "
           "for each condition:")
     _sr = scratch.mkdtemp("x86lean-driftslide-")
@@ -1692,8 +1815,8 @@ def selftest():
         m0, p, m1, mm = _slide_repo(move_path, extra_pr_lean, pr_makes_move)
         row = _row(m0, ("0" * 40) if head_absent else p, {"M": 1.0})
         if digests:
-            row["base_reading"] = reading_tree(m0, _sr)
-            row["head_reading"] = reading_tree(p, _sr)
+            row["base_reading"] = reading_tree(m0, _sr, version=1)   # an unstamped row is v1 (paper's LOW 1 on #182)
+            row["head_reading"] = reading_tree(p, _sr, version=1)
         moved = []
         try:
             _, _, bk = gap({m0: row}, mm, repo=_sr, slid=moved)
@@ -1747,8 +1870,8 @@ def selftest():
        "agree and only the BASE digest refuses the slide", plant="convergent edit")
     if lean_pick and g_buckets["neither"]:
         _nb, _nh = g_buckets["neither"][-1]
-        ok(reading_tree(lean_pick[0]) != reading_tree(lean_pick[1])
-           and reading_tree(_nb) == reading_tree(_nh),
+        ok(reading_tree(lean_pick[0], version=READING_V) != reading_tree(lean_pick[1], version=READING_V)
+           and reading_tree(_nb, version=READING_V) == reading_tree(_nh, version=READING_V),
            "...and on the REAL chain the digest moves across a `.lean` step "
            f"({lean_pick[1][:9]}) and stays put across a `neither` step ({_nh[:9]})",
            plant="digest blind")
@@ -1782,7 +1905,7 @@ def selftest():
         p2m = _g("rev-parse", "HEAD")
         _g("checkout", "-q", m0)
         r1 = _row(m0, p1, {"M": 1.0})
-        r1["base_reading"], r1["head_reading"] = reading_tree(m0, _sr), reading_tree(p1, _sr)
+        r1["base_reading"], r1["head_reading"] = reading_tree(m0, _sr, version=1), reading_tree(p1, _sr, version=1)
         if master_lean:      # master moves a reading input before PR1 lands; row1 then records THAT step
             _put("C.lean", "def c := 0\n"); _g("add", "-A"); _g("commit", "-qm", "M0 lean move")
             r1 = _row(m0, _g("rev-parse", "HEAD"), {"M": 1.0})
@@ -1792,7 +1915,7 @@ def selftest():
         m2 = _g("rev-parse", "HEAD")
         r2 = _row(p1, p2, {"M": 1.0})
         if digests:
-            r2["base_reading"], r2["head_reading"] = reading_tree(p1, _sr), reading_tree(p2, _sr)
+            r2["base_reading"], r2["head_reading"] = reading_tree(p1, _sr, version=1), reading_tree(p2, _sr, version=1)
         moved = []
         try:
             led = {m0: r1, p1: r2}
@@ -2384,8 +2507,7 @@ def main():
             rows[-1]["landed_on"] = landing_record(landed_on, ms_rc, ku)
             # D372: the digests that let this row slide across a master move that
             # touches no reading input, written while both commits exist here.
-            rows[-1]["base_reading"] = reading_tree(data["base_rev"])
-            rows[-1]["head_reading"] = reading_tree(data["head_rev"])
+            stamp_readings(rows[-1], data["base_rev"], data["head_rev"])
         walk = kd.arg("--backfill")
         if walk:
             import delta_repair_price as drp

@@ -1513,7 +1513,28 @@ def siliconTable : List Row :=
   , { mnemonic := "vpunpckhdq", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): the high dwords of each lane interleaved, src1 first · register and m128/m256 forms, src the memory operand, no alignment check · x86isa refuses it",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKHBW/PUNPCKHWD/PUNPCKHDQ/PUNPCKHQDQ" }
   , { mnemonic := "vpunpckhqdq", shapes := "x,x,x · x,x,m", note := "VEX.128 (YMM bits 255:128 of dst zeroed) and VEX.256 (the same function per 128-bit lane): the high quadwords of each lane interleaved, src1 first · register and m128/m256 forms, src the memory operand, no alignment check · x86isa refuses it",
-      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKHBW/PUNPCKHWD/PUNPCKHDQ/PUNPCKHQDQ" } ]
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKHBW/PUNPCKHWD/PUNPCKHDQ/PUNPCKHQDQ" }
+  -- ⭐ D394 (wave G): the VEX scalar floating-point forms, refereed by silicon (hwprobe `vexsilm`).
+  , { mnemonic := "vaddss", shapes := "x,x,x · x,x,m", note := "VEX.128: ADDSS on the low 32 bits of src1 and src under MXCSR.RC, bits 127:32 from src1, YMM 255:128 zeroed, MXCSR flags as legacy · no alignment check · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B ADDSS" }
+  , { mnemonic := "vaddsd", shapes := "x,x,x · x,x,m", note := "VEX.128: ADDSD on the low 64 bits of src1 and src under MXCSR.RC, bits 127:64 from src1, YMM 255:128 zeroed, MXCSR flags as legacy · no alignment check · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B ADDSD" }
+  , { mnemonic := "vsubss", shapes := "x,x,x · x,x,m", note := "VEX.128: SUBSS on the low 32 bits of src1 and src under MXCSR.RC, bits 127:32 from src1, YMM 255:128 zeroed, MXCSR flags as legacy · no alignment check · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B SUBSS" }
+  , { mnemonic := "vsubsd", shapes := "x,x,x · x,x,m", note := "VEX.128: SUBSD on the low 64 bits of src1 and src under MXCSR.RC, bits 127:64 from src1, YMM 255:128 zeroed, MXCSR flags as legacy · no alignment check · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B SUBSD" }
+  , { mnemonic := "vmulss", shapes := "x,x,x · x,x,m", note := "VEX.128: MULSS on the low 32 bits of src1 and src under MXCSR.RC, bits 127:32 from src1, YMM 255:128 zeroed, MXCSR flags as legacy · no alignment check · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MULSS" }
+  , { mnemonic := "vmulsd", shapes := "x,x,x · x,x,m", note := "VEX.128: MULSD on the low 64 bits of src1 and src under MXCSR.RC, bits 127:64 from src1, YMM 255:128 zeroed, MXCSR flags as legacy · no alignment check · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MULSD" }
+  , { mnemonic := "vdivss", shapes := "x,x,x · x,x,m", note := "VEX.128: DIVSS on the low 32 bits of src1 and src under MXCSR.RC, bits 127:32 from src1, YMM 255:128 zeroed, MXCSR flags as legacy · no alignment check · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B DIVSS" }
+  , { mnemonic := "vdivsd", shapes := "x,x,x · x,x,m", note := "VEX.128: DIVSD on the low 64 bits of src1 and src under MXCSR.RC, bits 127:64 from src1, YMM 255:128 zeroed, MXCSR flags as legacy · no alignment check · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B DIVSD" }
+  , { mnemonic := "vmovss", shapes := "x,x,x · x,m · m,x", note := "VEX.128: x,x,x takes the low 32 bits from src and 127:32 from src1; m → x loads and zeroes 255:32; x → m writes 4 bytes; YMM 255:128 zeroed · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVSS" }
+  , { mnemonic := "vmovsd", shapes := "x,x,x · x,m · m,x", note := "VEX.128: x,x,x takes the low 64 bits from src and 127:64 from src1; m → x loads and zeroes 255:64; x → m writes 8 bytes; YMM 255:128 zeroed · x86isa refuses it",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVSD" } ]
 
 /-- Render the table as GitHub-flavoured Markdown.  `Main` writes it to
 `docs/COVERAGE.md` so the file in the repository is GENERATED and a stale table
