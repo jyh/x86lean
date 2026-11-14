@@ -25517,3 +25517,44 @@ finding). The measured head is `53299ce`; the tip that registers them changes on
 taken at D394's stacked base (D393's tip `fc9f804`); once D393 merged (#183, `2b9a1d8`), the carry (`ac788af`, with #183's runner
 line) was measured at the real base: `kernel_delta` rc 0 "delta gate: CLEAN", `ku_delta` A′ rc 0 CLEAN; recorded with
 `--record --readings --a-prime` (D251: lands on the ms verdict). If master moves before the merge, the row is re-recorded.
+
+## D395 — C3 (a): `X86/Effects.lean`, the instruction library vir's compiler lowers to (STATUS row 64)
+
+**THE ASK.** vir's compiler object (`object-COMPILER/OBJECT-COMPILER.md` at vir a5edcc7, §3) asks x86lean for four
+things: (1) effect equations in the `{ s with … }` form for mov, movzx, lea, add, sub, and, or, xor, shl, shr, cmp,
+test, jcc, jmp, call, ret, imul and setcc; (2) a straight-line-block lemma with a conditional exit over `stepP`;
+(3) call and ret under one convention; (4) the driver theorem's machine half. Every one of those mnemonics already
+has a `docs/COVERAGE.md` row, so the work is statements and their proofs, with no differential work.
+
+**THE PRICE, sealed before the work (bus 11-14 04:4x):** ~65 builds, 2–3 heads; the named ceiling (3)'s
+stack/layout disjointness, then imul's oracle flags. **THE FIGURE:** 17 route invocations (9 elaboration passes, 4
+mutants, 4 axiom-gate builds) in one head. **Why under, so it is not read as the method being cheap:** (3)'s
+disjointness is a HYPOTHESIS here, discharged by vir's S3 layout (vir's STATUS row 330), so its cost is vir's; and the
+byte lemmas of (3) were ported, not written.
+
+**WHAT THE MODULE STATES** (a new module, because `X86/Theorems.lean` is the kernel-cost barrier with
+per-declaration ceilings; imported by `X86.lean`, so the axiom gate enumerates it):
+- (1) `stepP_of_at` (the lift from `step` to `stepP` at a fetched address) · `step_add_reg_op` · `step_test_reg_op` ·
+  `step_setcc_reg` · `step_setcc_mem` · `step_imulr` (SF, ZF, AF, PF are four oracle draws, in that order) ·
+  `step_imulr_of` (OF is the overflow: `Flags.mulFlags` sets `cf := ovf, of := ovf`, so a checked multiply's `jo`
+  needs no oracle bit).
+- (2) `BlockFetches` · `runBlock` · `runP_succ_at` · `runP_block` · `runP_block_then` · `runP_block_jcc`.
+- (3) `writeN_frame` · `writeN_in` · `readN_bytes` · `readSize_writeSize_q` (a quadword written at `a` reads back at
+  `a`), ported with their proofs from vir's `bridge/VIRBridge/Mem.lean` (github.com/jyh/vir, master 9613d47; same
+  author, Apache-2.0 like this repository, attributed in the section header) · `call_ret`.
+- (4) `driver_iteration` (one iteration: `call_ret`, then a check block ending in `jcc`); the loop rule stays
+  `Spec.loop` (`X86/Logic.lean`).
+
+**CHECKS, per part:** `lean_route lean X86/Effects.lean` 0 errors (the final pass 0 warnings) · `axiom_gate.sh`
+CLEAN at 6161 → 6182 → 6211 → 6212 declarations, `X86.Effects` in its derived module list · one mutant per part, each
+red at its own declaration: imul's final cursor `c + 3` · `runP_block` at `is.length + 1` · `call_ret`'s return at
+the call's own address · the check block dropped from `driver_iteration`. A linter warning found `call_ret`'s
+canonical-call-target premise unused, and it was removed.
+
+**THE COST GATES.** A NEW unit for both arms: its katmai ceiling and its `@ku` registration are copied from the K1b
+(1d48ff7 → 97036fc, katmai, `--repeats 12`), and the K2 runs at the real base before the PR merges. At the part-1
+K1 (a370c1c → 028ea53): `X86.Effects` 115.0 ms, 7,300 unfoldings; `Tests.Vectors` ms UNMEASURABLE at +7.7 against
+11.2 with A′ Δku 0 exactly (197 → 197), the shape the helm's 11-11 widening of the standing rule covers.
+
+**USED BY:** vir's S3 (`compiler/DECLARATIONS-S3.md`, vir 8b5913f) reads these declarations by name at the branch and
+re-pins to this PR's merge. **The names are load-bearing for vir: a rename is a change to vir's input.**
