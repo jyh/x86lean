@@ -107,4 +107,64 @@ theorem step_imulr (sz : Size) (dst : GPR) (src : Operand) (imm : Option Val) (h
   cases imm <;> cases src <;> simp_all [step, Cpu.undefBit, Oracle.draw, Cpu.setFlags, Cpu.setReg,
     Cpu.setRip, Nat.add_assoc]
 
+/-- **IMUL's OF, as its own fact.** OF (and CF) after an imul are the overflow, DEFINED, so a checked multiply's
+`jo` to an overflow exit needs no oracle bit. Stated separately so a block proof need not unfold `mulFlags`. -/
+theorem step_imulr_of (sz : Size) (dst : GPR) (src : Operand) (imm : Option Val) (h : Live s)
+    (henc : imulrEncodable sz = true) (hl : src.locked = false) :
+    (step ⟨.imulr sz dst src imm, len⟩ s).flags.of =
+      Value.imulOverflow sz
+        (match imm with | none => s.getReg sz dst | some _ => s.readOperand sz (s.rip + BitVec.ofNat 64 len) src)
+        (match imm with
+          | none => s.readOperand sz (s.rip + BitVec.ofNat 64 len) src
+          | some i => Value.trunc sz i) := by
+  rw [step_imulr sz dst src imm h henc hl]
+  cases imm <;> simp [Flags.mulFlags]
+
+/-! ## (2) — A STRAIGHT-LINE BLOCK, AND ITS CONDITIONAL EXIT
+
+A compiler's simulation step is a BLOCK: a list of instructions run in order, then either a fall-through or a `jcc`
+to one exit. `BlockFetches p is s` says the run of `is` from `s` never stops early and fetches exactly `is`, in
+order; under it, `runP` over the block IS the left fold of `step`, so each instruction's `{ s with … }` equation
+rewrites the block one instruction at a time. The lemmas name no program. -/
+
+/-- Running `is` from `s` fetches exactly `is`, in order, from states that have not stopped. -/
+def BlockFetches (p : Program) : List Instr → Cpu → Prop
+  | [], _ => True
+  | i :: is, s => s.stopped = false ∧ p.at? s.rip = some i ∧ BlockFetches p is (step i s)
+
+/-- The block's effect: `step` folded over its instructions. -/
+def runBlock (is : List Instr) (s : Cpu) : Cpu := is.foldl (fun t i => step i t) s
+
+@[simp] theorem runBlock_nil (s : Cpu) : runBlock [] s = s := rfl
+@[simp] theorem runBlock_cons (i : Instr) (is : List Instr) (s : Cpu) :
+    runBlock (i :: is) s = runBlock is (step i s) := rfl
+
+/-- One fetched instruction, then the rest of the run. -/
+theorem runP_succ_at {p : Program} {i : Instr} (n : Nat) (hs : s.stopped = false) (hi : p.at? s.rip = some i) :
+    runP p (n + 1) s = runP p n (step i s) := by
+  rw [runP_succ, stepP_of_at hs hi]
+
+/-- **THE BLOCK LEMMA.** Under `BlockFetches`, `runP` over the block's length is `runBlock`. -/
+theorem runP_block (p : Program) : ∀ (is : List Instr) (s : Cpu),
+    BlockFetches p is s → runP p is.length s = runBlock is s
+  | [], _, _ => rfl
+  | i :: is, s, ⟨hs, hi, hrest⟩ => by
+    rw [List.length_cons, runP_succ_at _ hs hi, runBlock_cons]
+    exact runP_block p is (step i s) hrest
+
+/-- **A BLOCK, THEN MORE.** The block's states are a prefix of the run: `n` more steps continue from its end. -/
+theorem runP_block_then (p : Program) (is : List Instr) (s : Cpu) (n : Nat) (h : BlockFetches p is s) :
+    runP p (is.length + n) s = runP p n (runBlock is s) := by
+  rw [runP_add, runP_block p is s h]
+
+/-- **THE CONDITIONAL EXIT.** A block ending in `jcc c d` lands at the jump target when `c` holds and at the next
+instruction otherwise, with everything else as the block left it (`step_jcc`'s equation, composed). -/
+theorem runP_block_jcc (p : Program) (is : List Instr) (c : Cc) (d : Val) (jlen : Nat) (s : Cpu)
+    (h : BlockFetches p (is ++ [⟨.jcc c d, jlen⟩]) s) :
+    runP p (is.length + 1) s = step ⟨.jcc c d, jlen⟩ (runBlock is s) := by
+  have hb := runP_block p _ s h
+  simp only [List.length_append, List.length_singleton] at hb
+  rw [hb]
+  simp [runBlock, List.foldl_append]
+
 end X86
