@@ -788,7 +788,9 @@ def measure(base_rev, head_rev, repeats, keep=None, plant=None):
                 readings[side].append(r)
                 print(f"  pass {side:<4} load1={fmt_load(r['load1'])}  {r['secs']:>4.0f}s  "
                       f"Tests.Coverage={r['modules'].get('Tests.Coverage', 0):.0f}  "
-                      f"X86.Syntax={r['modules'].get('X86.Syntax', 0):.1f}"
+                      # an unread pass prints `-`, never 0.0: the number is what gets copied (paper, 11-13)
+                      + ("X86.Syntax=-" if "X86.Syntax" in (r.get("unread") or [])
+                         else f"X86.Syntax={r['modules'].get('X86.Syntax', 0):.1f}")
                       + (f"  ⛔ UNREAD (omitted, not 0): {','.join(r['unread'])}" if r.get("unread") else ""),
                       flush=True)
         return {"base_rev": git("rev-parse", base_rev),
@@ -896,13 +898,26 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False, ceilings=None):
             for _u in _r.get("unread") or []:
                 flags.append(f"UNREAD on pass {_r.get('pass', '?')} ({_side}): {_u} — the profiler printed no "
                              f"`type checking` line; that reading is OMITTED, never scored 0.0")
-    unregistered_new, unresolved_new = [], []
+    unregistered_new, unresolved_new, unread_short = [], [], []
     # ⛔ THE MACHINE THIS RUN WAS TAKEN ON. A reading without its box is not a
     # reading, and no registered ceiling may be compared against one.
     mach = run_machine(data)
     for u in all_units:
         bs = [x[u] for x in sides["base"] if u in x]
         hs = [x[u] for x in sides["head"] if u in x]
+        # ⛔ ROW 61, paper's pre-read (11-13): omitting an unread pass is sound only while the side keeps two readings.
+        # With EVERY head pass unread, `hs` was empty, the GONE path set h = 0.0 and the band came from base alone, so
+        # the run read CLEAN at delta -base: no reading scored as zero again, one level up (at the median, not the
+        # pass). An all-unread BASE side entered the NEW-unit arm the same way. Either side short ⇒ REFUSE, rc 3.
+        _ur = {s: sum(1 for r in data["readings"][s] if u in (r.get("unread") or [])) for s in ("base", "head")}
+        _short = [(s, len(xs), _ur[s]) for s, xs in (("base", bs), ("head", hs)) if _ur[s] and len(xs) < 2]
+        if _short:
+            refuse = True
+            unread_short.append((u, _short))
+            p(f"{u:<56}{(f'{statistics.median(bs):.1f}' if bs else '-'):>10}"
+              f"{(f'{statistics.median(hs):.1f}' if hs else '-'):>10}{'-':>10}{'-':>9}{'-':>9}{'-':>9}"
+              f"  UNREAD — REFUSED ⛔")
+            continue
         if not hs:
             flags.append(f"unit GONE from head: {u} "
                          f"(renamed, deleted, or below the profiler threshold)")
@@ -1072,6 +1087,14 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False, ceilings=None):
         p(f"⛔ DO NOT WIDEN THE BUDGET. That would derive the allowance from the "
           f"noise it exists to see through. Buy repeats, quiet the box, or make "
           f"the commit cheaper — the third is the one a refusal most often means.")
+    if unread_short:
+        p(f"⛔ delta gate REFUSES ON AN UNREAD UNIT — the profiler printed no `type checking` line on enough passes "
+          f"that a side below keeps fewer than two readings. An omitted pass is not a zero, and a side with no "
+          f"spread cannot be compared: this is NOT a verdict on the commit in either direction.")
+        for u, short in unread_short:
+            for s, n_left, n_un in short:
+                p(f"   · {u} ({s}): {n_un} pass(es) unread, {n_left} reading(s) left ⇒ re-run; if it recurs, the "
+                  f"profiler is dropping this unit's line, which is a defect to find, not a budget to widen")
     if unresolved_new:
         p(f"⛔ delta gate REFUSES ON A NEW UNIT — the unit(s) below carry a ceiling "
           f"registered for THIS machine, and this run does not sit cleanly under "
@@ -1597,6 +1620,27 @@ def selftest():
     _z = _explicit([1000.0, 1010.0, 990.0], [1050.0, 1040.0, 1060.0, 0.0])
     run("row 61's control: the SAME readings with that pass as 0.0 do NOT read clean (the old shape)",
         _z, None, {"M": ("abs", 200.0)}, 3, "UNMEASURABLE")
+    # ⛔ ROW 61, paper's pre-read (11-13): the omission one level up. EVERY head pass unread left `hs` empty and read
+    # CLEAN at delta -1000 (driven at 3c71bb8: rc 0). Both sides, and the GONE shape beside them unchanged.
+    def _unread(base_vals, head_vals, unread_side, n_unread):
+        d = _explicit(base_vals, head_vals)
+        for i in range(n_unread):
+            d["readings"][unread_side].append({"modules": {}, "decls": {}, "load1": 1.0, "unread": ["M"],
+                                               "pass": 10 + i})
+        return d
+    run("row 61: EVERY head pass unread REFUSES (rc 3), never CLEAN at the base's negation",
+        _unread([1000.0, 1010.0, 990.0], [], "head", 3), None, {"M": ("abs", 200.0)}, 3,
+        "M (head): 3 pass(es) unread, 0 reading(s) left")
+    run("row 61: one head reading left after the omissions REFUSES as UNREAD, not as a NEW-band straddle",
+        _unread([1000.0, 1010.0, 990.0], [1050.0], "head", 2), None, {"M": ("abs", 200.0)}, 3,
+        "REFUSES ON AN UNREAD UNIT")
+    run("row 61: EVERY base pass unread REFUSES (rc 3), never enters the NEW-unit arm",
+        _unread([], [1050.0, 1040.0, 1060.0], "base", 3), None, {"M": ("abs", 200.0)}, 3,
+        "M (base): 3 pass(es) unread, 0 reading(s) left")
+    _gone = _explicit([1000.0, 1010.0, 990.0], [])
+    _gone["readings"]["head"] = [{"modules": {}, "decls": {}, "load1": 1.0} for _ in range(3)]
+    run("row 61's control: a unit GONE with NO unread tag keeps the GONE behaviour (flagged, not UNREAD)",
+        _gone, None, {"M": ("abs", 2000.0)}, 0, "GONE from head")
     # ⛔ THE ARM THAT MATTERS MOST FOR HONESTY: a budget under the run's own
     # measured spread is not a verdict about the commit, and must not be reported
     # as one — in EITHER direction.

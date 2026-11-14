@@ -1826,9 +1826,14 @@ def conditions_selftest():
     # [[feedback-an-implied-assertion-is-not-a-second-gate]]
     _wt2 = tempfile.mkdtemp(prefix="x86lean-postflight-gone-")
     _wtp2 = os.path.join(_wt2, "wt")
+    _wtp2_reg = os.path.realpath(_wtp2)                  # re-resolved after the add, below
     try:
         subprocess.run(["git", "worktree", "add", "--detach", _wtp2, "HEAD"],
                        cwd=root, capture_output=True, text=True, timeout=120)
+        # The path git REGISTERED, resolved while the directory still exists: on macOS $TMPDIR is /var/folders/…, a
+        # symlink to /private/var/…, and git stores the resolved form. Once the directory is gone the link cannot be
+        # followed, and `git worktree remove /var/…` fails "is not a working tree" (rc 128, driven 11-14).
+        _wtp2_reg = os.path.realpath(_wtp2)
         _sh_wt.rmtree(_wt2, ignore_errors=True)          # the directory, not the registration
         gone = [t for t in (stale_worktrees() or [])
                 if os.path.realpath(t["path"]) == os.path.realpath(_wtp2)]
@@ -1836,15 +1841,27 @@ def conditions_selftest():
                     "a registration whose DIRECTORY IS GONE is found and flagged as "
                     "such — the one case `git worktree prune` alone would clear"))
     finally:
-        subprocess.run(["git", "worktree", "prune"], cwd=root,
-                       capture_output=True, text=True, timeout=120)
+        # ⛔ REMOVE THE PLANT'S OWN REGISTRATION, NEVER `git worktree prune`. A prune clears EVERY registration whose
+        # directory is gone, so a stranded worktree another party left here before this run (in the baseline) was
+        # deleted by the cleanup and the restore arm below read red: 36/37 at 3c71bb8 and again at d5b46b8 (11-13),
+        # the evidence gone with the prune. `remove --force` on a path whose directory is gone drops that one
+        # registration and no other (driven on git 2.48.1 with a foreign stranded registration beside it).
+        # ⛔ BY THE REGISTERED PATH (`_wtp2_reg`): the unresolved one left the plant registered and redded the restore
+        # arm on the planted run of 11-13/14, while the foreign plant beside it survived as intended.
+        _rm2 = subprocess.run(["git", "worktree", "remove", "--force", _wtp2_reg], cwd=root,
+                              capture_output=True, text=True, timeout=120)
+        if _rm2.returncode != 0:
+            print(f"     ⚠️ removing the gone-directory plant failed, rc {_rm2.returncode}: {_rm2.stderr.strip()[:300]}")
         _sh_wt.rmtree(_wt2, ignore_errors=True)
 
     # ⛔ AND THE RESTORE IS ITSELF AN ARM: an arm that leaves its plant behind
     # makes every later run of this selftest report the plant as a finding.
-    out.append((_wt_paths() == _base_wt,
+    _wt_end = _wt_paths()
+    out.append((_wt_end == _base_wt,
                 "...and the plant is REMOVED — the registry is back to the baseline, so "
-                "this selftest does not leave the very leak it was written to catch"))
+                "this selftest does not leave the very leak it was written to catch"
+                + ("" if _wt_end == _base_wt else
+                   f" — ⛔ ADDED {sorted(_wt_end - _base_wt)} · REMOVED {sorted(_base_wt - _wt_end)}")))
 
     # ⛔ ARM 4 — THE DUPLICATED PARSE HAS NOT DIVERGED.  `threads_ab` carries its
     # own copy of the `type checking` parse (its docstring says "copied from
@@ -1912,7 +1929,11 @@ def conditions_selftest():
     # ⛔ AND THE POPULATION: on THIS tree the re-export rule must license exactly the modules that legitimately read
     # 0.0 (X86 and Tests at #172's run), so the classifier is checked against the tree, not only against fixtures.
     rex = sorted(mod_name(f) for f in modules() if reexport_only(open(f, encoding="utf-8").read()))
-    out.append((rex == ["Tests", "X86"], f"the re-export modules of this tree are exactly Tests and X86 (read {rex})"))
+    # A typed list, kept as a TRIPWIRE: a new re-export module reds this arm on purpose. Read the new module first
+    # (imports and comments only?), then add it here; never add a module that declares anything.
+    out.append((rex == ["Tests", "X86"], f"the re-export modules of this tree are exactly Tests and X86 (read {rex})"
+                + ("" if rex == ["Tests", "X86"] else " — a NEW re-export module: read it, and add it to this list only "
+                   "if it holds nothing but `import` lines and comments")))
     return out
 
 
