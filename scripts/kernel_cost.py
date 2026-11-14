@@ -834,6 +834,11 @@ def parse_type_checking_ms(blob, src):
     if m:
         v = float(m.group(1))
         return v * 1000 if m.group(2) == "s" else v
+    # ⛔ ROW 61b (paper's read of #187, driven): with NO cumulative block at all this returned 0.0 for a re-export
+    # source while threads_ab returned None. profile_module exits 2 before reaching it, so the gate never did; but a
+    # zero needs a BLOCK that lacks the line, not the absence of any block, and ARM 4 now holds the two to that.
+    if "cumulative profiling times" not in blob:
+        return None
     return 0.0 if reexport_only(src) else None
 
 
@@ -1882,6 +1887,7 @@ def conditions_selftest():
         ("cumulative profiling times\n    elaboration 3ms\n", _rex, 0.0),     # a real zero: a re-export module
         ("cumulative profiling times\n    elaboration 3ms\n", _decl, None),   # NO READING: a declaring module
         ("lean: something exploded\n", _decl, None),                          # NOT a zero
+        ("lean: something exploded\n", _rex, None),   # NOT a zero, even for a re-export source (paper, #187)
     ]
     agree = True
     for blob, src, want in cases:
