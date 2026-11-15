@@ -25578,3 +25578,27 @@ in `threads_ab.py` alone reds both arms again, and ARM 8 names `threads_ab.py:13
 
 **NOT RUN HERE:** the full `kernel_cost --selftest`, whose real-tree control is a long walk (~11 h on yukon). CI's
 `kernel-cost-selftest` job runs it. The exact `%g` threshold and how often a real module lands in it are not measured.
+
+## D398 — the profiler parsers are DRIVEN on `1e+03ms`, and `kernel_cost` learns D396's `runner-pool` class (STATUS rows 68 and 69)
+
+**Row 68 (paper's LOW on #190).** D397's ARM 8 matches one literal spelling of the old pattern, so a copy spelled
+`([0-9.]+)(ms|s)` passed it (paper's M3). ARM 8b feeds each of the six known parsers the `%g` form and reads the number
+back: kernel_cost's cumulative parse, threads_ab's, the `TC` regex of `ku_constructor_plant`, `ku_kind_plants` and
+`ku_module_census`, and `p2_batch_size`. That last parse was inline in `profile()`, which runs Lean, so it is now
+`parse_cumulative_ms()`, a function the arm can call. ARM 8 stays for the spelling the defect had; ARM 8b cannot see a
+parser it does not name.
+Variant spellings that passed ARM 8: `([0-9.]+)(ms|s)` in `ku_kind_plants` reds ARM 8b naming `ku_kind_plants`;
+`(\d+(?:\.\d+)?)(ms|s)` in `p2_batch_size` reds it naming `p2_batch_size`.
+
+**Row 69 (paper's LOW on #189).** `kernel_cost.read_ceilings` skipped any `@on` line whose machine was not this host, so a
+`@on runner-pool` line was ignored on every runner. Specificity is now three levels: the exact host, then its class, then
+machine-less. `machine_class` and `RUNNER_POOL` are defined once, in `kernel_cost`; `kernel_delta` delegates to them, so
+the registry's two parsers cannot learn different classes. ARM 0b: a pool line applies on a runner over a machine-less
+one · an exact-host line beats it in either order · on katmai it stays another box's. Red first: 1 of 3 (the release
+arm; the other two already held under the old rule). Red backwards: undoing the skip change reds the release arm; the
+shared class widened to katmai and yukon reds the katmai arm here AND both of `kernel_delta`'s exclusion arms (2 of 95),
+which shows the delegation is real.
+
+**Counts:** `kernel_cost.conditions_selftest` 31 → 35, PASS; `kernel_delta --selftest` 95, PASS. The full
+`kernel_cost --selftest` walk is CI's.
+**SEQUENCE:** both rows touch `kernel_cost.py`, a reading input, so this lands only after the C3 PR (STATUS row 64) merges.
