@@ -25555,6 +25555,11 @@ canonical-call-target premise unused, and it was removed.
 (1d48ff7 → 97036fc, katmai, `--repeats 12`), and the K2 runs at the real base before the PR merges. At the part-1
 K1 (a370c1c → 028ea53): `X86.Effects` 115.0 ms, 7,300 unfoldings; `Tests.Vectors` ms UNMEASURABLE at +7.7 against
 11.2 with A′ Δku 0 exactly (197 → 197), the shape the helm's 11-11 widening of the standing rule covers.
+**The K1b, read 2026-11-14 ~17:3x (katmai, 1d48ff7 → 97036fc, `--repeats 12`), and registered.** `kernel_delta` rc 3, the one
+refusal being the NEW unit, `X86.Effects` head 280.0 ms ⇒ the printed line `X86.Effects 840 @on katmai`, copied to
+`scripts/kernel_ceilings.txt`; `ku_delta` A′ KU-EXIT 1, its one finding the NEW unit at 64,389 unfoldings ⇒ `X86.Effects @ku
+64389` in `scripts/ku_delta_budget.txt`. The full module costs 2.4× the part-1 reading in ms and 8.8× in unfoldings: parts 2–4
+are the larger share. The runner line comes from this PR's own kernel-delta job, as D393's and D394's did.
 
 **USED BY:** vir's S3 (`compiler/DECLARATIONS-S3.md`, vir 8b5913f) reads these declarations by name at the branch and
 re-pins to this PR's merge. **The names are load-bearing for vir: a rename is a change to vir's input.**

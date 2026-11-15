@@ -583,3 +583,6 @@ Tests.AnchorsVexSilM 6840 @on katmai
 # 43484981343, job 132090914220, the merged head 9310928: Tests.AnchorsVexSilM head 3380.0 ms, max(x 3, 50)), copied,
 # not retyped. The VM is runnervmwuk1x.
 Tests.AnchorsVexSilM 10140 @on runnervmwuk1x
+# D395: the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1b (1d48ff7 → 97036fc,
+# katmai, --repeats 12), copied, not retyped: X86.Effects head 280.0 ms ⇒ max(280.0 × 3, 50).
+X86.Effects 840 @on katmai
