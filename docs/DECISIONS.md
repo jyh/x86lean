@@ -25649,6 +25649,9 @@ back: kernel_cost's cumulative parse, threads_ab's, the `TC` regex of `ku_constr
 `ku_module_census`, and `p2_batch_size`. That last parse was inline in `profile()`, which runs Lean, so it is now
 `parse_cumulative_ms()`, a function the arm can call. ARM 8 stays for the spelling the defect had; ARM 8b cannot see a
 parser it does not name.
+**And for the three `ku_*` modules it drives the REGEX, not the module's code path** (paper's LOW on #192): their unit
+conversion is inline in a function that runs Lean, so the arm applies its own copy of `* (1000 if s else 1)`. The three inline
+copies are identical to it today; a `parse_ms()` per module would close this.
 Variant spellings that passed ARM 8: `([0-9.]+)(ms|s)` in `ku_kind_plants` reds ARM 8b naming `ku_kind_plants`;
 `(\d+(?:\.\d+)?)(ms|s)` in `p2_batch_size` reds it naming `p2_batch_size`.
 
