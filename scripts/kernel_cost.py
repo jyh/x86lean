@@ -834,6 +834,11 @@ def parse_type_checking_ms(blob, src):
     if m:
         v = float(m.group(1))
         return v * 1000 if m.group(2) == "s" else v
+    # ⛔ ROW 61b (paper's read of #187, driven): with NO cumulative block at all this returned 0.0 for a re-export
+    # source while threads_ab returned None. profile_module exits 2 before reaching it, so the gate never did; but a
+    # zero needs a BLOCK that lacks the line, not the absence of any block, and ARM 4 now holds the two to that.
+    if "cumulative profiling times" not in blob:
+        return None
     return 0.0 if reexport_only(src) else None
 
 
@@ -1871,20 +1876,23 @@ def conditions_selftest():
     # on the cases that differ between plausible implementations — the `s` vs
     # `ms` unit, the real zero, and the missing block that must NOT read as one.
     # [[feedback-duplicate-born-in-agreement]] [[feedback-two-readings-are-not-two-witnesses]]
+    # ⛔ ROW 61b (paper's LOW 2 on #185): `mine` is THIS module's real parse, `parse_type_checking_ms`, not a
+    # re-typed copy. Until 61b it was a copy of the OLD rule, so it agreed with threads_ab by construction and the arm
+    # could not see the gate move away from both; and no case lacked the `type checking` line with a declaring source.
+    _rex = "/- doc -/\nimport X86.Basic\n-- note\nimport X86.Syntax\n"
+    _decl = "import X86.Basic\n\ndef foo : Nat := 1\n"
     cases = [
-        ("cumulative profiling times\n    type checking 1.5s\n", 1500.0),
-        ("cumulative profiling times\n    type checking 250ms\n", 250.0),
-        ("cumulative profiling times\n    elaboration 3ms\n", 0.0),   # a real zero
-        ("lean: something exploded\n", None),                          # NOT a zero
+        ("cumulative profiling times\n    type checking 1.5s\n", _decl, 1500.0),
+        ("cumulative profiling times\n    type checking 250ms\n", _decl, 250.0),
+        ("cumulative profiling times\n    elaboration 3ms\n", _rex, 0.0),     # a real zero: a re-export module
+        ("cumulative profiling times\n    elaboration 3ms\n", _decl, None),   # NO READING: a declaring module
+        ("lean: something exploded\n", _decl, None),                          # NOT a zero
+        ("lean: something exploded\n", _rex, None),   # NOT a zero, even for a re-export source (paper, #187)
     ]
     agree = True
-    for blob, want in cases:
-        m = re.search(r'^\s*type checking\s+([\d.]+)(ms|s)\s*$', blob, re.M)
-        if m:
-            mine = float(m.group(1)) * (1000 if m.group(2) == "s" else 1)
-        else:
-            mine = 0.0 if "cumulative profiling times" in blob else None
-        theirs = _tab.parse_type_checking(blob)
+    for blob, src, want in cases:
+        mine = parse_type_checking_ms(blob, src)
+        theirs = _tab.parse_type_checking(blob, src)
         if mine != want or theirs != want:
             agree = False
     out.append((agree, "kernel_cost's and threads_ab's `type checking` parses "
