@@ -25640,3 +25640,24 @@ stated at a register destination only, as the module header lists.
 
 **USED BY:** vir's S3 (`compiler/DECLARATIONS-S3.md`, vir 8b5913f) reads these declarations by name at the branch and
 re-pins to this PR's merge. **The names are load-bearing for vir: a rename is a change to vir's input.**
+
+## D399 — `check_lean_route` sees a `lake` call behind a wrapper (`time`, `nice`, `env`, `VAR=…`, `sudo`, …) (STATUS row 70)
+
+**THE DEFECT, found 2026-11-15 writing the CAV artifact's `artifact/measure.sh` and DRIVEN through the gate's own
+`scan_shell`.** The control `lake build X86` is flagged. `/usr/bin/time -v lake build`, `nice lake build`, `env A=1 lake
+build`, `time lake build` and `sudo lake env lean F.lean` were NOT: the shell matcher required `lake` to be the first word
+in command position, and the Python matcher required a literal argv to START with `"lake"`. So the fleet's one-heavy-job
+lock could be bypassed by a prefix, and the gate printed `0 offender(s)`.
+
+**THE RULE.** Before `lake` is matched, a leading run of wrapper tokens is skipped: a known command name by basename
+(`WRAPPERS`: time, nice, env, sudo, command, nohup, timeout, gtimeout, stdbuf, caffeinate, arch, ionice, taskset, chrt),
+a flag, a bare number, or a `VAR=value` assignment. Any other word ends the prefix, so `echo lake build` is still not a
+call. The same token rule strips a literal argv in Python (`["nice", "lake", "build"]`). A wrapper does not change a
+call's class: `time lake env <binary>` stays EXEMPT.
+
+**ARMS (`check_lean_route --selftest`, 20 → 37).** 15 new shape arms (ten shell prefixes on `lake build`, `nice lake env
+lean`, `time lake env <binary>` as EXEMPT, two Python argv forms and one Python string), plus two controls (`echo lake
+build` → nothing; `/usr/bin/time -v python3 scripts/lean_route.py build` → nothing, a wrapper around the DOOR is
+allowed). Red first: 22 of 37 (the 20 existing arms and both controls green; all 15 shape arms red). Red backwards: the prefix emptied → 22 of
+37 again. The tree at master: 0 offenders, the same 15 exempt calls, so no wrapped call was hiding in this repository.
+**WHAT IT DOES NOT SEE.** A wrapper outside `WRAPPERS`, or `lake` reached through a shell variable or an alias.

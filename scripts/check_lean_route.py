@@ -48,8 +48,26 @@ if __name__ == "__main__":
     utf8_stdio()
     strict_flags(__file__)
 
-_SH_CMD = re.compile(r"(?:^|[;&|({]|\$\(|\bexec\s|\bthen\s|\bdo\s)\s*lake\s+(build\b|env\s+(\S+))")
-_STR_CMD = re.compile(r"^\s*lake\s+(build\b|env\s+(\S+))")
+# ⛔ ROW 70: A LEADING RUN OF WRAPPERS IS SKIPPED BEFORE `lake` IS MATCHED. Until 2026-11-15 a call in command position
+# was matched only when `lake` was its FIRST word, so `/usr/bin/time -v lake build`, `nice lake build`, `env A=1 lake
+# build` and `A=1 lake build` read as no call at all. A wrapper is a known command name (by basename), a flag, a bare
+# number (`nice -n 10`, `timeout 60`) or a VAR=value assignment; any other word ends the prefix, so `echo lake build`
+# is still not a call.
+WRAPPERS = ("time", "nice", "env", "sudo", "command", "nohup", "timeout", "gtimeout", "stdbuf", "caffeinate",
+            "arch", "ionice", "taskset", "chrt")
+_WRAP_TOK = (r"(?:(?:\S*/)?(?:" + "|".join(WRAPPERS) + r")|-\S+|\d+|[A-Za-z_][A-Za-z0-9_]*=\S*)")
+_PREFIX = r"(?:" + _WRAP_TOK + r"\s+)*"
+_SH_CMD = re.compile(r"(?:^|[;&|({]|\$\(|\bexec\s|\bthen\s|\bdo\s)\s*" + _PREFIX + r"lake\s+(build\b|env\s+(\S+))")
+_STR_CMD = re.compile(r"^\s*" + _PREFIX + r"lake\s+(build\b|env\s+(\S+))")
+_WRAP_ONE = re.compile(r"^" + _WRAP_TOK + r"$")
+
+
+def _strip_wrappers(lits):
+    """A literal argv with its leading wrapper tokens removed (row 70)."""
+    i = 0
+    while i < len(lits) and lits[i] != "lake" and _WRAP_ONE.match(lits[i]):
+        i += 1
+    return lits[i:]
 
 
 def _classify_env(target, rest=""):
@@ -73,6 +91,7 @@ def scan_python(src, path):
                     lits.append(el.value)
                 else:
                     break
+            lits = _strip_wrappers(lits)
             if lits[:1] == ["lake"] and len(lits) >= 2:
                 if lits[1] == "build":
                     out.append((node.lineno, "OFFENDER", " ".join(lits)))
@@ -171,6 +190,22 @@ def selftest() -> int:
     arm("sh comment line -> nothing", sh("# lake build X86 is what used to run here\n") == [])
     arm("sh a routed call -> nothing", sh("python3 scripts/lean_route.py build X86\n") == [])
     arm("py unparseable -> OFFENDER, never a silent skip", py("def (:\n")[:1] == ["OFFENDER"])
+    # ⛔ ROW 70: A WRAPPER IN FRONT OF `lake` HID THE CALL. Found writing artifact/measure.sh (2026-11-15): each shape
+    # below read "nothing" through scan_shell, so the fleet's one-heavy-job lock could be bypassed by a prefix.
+    for pre in ("/usr/bin/time -v ", "time ", "nice ", "nice -n 10 ", "env A=1 ", "A=1 ", "sudo ", "command ",
+                "nohup ", "/usr/bin/arch -x86_64 "):
+        arm(f"sh `{pre}lake build` -> OFFENDER", sh(f"{pre}lake build X86\n") == ["OFFENDER"])
+    arm("sh `nice lake env lean F` -> OFFENDER", sh("nice lake env lean F.lean\n") == ["OFFENDER"])
+    arm("sh `time lake env <binary>` -> EXEMPT binary, the prefix does not change the class",
+        sh("time lake env .lake/build/bin/x86lean-diff emit\n") == ["EXEMPT binary"])
+    arm("py list `[nice, lake, build]` -> OFFENDER", py('subprocess.run(["nice", "lake", "build"])\n') == ["OFFENDER"])
+    arm("py list `[/usr/bin/time, -v, lake, build]` -> OFFENDER",
+        py('subprocess.run(["/usr/bin/time", "-v", "lake", "build"])\n') == ["OFFENDER"])
+    arm("py string `time lake build` -> OFFENDER", py('os.system("time lake build X86")\n') == ["OFFENDER"])
+    # ⭐ THE CONTROLS: a non-wrapper word in front is not a prefix, and a wrapper around the DOOR is allowed.
+    arm("sh `echo lake build` -> nothing (echo is not a wrapper)", sh("echo lake build X86\n") == [])
+    arm("sh `/usr/bin/time -v python3 scripts/lean_route.py build` -> nothing",
+        sh("/usr/bin/time -v python3 scripts/lean_route.py build X86\n") == [])
 
     # END TO END over a throwaway git repository: population, the door's exemption, and the count
     with tempfile.TemporaryDirectory(prefix="x86lean-checkroute-") as tmp:
