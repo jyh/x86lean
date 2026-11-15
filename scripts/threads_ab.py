@@ -97,10 +97,40 @@ def arg(name, default=None):
 # the gated quantity that parses it differently is a measurement of something
 # else.  The refusals are copied with it: a run with no cumulative block at all
 # is a FAILED READING, never a zero.  [[feedback-verify-what-the-build-command-builds]]
-def parse_type_checking(blob):
+#
+# ⛔ ROW 61b (paper's LOW 2 on #185): the gate's rule CHANGED at row 61, and this copy kept the old one, so the two
+# disagreed on exactly the row-61 case. A cumulative block with no `type checking` line is 0.0 ONLY for a re-export
+# module (`kernel_cost.reexport_only`); for a module that declares things, or when the source is not given, it is
+# NO READING (None). `_strip_lean_comments` and `_reexport_only` are kernel_cost's, copied for the same reason the
+# parse is (importing kernel_cost runs its module-level chdir); kernel_cost ARM 4 holds all three to agreement.
+def _strip_lean_comments(src):
+    out, i, depth, n = [], 0, 0, len(src)
+    while i < n:
+        if src.startswith("/-", i):
+            depth += 1; i += 2; continue
+        if depth and src.startswith("-/", i):
+            depth -= 1; i += 2; continue
+        if depth:
+            if src[i] == "\n":
+                out.append("\n")
+            i += 1; continue
+        if src.startswith("--", i):
+            j = src.find("\n", i)
+            i = n if j < 0 else j
+            continue
+        out.append(src[i]); i += 1
+    return "".join(out)
+
+
+def _reexport_only(src):
+    lines = [l.strip() for l in _strip_lean_comments(src).splitlines() if l.strip()]
+    return all(l.startswith("import ") for l in lines)
+
+
+def parse_type_checking(blob, src=None):
     m = re.search(r'^\s*type checking\s+([\d.]+)(ms|s)\s*$', blob, re.M)
     if not m:
-        if "cumulative profiling times" in blob:
+        if "cumulative profiling times" in blob and src is not None and _reexport_only(src):
             return 0.0
         return None
     v = float(m.group(1))
@@ -153,10 +183,13 @@ def profile(path, threads, cwd=ROOT):
     if r.returncode != 0:
         raise RuntimeError("%s did not compile under %r:\n%s\n%s"
                            % (path, cmd, r.stdout[-2000:], r.stderr[-2000:]))
-    ms = parse_type_checking(r.stdout + "\n" + r.stderr)
+    with open(os.path.join(cwd or ".", path), encoding="utf-8") as fh:
+        src = fh.read()
+    ms = parse_type_checking(r.stdout + "\n" + r.stderr, src)
     if ms is None:
-        raise RuntimeError("%s: the profiler produced no cumulative block at all "
-                           "under %r. A missing reading is not a zero." % (path, cmd))
+        raise RuntimeError("%s: no `type checking` reading under %r (no cumulative block at all, or a block "
+                           "without the line for a module that declares things). A missing reading is not a "
+                           "zero." % (path, cmd))
     return {"path": path, "threads": threads, "type_checking_ms": ms,
             "real_s": wall,
             "user_s": sub_cpu(ru0[0], ru1[0]),
@@ -402,8 +435,14 @@ def selftest():
         parse_type_checking("  type checking 1234.5ms\n") == 1234.5)
     arm("a `type checking` in SECONDS is scaled to ms",
         parse_type_checking("  type checking 26.2s\n") == 26200.0)
-    arm("a cumulative block with no `type checking` is a real zero",
-        parse_type_checking("cumulative profiling times:\n  elaboration 1s\n") == 0.0)
+    arm("a cumulative block with no `type checking` is a real zero FOR A RE-EXPORT MODULE",
+        parse_type_checking("cumulative profiling times:\n  elaboration 1s\n",
+                            "/- doc -/\nimport X86.Basic\n-- note\nimport X86.Syntax\n") == 0.0)
+    arm("...and NO READING for a module that declares things (row 61; it read 0.0 here before 61b)",
+        parse_type_checking("cumulative profiling times:\n  elaboration 1s\n",
+                            "import X86.Basic\n\ndef foo : Nat := 1\n") is None)
+    arm("...and NO READING when the source is not given (a zero needs the re-export proof)",
+        parse_type_checking("cumulative profiling times:\n  elaboration 1s\n") is None)
     arm("NO cumulative block at all is a FAILED READING, not a zero",
         parse_type_checking("some unrelated output\n") is None)
     # ⭐ the control's own red arm: a FROZEN instrument must be caught.  Without
