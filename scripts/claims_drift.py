@@ -35,7 +35,8 @@ def rows(path=TSV):
 
 
 def derive(cmd, sha, cwd=ROOT):
-    r = subprocess.run(["bash", "-c", cmd], cwd=cwd, capture_output=True, text=True,
+    # errors="replace": a row's command may print a non-UTF-8 byte (fleet false-zero rule 15); it is judged, not fatal.
+    r = subprocess.run(["bash", "-c", cmd], cwd=cwd, capture_output=True, text=True, errors="replace",
                        env=dict(os.environ, SHA=sha))
     return r.returncode, r.stdout.strip()
 
@@ -75,7 +76,16 @@ def selftest():
         arm("a command that fails reads ERROR, never SAME", drift(r_bad, s2, t)[0][1] == "ERROR")
         r_empty = [dict(r[0], cmd="true")]
         arm("an EMPTY output reads ERROR (an empty string is not a value)", drift(r_empty, s2, t)[0][1] == "ERROR")
-    print("claims_drift selftest: %s (4 arms)" % ("CLEAN" if not bad else "FAIL"))
+        # ⛔ A ROW WHOSE COMMAND WRITES A NON-UTF-8 BYTE (a grep over a binary, an objdump column) must be JUDGED,
+        # never crash the whole run: at the CAV re-pin (11-15, --at 6f85116) one such row raised UnicodeDecodeError
+        # in subprocess and no row got a status at all.
+        r_bin = [dict(r[0], cmd='printf "\\x80\\n" >&2; git show "$SHA":f.txt | wc -l | tr -d " "')]
+        try:
+            st = drift(r_bin, s2, t)[0][1:]
+        except UnicodeDecodeError:
+            st = ("CRASH",)
+        arm("a non-UTF-8 byte on a command's stderr is judged (MOVED, 3), not a crash", st == ("MOVED", "3"))
+    print("claims_drift selftest: %s (5 arms)" % ("CLEAN" if not bad else "FAIL"))
     return 1 if bad else 0
 
 
