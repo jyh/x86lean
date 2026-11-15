@@ -176,6 +176,7 @@ BUDGET_FILE = os.environ.get("X86LEAN_DELTA_BUDGET",
 CEIL_FILE = os.path.join(ROOT, "scripts", "kernel_ceilings.txt")
 # The registry's machine column. One spelling, three parsers read this file.
 MACHINE_TAG = "@on"
+RUNNER_POOL = "runner-pool"
 DEFAULT_TAG = "@default"
 FLOOR_TAG   = "@floor"
 
@@ -976,9 +977,8 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False, ceilings=None):
             # the three ways a ceiling can fail to apply, because a refusal that
             # cannot say WHICH one is a refusal a head has to reproduce by hand.
             cl = ceilings or {}
-            entry = ceiling_for(cl, u, mach)
+            entry, cm = ceiling_entry(cl, u, mach)
             others = machines_registered_for(cl, u)
-            cm = mach if entry is not None else None
             why = (None if entry is not None else
                    "machine-unknown" if has_machineless(cl, u) and not others else
                    f"registered for {', '.join(others)}" if others else None)
@@ -1139,7 +1139,10 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False, ceilings=None):
               f"— {why}.")
             p(f"     To register it, take the reading ON THE MACHINE THAT RUNS THIS "
               f"GATE and add one line to {rel}:")
-            p(f"         {u} {sug:.0f} @on {mach or '<machine>'}")
+            # ⭐ On a runner VM the line to add is the POOL's: the next job
+            # draws another VM, and a per-VM line would not release it there.
+            p(f"         {u} {sug:.0f} @on "
+              f"{machine_class(mach) or mach or '<machine>'}")
             p(f"     (headroom from the registry's own rule, derived not retyped: "
               f"max(measured x {kernel_cost.HEADROOM:g}, {kernel_cost.FLOOR_MS}ms). "
               f"⛔ THE `@on` IS LOAD-BEARING: an entry with no machine, or one for "
@@ -1252,11 +1255,35 @@ def read_ceilings():
 # local↔runner factor is PER MODULE (1.7×–3.1×) and so cannot be divided out of
 # an absolute number. The helpers below exist so a REFUSAL can still say what it
 # DID find, which is the difference between "no ceiling" and "not yours".
-def ceiling_for(ceilings, unit, machine):
-    """The ms registered for THIS unit on THIS machine, or None."""
+#
+# ⭐ ONE CLASS, AND ONLY ONE (row 62, D396): the GitHub-hosted runner VMs. A job
+# draws its VM from a pool (D299), so a line keyed to one `runnervm*` name
+# released a NEW unit only on the jobs that drew that VM. The spread a class
+# turns on was MEASURED before the class was written: base medians on 7 distinct
+# runner instances, X86.Syntax 1.45×, Tests.Coverage 1.17× (an upper bound, each
+# base a different master commit), well inside the registry's 3× headroom. The
+# PER-MODULE factor that forbids a fallback is the local↔runner one; it is not
+# crossed here, because katmai and yukon are never in the class. The exact
+# (unit, machine) line is tried FIRST and wins.
+def machine_class(machine):
+    """`runner-pool` for a GitHub-hosted runner VM, else None."""
+    return RUNNER_POOL if machine and machine.startswith("runnervm") else None
+
+
+def ceiling_entry(ceilings, unit, machine):
+    """(ms, the machine key that matched) for THIS unit on THIS machine — the
+    exact line first, then the machine's class — or (None, None)."""
     if machine is None:
-        return None
-    return ceilings.get((unit, machine))
+        return None, None
+    for m in (machine, machine_class(machine)):
+        if m is not None and (unit, m) in ceilings:
+            return ceilings[(unit, m)], m
+    return None, None
+
+
+def ceiling_for(ceilings, unit, machine):
+    """The ms registered for THIS unit on THIS machine (or its class), or None."""
+    return ceiling_entry(ceilings, unit, machine)[0]
 
 
 def machines_registered_for(ceilings, unit):
@@ -1294,7 +1321,11 @@ def absolute_readings(data):
     # entry — never to another box's number, which would print a figure from a
     # different machine under a column headed "ceiling".
     _raw, _mach = read_ceilings(), run_machine(data)
+    # The precedence is the NEW-unit arm's, widened by the same class (D396):
+    # machine-less < this run's class < this run's exact machine.
+    _cls = machine_class(_mach)
     ceil = {u: v for (u, m), v in _raw.items() if m is None}
+    ceil.update({u: v for (u, m), v in _raw.items() if _cls is not None and m == _cls})
     ceil.update({u: v for (u, m), v in _raw.items() if m is not None and m == _mach})
     print("\n--- ABSOLUTE READINGS (RETIRED AS A GATE, 09/04 21:42; box-stamped)")
     print(f"{'UNIT':<56}{'base':>10}{'head':>10}{'ceiling':>10}   base/head")
@@ -1896,6 +1927,37 @@ def selftest():
     run("⛔ a THIRD machine finds the unit registered, but not for it",
         _new_unit("X86.Program", 10.0, machine="BOXC"), REPO_DEFAULT, {}, 3,
         "registered for BOXA, BOXB", floor=REPO_FLOOR, ceilings=dict(_BOTH))
+
+    # ── THE RUNNER POOL CLASS (row 62, D396) ──
+    # GitHub draws a runner VM per JOB, so a line keyed to ONE `runnervm*` name
+    # released a NEW unit only on jobs that drew that VM. `@on runner-pool` is a
+    # line for the whole hosted pool; it is tried AFTER the exact (unit, machine).
+    _POOL = (lambda ms: {("X86.Program", RUNNER_POOL): ms})
+    run("⭐ a `@on runner-pool` line releases a NEW unit on a runner VM it has "
+        "never seen",
+        _new_unit("X86.Program", 10.0, machine="runnervmzzzzz"), REPO_DEFAULT, {},
+        0, f"@on {RUNNER_POOL}", floor=REPO_FLOOR, ceilings=_POOL(50.0))
+    # ⛔ EXACT BEATS CLASS: 800 ms passes the pool's 900 and must REFUSE against
+    # this VM's own 50. If the class were tried first this arm would read rc 0.
+    run("⛔ an exact (unit, VM) line beats the pool line",
+        _new_unit("X86.Program", 800.0, machine="runnervmaaaaa"), REPO_DEFAULT, {},
+        3, "THIS IS NOT A CONVICTION", floor=REPO_FLOOR,
+        ceilings={("X86.Program", "runnervmaaaaa"): 50.0, **_POOL(900.0)})
+    # ⛔ THE POOL IS THE HOSTED RUNNERS ONLY: katmai and yukon are single boxes
+    # whose factor against a runner is PER MODULE, so a pool line is ABSENT there.
+    run("⛔ katmai is never in the runner pool",
+        _new_unit("X86.Program", 10.0, machine="katmai"), REPO_DEFAULT, {}, 3,
+        f"registered for {RUNNER_POOL}", floor=REPO_FLOOR, ceilings=_POOL(50.0))
+    run("⛔ …nor is yukon.lan",
+        _new_unit("X86.Program", 10.0, machine="yukon.lan"), REPO_DEFAULT, {}, 3,
+        f"registered for {RUNNER_POOL}", floor=REPO_FLOOR, ceilings=_POOL(50.0))
+    # ⭐ A refusal on a runner VM names the POOL line to add, because the next
+    # job draws another VM and a per-VM line would not release it there.
+    run("⭐ an unregistered NEW unit on a runner VM is told to add the POOL line",
+        _new_unit("X86.Program", 10.0, machine="runnervmqqqqq"), REPO_DEFAULT, {},
+        3, f"X86.Program "
+           f"{max(10.0 * kernel_cost.HEADROOM, float(kernel_cost.FLOOR_MS)):.0f} "
+           f"@on {RUNNER_POOL}", floor=REPO_FLOOR, ceilings={})
 
     # ⛔ AND THE RUN'S OWN MACHINE MUST BE KNOWN. A reading without its box cannot
     # be compared against any ceiling, however well registered.
