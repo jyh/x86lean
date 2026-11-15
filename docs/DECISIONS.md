@@ -25569,8 +25569,9 @@ with `profiler_ms()`, used by both of its parses. The other files keep their own
 its module-level `chdir` (ARM 4's note).
 
 **ARMS (`kernel_cost.conditions_selftest`, 30 → 31), red first and red backwards.** ARM 4 gains two cases, `type checking
-1e+03ms` → 1000.0 and `1.5e+00s` → 1500.0, held for kernel_cost and threads_ab both. The new ARM 8 reds the old pattern
-anywhere in `scripts/*.py`, naming each file and line, and drives the per-declaration parse with `type checking took 1e+03ms`.
+1e+03ms` → 1000.0 and `1.5e+00s` → 1500.0, held for kernel_cost and threads_ab both. The new ARM 8 reds the old pattern's
+ONE LITERAL SPELLING anywhere in `scripts/*.py`, naming each file and line (a copy spelled otherwise, `([0-9.]+)(ms|s)`,
+passes it: paper's M3 on #190; driving each module's parser on `1e+03ms` would close that, and is not done here), and drives the per-declaration parse with `type checking took 1e+03ms`.
 Before the fix: 29 of 31 (ARM 4, and ARM 8 naming all seven sites). After: 31 of 31. Red backwards: the old pattern restored
 in `threads_ab.py` alone reds both arms again, and ARM 8 names `threads_ab.py:131`. `threads_ab --selftest` passes; each
 `ku_*` module's `TC` regex reads `1e+03ms` as `1e+03` and `ms`.
