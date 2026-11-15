@@ -25597,6 +25597,10 @@ are the larger share. The runner line comes from this PR's own kernel-delta job,
 rc 0 "delta gate: CLEAN" (`X86.Effects` 277.0 ms, NEW ok against 840.0 @on katmai); `ku_delta` A′ rc 0 CLEAN (64,389, NEW,
 registered); recorded with `--record --readings --a-prime` (D251: lands on the ms verdict). Master moved to `14daa07` (#189, no
 `.lean`) during the run; if master moves before the merge, the row is re-recorded.
+**What a statement does not cover (paper's non-author read at `1307607`, LOW):** `step_setcc_reg` is stated at `.reg r`,
+whose `high8` is false, so `SETcc AH/CH/DH/BH` is not covered (paper's M4 reds at a high-8 register); its docstring says "the low
+byte of r". vir's compiler writes a boolean from lt/le/eq to a low byte, so it needs no high-8 form. Likewise `add` and `test` are
+stated at a register destination only, as the module header lists.
 
 **USED BY:** vir's S3 (`compiler/DECLARATIONS-S3.md`, vir 8b5913f) reads these declarations by name at the branch and
 re-pins to this PR's merge. **The names are load-bearing for vir: a rename is a change to vir's input.**
