@@ -25669,3 +25669,7 @@ green at the fixed head.
 Red first 38/43 (the five of his shapes; the chain already held). Red backwards: the rule removed → 38/43 again.
 **WHAT IT DOES NOT SEE.** A wrapper outside `WRAPPERS`; `lake` reached through a shell variable or an alias; and a flag
 taking TWO or more word arguments before `lake` (a numeric second argument is still read, as `timeout -k 5 60`).
+**WHAT IT OVER-READS (the fail-safe direction, paper's INFO on #193):** a BOOLEAN flag also consumes the next word
+when that word is the wrapped command, so `sudo -E echo lake build`, `time -p echo lake build` and `time -p grep lake
+build.log` are flagged although `lake` never runs; the argv `[sudo, -E, echo, lake, build]` strips to `[lake, build]`.
+It over-flags rather than bypasses; the tree reads 0 offenders. A false OFFENDER is fixed by rewording the line.
