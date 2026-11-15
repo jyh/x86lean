@@ -87,7 +87,7 @@ KINDS = {
 #   not the kind of work the kernel is given.
 DIAG = "set_option diagnostics true\nset_option diagnostics.threshold 1\nset_option maxRecDepth 100000\nset_option maxHeartbeats 0\nset_option exponentiation.threshold 20000000\n"
 PROF = "set_option profiler true\nset_option profiler.threshold 0\nset_option maxRecDepth 100000\nset_option maxHeartbeats 0\nset_option exponentiation.threshold 20000000\n"
-TC = re.compile(r"type checking took ([\d.]+)(ms|s)")
+TC = re.compile(r"type checking took ([\d.]+(?:e[+-]?\d+)?)(ms|s)")
 
 
 def elaborate(body, header, tmpdir, tag):

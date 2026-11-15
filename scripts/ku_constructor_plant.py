@@ -36,7 +36,7 @@ import deterministic_cost as dc  # noqa: E402
 import lean_route  # noqa: E402  desk MB: routed through scripts/lean_route.py (fleet lock on a shared seat, bare lake on a runner)
 from kernel_delta import plant_constructors  # noqa: E402  the gate's own plant
 
-TC = re.compile(r"type checking took ([\d.]+)(ms|s)")
+TC = re.compile(r"type checking took ([\d.]+(?:e[+-]?\d+)?)(ms|s)")
 
 
 def arg(name, default):

@@ -25550,3 +25550,31 @@ from a reading. It does not cover a unit WITH a history (that is the delta, unch
 line whose machine is not this host, so on a runner it would ignore a `@on runner-pool` line. Unreachable on CI today (CI runs only
 `kernel_cost.py --selftest`; the gating path is kept off runners); it becomes a gap the day that gate runs on a hosted VM after per-VM
 lines are converted to pool lines.
+
+## D397 — a profiler value in `%g` exponent form (`1e+03ms`) is a reading, in all seven parses of it (STATUS row 67)
+
+**THE DEFECT (kent's read of #188's red, 2026-11-14 21:22; job 132693891080).** `kernel-cost-selftest` refused its control
+arm: `Tests/AnchorsShufM.lean: no type checking reading on this pass`, while the profiler's own block carried `type checking
+1e+03ms`. Lean prints these times through C `%g`, so a value that rounds to 1000 ms arrives with an exponent, and the
+pattern `([\d.]+)(ms|s)` cannot match it. Since row 61 a missing reading REFUSES rather than reading 0.0, so this was a
+refusal BY VALUE: it fires only when a module's time lands in that narrow window, and #189's own run was green by its timing.
+
+**THE POPULATION.** kent named three sites. The pattern was in SEVEN: `kernel_cost.py` (the cumulative parse and the
+per-declaration `type checking took` parse), `threads_ab.py`, `ku_constructor_plant.py`, `ku_kind_plants.py`,
+`ku_module_census.py` and `p2_batch_size.py`. A sweep of `scripts/` for other numeric regexes found only parses of this
+repository's own `%.1f` output, which never prints an exponent.
+
+**THE FIX.** Every copy now reads `([\d.]+(?:e[+-]?\d+)?)(ms|s)`. In `kernel_cost.py` that is one constant, `PROFILER_VALUE`,
+with `profiler_ms()`, used by both of its parses. The other files keep their own copies because importing `kernel_cost` runs
+its module-level `chdir` (ARM 4's note).
+
+**ARMS (`kernel_cost.conditions_selftest`, 30 → 31), red first and red backwards.** ARM 4 gains two cases, `type checking
+1e+03ms` → 1000.0 and `1.5e+00s` → 1500.0, held for kernel_cost and threads_ab both. The new ARM 8 reds the old pattern's
+ONE LITERAL SPELLING anywhere in `scripts/*.py`, naming each file and line (a copy spelled otherwise, `([0-9.]+)(ms|s)`,
+passes it: paper's M3 on #190; driving each module's parser on `1e+03ms` would close that, and is not done here), and drives the per-declaration parse with `type checking took 1e+03ms`.
+Before the fix: 29 of 31 (ARM 4, and ARM 8 naming all seven sites). After: 31 of 31. Red backwards: the old pattern restored
+in `threads_ab.py` alone reds both arms again, and ARM 8 names `threads_ab.py:131`. `threads_ab --selftest` passes; each
+`ku_*` module's `TC` regex reads `1e+03ms` as `1e+03` and `ms`.
+
+**NOT RUN HERE:** the full `kernel_cost --selftest`, whose real-tree control is a long walk (~11 h on yukon). CI's
+`kernel-cost-selftest` job runs it. The exact `%g` threshold and how often a real module lands in it are not measured.
