@@ -25546,3 +25546,7 @@ reds both exclusion arms (2 of 95).
 
 **WHAT IT DOES NOT DO.** It registers no line; converting the 36 per-VM lines to pool lines is a separate act, one per unit,
 from a reading. It does not cover a unit WITH a history (that is the delta, unchanged) and it does not touch D299's base×3 arm.
+**And the registry's OTHER parser does not learn the class** (paper's LOW on #189): `kernel_cost.read_ceilings` skips any `@on`
+line whose machine is not this host, so on a runner it would ignore a `@on runner-pool` line. Unreachable on CI today (CI runs only
+`kernel_cost.py --selftest`; the gating path is kept off runners); it becomes a gap the day that gate runs on a hosted VM after per-VM
+lines are converted to pool lines.
