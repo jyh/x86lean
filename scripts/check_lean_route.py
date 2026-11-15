@@ -211,7 +211,9 @@ def selftest() -> int:
         py('subprocess.run(["/usr/bin/time", "-v", "lake", "build"])\n') == ["OFFENDER"])
     arm("py string `time lake build` -> OFFENDER", py('os.system("time lake build X86")\n') == ["OFFENDER"])
     # ⛔ kent's read of #193 (bus @103,696,373): a flag's WORD argument, or a duration, ended the prefix.
-    for pre in ("timeout 1h ", "sudo -u root ", "env -u FOO ", "nice -n 10 time -v "):
+    # …and paper's read of the same head (bus @103,697,978): a seconds or decimal duration, `time -o FILE`, `time -f %e`.
+    for pre in ("timeout 1h ", "sudo -u root ", "env -u FOO ", "nice -n 10 time -v ",
+                "timeout 60s ", "timeout 1.5 ", "/usr/bin/time -o t.txt ", "/usr/bin/time -f %e "):
         arm(f"sh `{pre}lake build` -> OFFENDER (a flag's argument does not end the prefix)",
             sh(f"{pre}lake build X86\n") == ["OFFENDER"])
     arm("py list `[sudo, -u, root, lake, build]` -> OFFENDER",
