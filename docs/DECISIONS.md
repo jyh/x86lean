@@ -25625,6 +25625,14 @@ are the larger share. The runner line comes from this PR's own kernel-delta job,
 rc 0 "delta gate: CLEAN" (`X86.Effects` 277.0 ms, NEW ok against 840.0 @on katmai); `ku_delta` A′ rc 0 CLEAN (64,389, NEW,
 registered); recorded with `--record --readings --a-prime` (D251: lands on the ms verdict). Master moved to `14daa07` (#189, no
 `.lean`) during the run; if master moves before the merge, the row is re-recorded.
+**The re-key, K2b (2026-11-15, katmai, `cb5e99e → 2c6a4ad`, `--repeats 12`), and the row it replaces.** #189 and #190 changed
+reading inputs (`kernel_delta.py`, `kernel_cost.py`) and #188 changed `Main.lean`, so the `14f28e1` row could not slide (D372;
+`kernel_drift --gap` refused it on a simulated merge ref). It is deleted. `kernel_delta` rc 3: `X86.Effects` 299.0 ms, NEW ok
+against 840.0 @on katmai; `Tests.Coverage` UNMEASURABLE at +1500.0 against a budget of 3362.4 with a band of ±2914.5 (range
+9500; katmai's load1 ran 2.6–8.1 across the 24 passes, against ~2 at the 9ed5b87 K2). `ku_delta` A′ rc 0 CLEAN: `Tests.Coverage`
+11,789,788 → 11,789,788, Δku 0 exactly; `X86.Effects` 64,389, NEW, registered. Recorded with `--record --readings --a-prime`:
+ms rc 3, A′ rc 0 ⇒ lands on the A′ verdict (D251), the shape #178 and #180 landed on. C3 changes no `.lean` that
+`Tests.Coverage` elaborates differently: its unfoldings are equal.
 **What a statement does not cover (paper's non-author read at `1307607`, LOW):** `step_setcc_reg` is stated at `.reg r`,
 whose `high8` is false, so `SETcc AH/CH/DH/BH` is not covered (paper's M4 reds at a high-8 register); its docstring says "the low
 byte of r". vir's compiler writes a boolean from lt/le/eq to a low byte, so it needs no high-8 form. Likewise `add` and `test` are
