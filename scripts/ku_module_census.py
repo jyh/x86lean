@@ -43,7 +43,7 @@ import deterministic_cost as dc  # noqa: E402
 import lean_route  # noqa: E402  desk MB: routed through scripts/lean_route.py (fleet lock on a shared seat, bare lake on a runner)
 
 BAND = (1.652, 3.411)   # D228 run 4: K4 and K5, ms per 1k ku on the unfolding kinds
-TC = re.compile(r"type checking took ([\d.]+)(ms|s)")
+TC = re.compile(r"type checking took ([\d.]+(?:e[+-]?\d+)?)(ms|s)")
 DEFAULT = ["X86.Basic", "X86.Syntax", "X86.Theorems", "X86.Program", "Tests.Anchors",
            "Tests.Program", "Tests.Nonvacuity", "Tests.VectorRuns", "X86Native", "Tests.Coverage"]
 

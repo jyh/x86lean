@@ -128,7 +128,7 @@ def _reexport_only(src):
 
 
 def parse_type_checking(blob, src=None):
-    m = re.search(r'^\s*type checking\s+([\d.]+)(ms|s)\s*$', blob, re.M)
+    m = re.search(r'^\s*type checking\s+([\d.]+(?:e[+-]?\d+)?)(ms|s)\s*$', blob, re.M)
     if not m:
         if "cumulative profiling times" in blob and src is not None and _reexport_only(src):
             return 0.0
