@@ -25579,6 +25579,68 @@ in `threads_ab.py` alone reds both arms again, and ARM 8 names `threads_ab.py:13
 **NOT RUN HERE:** the full `kernel_cost --selftest`, whose real-tree control is a long walk (~11 h on yukon). CI's
 `kernel-cost-selftest` job runs it. The exact `%g` threshold and how often a real module lands in it are not measured.
 
+## D395 — C3 (a): `X86/Effects.lean`, the instruction library vir's compiler lowers to (STATUS row 64)
+
+**THE ASK.** vir's compiler object (`object-COMPILER/OBJECT-COMPILER.md` at vir a5edcc7, §3) asks x86lean for four
+things: (1) effect equations in the `{ s with … }` form for mov, movzx, lea, add, sub, and, or, xor, shl, shr, cmp,
+test, jcc, jmp, call, ret, imul and setcc; (2) a straight-line-block lemma with a conditional exit over `stepP`;
+(3) call and ret under one convention; (4) the driver theorem's machine half. Every one of those mnemonics already
+has a `docs/COVERAGE.md` row, so the work is statements and their proofs, with no differential work.
+
+**THE PRICE, sealed before the work (bus 11-14 04:4x):** ~65 builds, 2–3 heads; the named ceiling (3)'s
+stack/layout disjointness, then imul's oracle flags. **THE FIGURE:** 17 route invocations (9 elaboration passes, 4
+mutants, 4 axiom-gate builds) in one head. **Why under, so it is not read as the method being cheap:** (3)'s
+disjointness is a HYPOTHESIS here, discharged by vir's S3 layout (vir's STATUS row 330), so its cost is vir's; and the
+byte lemmas of (3) were ported, not written.
+
+**WHAT THE MODULE STATES** (a new module, because `X86/Theorems.lean` is the kernel-cost barrier with
+per-declaration ceilings; imported by `X86.lean`, so the axiom gate enumerates it):
+- (1) `stepP_of_at` (the lift from `step` to `stepP` at a fetched address) · `step_add_reg_op` · `step_test_reg_op` ·
+  `step_setcc_reg` · `step_setcc_mem` · `step_imulr` (SF, ZF, AF, PF are four oracle draws, in that order) ·
+  `step_imulr_of` (OF is the overflow: `Flags.mulFlags` sets `cf := ovf, of := ovf`, so a checked multiply's `jo`
+  needs no oracle bit).
+- (2) `BlockFetches` · `runBlock` · `runP_succ_at` · `runP_block` · `runP_block_then` · `runP_block_jcc`.
+- (3) `writeN_frame` · `writeN_in` · `readN_bytes` · `readSize_writeSize_q` (a quadword written at `a` reads back at
+  `a`), ported with their proofs from vir's `bridge/VIRBridge/Mem.lean` (github.com/jyh/vir, master 9613d47; same
+  author, Apache-2.0 like this repository, attributed in the section header) · `call_ret`.
+- (4) `driver_iteration` (one iteration: `call_ret`, then a check block ending in `jcc`); the loop rule stays
+  `Spec.loop` (`X86/Logic.lean`).
+
+**CHECKS, per part:** `lean_route lean X86/Effects.lean` 0 errors (the final pass 0 warnings) · `axiom_gate.sh`
+CLEAN at 6161 → 6182 → 6211 → 6212 declarations, `X86.Effects` in its derived module list · one mutant per part, each
+red at its own declaration: imul's final cursor `c + 3` · `runP_block` at `is.length + 1` · `call_ret`'s return at
+the call's own address · the check block dropped from `driver_iteration`. A linter warning found `call_ret`'s
+canonical-call-target premise unused, and it was removed.
+
+**THE COST GATES.** A NEW unit for both arms: its katmai ceiling and its `@ku` registration are copied from the K1b
+(1d48ff7 → 97036fc, katmai, `--repeats 12`), and the K2 runs at the real base before the PR merges. At the part-1
+K1 (a370c1c → 028ea53): `X86.Effects` 115.0 ms, 7,300 unfoldings; `Tests.Vectors` ms UNMEASURABLE at +7.7 against
+11.2 with A′ Δku 0 exactly (197 → 197), the shape the helm's 11-11 widening of the standing rule covers.
+**The K1b, read 2026-11-14 ~17:3x (katmai, 1d48ff7 → 97036fc, `--repeats 12`), and registered.** `kernel_delta` rc 3, the one
+refusal being the NEW unit, `X86.Effects` head 280.0 ms ⇒ the printed line `X86.Effects 840 @on katmai`, copied to
+`scripts/kernel_ceilings.txt`; `ku_delta` A′ KU-EXIT 1, its one finding the NEW unit at 64,389 unfoldings ⇒ `X86.Effects @ku
+64389` in `scripts/ku_delta_budget.txt`. The full module costs 2.4× the part-1 reading in ms and 8.8× in unfoldings: parts 2–4
+are the larger share. The runner line comes from this PR's own kernel-delta job, as D393's and D394's did.
+**K2 at the real base (2026-11-14, katmai, `14f28e1 → 9ed5b87`, `--repeats 12`), before this entry's PR opens.** `kernel_delta`
+rc 0 "delta gate: CLEAN" (`X86.Effects` 277.0 ms, NEW ok against 840.0 @on katmai); `ku_delta` A′ rc 0 CLEAN (64,389, NEW,
+registered); recorded with `--record --readings --a-prime` (D251: lands on the ms verdict). Master moved to `14daa07` (#189, no
+`.lean`) during the run; if master moves before the merge, the row is re-recorded.
+**The re-key, K2b (2026-11-15, katmai, `cb5e99e → 2c6a4ad`, `--repeats 12`), and the row it replaces.** #189 and #190 changed
+reading inputs (`kernel_delta.py`, `kernel_cost.py`) and #188 changed `Main.lean`, so the `14f28e1` row could not slide (D372;
+`kernel_drift --gap` refused it on a simulated merge ref). It is deleted. `kernel_delta` rc 3: `X86.Effects` 299.0 ms, NEW ok
+against 840.0 @on katmai; `Tests.Coverage` UNMEASURABLE at +1500.0 against a budget of 3362.4 with a band of ±2914.5 (range
+9500; katmai's load1 ran 2.6–8.1 across the 24 passes, against ~2 at the 9ed5b87 K2). `ku_delta` A′ rc 0 CLEAN: `Tests.Coverage`
+11,789,788 → 11,789,788, Δku 0 exactly; `X86.Effects` 64,389, NEW, registered. Recorded with `--record --readings --a-prime`:
+ms rc 3, A′ rc 0 ⇒ lands on the A′ verdict (D251), the shape #178 and #180 landed on. C3 changes no `.lean` that
+`Tests.Coverage` elaborates differently: its unfoldings are equal.
+**What a statement does not cover (paper's non-author read at `1307607`, LOW):** `step_setcc_reg` is stated at `.reg r`,
+whose `high8` is false, so `SETcc AH/CH/DH/BH` is not covered (paper's M4 reds at a high-8 register); its docstring says "the low
+byte of r". vir's compiler writes a boolean from lt/le/eq to a low byte, so it needs no high-8 form. Likewise `add` and `test` are
+stated at a register destination only, as the module header lists.
+
+**USED BY:** vir's S3 (`compiler/DECLARATIONS-S3.md`, vir 8b5913f) reads these declarations by name at the branch and
+re-pins to this PR's merge. **The names are load-bearing for vir: a rename is a change to vir's input.**
+
 ## D398 — the profiler parsers are DRIVEN on `1e+03ms`, and `kernel_cost` learns D396's `runner-pool` class (STATUS rows 68 and 69)
 
 **Row 68 (paper's LOW on #190).** D397's ARM 8 matches one literal spelling of the old pattern, so a copy spelled
