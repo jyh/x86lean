@@ -1,0 +1,30 @@
+# CAV 2027 artifact, stage 1 (STATUS-paris row 63, act 3 (a)): build the linux/amd64 image on a hosted runner and
+# MEASURE the cold Lean build inside it (wall time, peak RSS, image size). Read-only for the repository; it publishes
+# nothing (the image is kept as a workflow artifact for 7 days, never pushed to a registry).
+name: artifact-image
+on:
+  workflow_dispatch:
+  push:
+    branches: [paris/o38-artifact]
+    paths: [artifact/**, .github/workflows/artifact-image.yml]
+permissions:
+  contents: read
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image (no credentials; public downloads only)
+        run: |
+          start=$(date +%s)
+          docker build --platform linux/amd64 -f artifact/Dockerfile -t x86lean-artifact:stage1 .
+          echo "MEASURE docker-build secs=$(( $(date +%s) - start ))"
+      - name: Cold Lean build inside the image, timed, at LEAN_NUM_THREADS=2 (a laptop-shaped setting)
+        run: |
+          echo "MEASURE runner nproc=$(nproc) mem_kb=$(awk '/MemTotal/{print $2}' /proc/meminfo)"
+          docker run --rm -e LEAN_NUM_THREADS=2 x86lean-artifact:stage1
+      - name: Image size, as a reviewer would download it
+        run: |
+          docker save x86lean-artifact:stage1 | gzip -1 > image.tar.gz
+          echo "MEASURE image-tar-gz bytes=$(stat -c %s image.tar.gz)"
