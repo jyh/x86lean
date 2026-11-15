@@ -25560,6 +25560,10 @@ refusal being the NEW unit, `X86.Effects` head 280.0 ms ⇒ the printed line `X8
 `scripts/kernel_ceilings.txt`; `ku_delta` A′ KU-EXIT 1, its one finding the NEW unit at 64,389 unfoldings ⇒ `X86.Effects @ku
 64389` in `scripts/ku_delta_budget.txt`. The full module costs 2.4× the part-1 reading in ms and 8.8× in unfoldings: parts 2–4
 are the larger share. The runner line comes from this PR's own kernel-delta job, as D393's and D394's did.
+**K2 at the real base (2026-11-14, katmai, `14f28e1 → 9ed5b87`, `--repeats 12`), before this entry's PR opens.** `kernel_delta`
+rc 0 "delta gate: CLEAN" (`X86.Effects` 277.0 ms, NEW ok against 840.0 @on katmai); `ku_delta` A′ rc 0 CLEAN (64,389, NEW,
+registered); recorded with `--record --readings --a-prime` (D251: lands on the ms verdict). Master moved to `14daa07` (#189, no
+`.lean`) during the run; if master moves before the merge, the row is re-recorded.
 
 **USED BY:** vir's S3 (`compiler/DECLARATIONS-S3.md`, vir 8b5913f) reads these declarations by name at the branch and
 re-pins to this PR's merge. **The names are load-bearing for vir: a rename is a change to vir's input.**
