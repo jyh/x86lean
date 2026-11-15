@@ -25517,3 +25517,32 @@ finding). The measured head is `53299ce`; the tip that registers them changes on
 taken at D394's stacked base (D393's tip `fc9f804`); once D393 merged (#183, `2b9a1d8`), the carry (`ac788af`, with #183's runner
 line) was measured at the real base: `kernel_delta` rc 0 "delta gate: CLEAN", `ku_delta` A′ rc 0 CLEAN; recorded with
 `--record --readings --a-prime` (D251: lands on the ms verdict). If master moves before the merge, the row is re-recorded.
+
+## D396 — a `@on runner-pool` ceiling line: a NEW unit's runner ceiling covers every hosted VM, not the one a job happened to draw (STATUS row 62)
+
+**THE DEFECT (paper, #174 read, 2026-11-11).** `kernel_delta.ceiling_for` matched `(unit, machine)` exactly. GitHub draws a
+runner VM per JOB (D299), so a NEW unit's ceiling line keyed to one `runnervm*` name released the refusal only on jobs that drew
+that VM. At master `1d48ff7` the registry held 36 runner lines over 7 VM names and no unit on two of them. Not a merge block:
+hand-merge's NEW-unit arm passed the refusal by hand each time.
+
+**THE MEASUREMENT, taken before the code (11-14, no new runs).** Base medians from 7 kernel-delta jobs on 7 distinct runner
+instances: X86.Syntax 1255–1820 ms (1.45×), Tests.Coverage 61,800–72,400 ms (1.17×). It is an UPPER bound on the VM spread
+(each base is a different master commit), n = 7, and the API's `runner_name` is an instance id rather than the `runnervm*`
+hostname the ceilings key on. Inside the registry's 3× headroom, so one class for the hosted pool is viable.
+
+**THE RULE.** `machine_class(m)` is `runner-pool` for a hostname starting `runnervm`, otherwise None. `ceiling_entry` tries the
+exact `(unit, machine)` line first and then `(unit, machine_class(machine))`; the NEW-unit verdict prints the key that matched
+(`NEW ok (ceiling … @on runner-pool)`). katmai and yukon are never in the class: D198's per-module local↔runner factor
+(1.7×–3.1×) is the reason a fallback is forbidden, and the class does not cross it. A refusal on a runner VM now prints the
+POOL line to add. `absolute_readings` takes the same precedence (machine-less < class < exact), so the two readers of the
+registry stay one rule. Existing per-VM lines are untouched and still win on their own VM.
+
+**ARMS (`kernel_delta --selftest`, 90 → 95), red first and red backwards.** Five new arms: the pool line releases a NEW unit on an
+unseen VM · exact beats class (800 ms passes the pool's 900, refuses against the VM's own 50) · katmai is never in the class ·
+nor is yukon.lan · a runner-VM refusal names the pool line (its number derived from `kernel_cost.HEADROOM`/`FLOOR_MS`). Before the
+code: 2 of 95 red (the two arms that state what the change adds; the three exclusion arms already held under exact lookup). Red
+backwards on the landed code: class tried BEFORE exact reds "exact beats class" (1 of 95); a class widened to katmai and yukon
+reds both exclusion arms (2 of 95).
+
+**WHAT IT DOES NOT DO.** It registers no line; converting the 36 per-VM lines to pool lines is a separate act, one per unit,
+from a reading. It does not cover a unit WITH a history (that is the delta, unchanged) and it does not touch D299's base×3 arm.
