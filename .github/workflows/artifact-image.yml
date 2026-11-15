@@ -12,13 +12,13 @@ permissions:
 jobs:
   image:
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
       - name: Build the image (no credentials; public downloads only)
         run: |
           start=$(date +%s)
-          docker build --platform linux/amd64 -f artifact/Dockerfile -t x86lean-artifact:stage1 .
+          docker build --progress=plain --platform linux/amd64 -f artifact/Dockerfile -t x86lean-artifact:stage1 . 2>&1 | tee /tmp/dbuild.log; test ${PIPESTATUS[0]} -eq 0
           echo "MEASURE docker-build secs=$(( $(date +%s) - start ))"
       - name: Cold Lean build inside the image, timed, at LEAN_NUM_THREADS=2 (a laptop-shaped setting)
         run: |
