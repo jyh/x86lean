@@ -165,7 +165,7 @@ def profile(shape, path, lie=False):
     if r.returncode != 0:
         return None, la
     cum = out.split("cumulative profiling times:")[-1]
-    m = re.search(r"^\s*type checking ([\d.]+)(ms|s)\s*$", cum, re.M)
+    m = re.search(r"^\s*type checking ([\d.]+(?:e[+-]?\d+)?)(ms|s)\s*$", cum, re.M)
     if not m:
         return None, la
     return float(m.group(1)) * (1000.0 if m.group(2) == "s" else 1.0), la

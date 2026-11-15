@@ -112,6 +112,17 @@ FLOOR_MS = 50   # below this, timing noise dominates and a ratio is meaningless
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import threads_ab as _tab
 
+# ⭐ THE PROFILER'S VALUE, ONE SPELLING (row 67). Lean prints `type checking` times through C `%g`, so a value
+# that rounds to 1000 ms arrives as `1e+03ms`; a pattern without the exponent reads it as NO READING. Every copy
+# of this parse in scripts/ spells this group pair, and ARM 8 reds the old one anywhere.
+PROFILER_VALUE = r'([\d.]+(?:e[+-]?\d+)?)(ms|s)'
+
+
+def profiler_ms(m):
+    """ms from a match of PROFILER_VALUE (group 1 the number, group 2 the unit)."""
+    v = float(m.group(1))
+    return v * 1000 if m.group(2) == "s" else v
+
 
 # ⭐⭐ QUEUE ITEM 8 (D151) — A TIMING RUN MUST FIRST LOOK FOR THE SEAT'S OWN
 # ORPHANS.  A `ci_local --job build` from a dead session was found running 47
@@ -830,10 +841,9 @@ def reexport_only(src):
 def parse_type_checking_ms(blob, src):
     """The profiler's cumulative `type checking` in ms; 0.0 for a re-export module whose block has no such line;
     None — NO READING — for any other module whose block lacks it."""
-    m = re.search(r'^\s*type checking\s+([\d.]+)(ms|s)\s*$', blob, re.M)
+    m = re.search(r'^\s*type checking\s+' + PROFILER_VALUE + r'\s*$', blob, re.M)
     if m:
-        v = float(m.group(1))
-        return v * 1000 if m.group(2) == "s" else v
+        return profiler_ms(m)
     # ⛔ ROW 61b (paper's read of #187, driven): with NO cumulative block at all this returned 0.0 for a re-export
     # source while threads_ab returned None. profile_module exits 2 before reaching it, so the gate never did; but a
     # zero needs a BLOCK that lacks the line, not the absence of any block, and ARM 4 now holds the two to that.
@@ -979,11 +989,11 @@ def per_declaration(f, threshold_ms=100):
             m = json.loads(ln)
         except json.JSONDecodeError:
             continue
-        g = re.match(r'type checking took ([\d.]+)(ms|s)', m.get("data", ""))
+        g = re.match(r'type checking took ' + PROFILER_VALUE, m.get("data", ""))
         if not g:
             continue
         seen += 1
-        v = float(g.group(1)) * (1000 if g.group(2) == "s" else 1)
+        v = profiler_ms(g)
         out.append((m["pos"]["line"], name_at(m["pos"]["line"]), v))
     if not out:
         print(f"⛔ {f}: the per-declaration profiler produced no `type checking` "
@@ -1888,6 +1898,10 @@ def conditions_selftest():
         ("cumulative profiling times\n    elaboration 3ms\n", _decl, None),   # NO READING: a declaring module
         ("lean: something exploded\n", _decl, None),                          # NOT a zero
         ("lean: something exploded\n", _rex, None),   # NOT a zero, even for a re-export source (paper, #187)
+        # ⛔ ROW 67 (kent's read of #188's red, job 132693891080): the profiler prints a value that rounds to
+        # 1000 ms in C `%g` form, `1e+03ms`. Read as NO READING, it refused a real module by value, not by tree.
+        ("cumulative profiling times\n    type checking 1e+03ms\n", _decl, 1000.0),
+        ("cumulative profiling times\n    type checking 1.5e+00s\n", _decl, 1500.0),
     ]
     agree = True
     for blob, src, want in cases:
@@ -1896,7 +1910,23 @@ def conditions_selftest():
         if mine != want or theirs != want:
             agree = False
     out.append((agree, "kernel_cost's and threads_ab's `type checking` parses "
-                       "still agree (units, a real zero, and a missing block)"))
+                       "still agree (units, a real zero, a missing block, and a `%g` exponent)"))
+
+    # ⛔ ARM 8 — NO PROFILER-VALUE REGEX WITHOUT AN EXPONENT, ANYWHERE IN scripts/ (row 67). The defect was one
+    # pattern copied into SEVEN files, so fixing the three a reader named would leave four; the per-declaration
+    # parse (`type checking took …`) is driven too, through the one constant every copy now spells.
+    _old = "([\\d.]+)(ms|s)"
+    _hits = []
+    for _f in sorted(glob.glob(os.path.join(root, "scripts", "*.py"))):
+        with open(_f, encoding="utf-8") as _fh:
+            for _n, _ln in enumerate(_fh, 1):
+                if _old in _ln and "_old = " not in _ln:
+                    _hits.append(f"{os.path.basename(_f)}:{_n}")
+    _pd = re.match(r'type checking took ' + PROFILER_VALUE, "type checking took 1e+03ms")
+    _pd_ok = bool(_pd) and profiler_ms(_pd) == 1000.0
+    out.append((not _hits and _pd_ok,
+                "every profiler-value regex in scripts/ accepts a `%g` exponent (`1e+03ms` reads 1000.0, "
+                f"per-declaration too){'' if not _hits else ' — the old pattern at ' + ', '.join(_hits)}"))
 
     # ⚠️ ARM 5 — THE LEGACY SENTINEL SURVIVES A FAILED PROBE.  Three analysers
     # format the top-level `load1` with `:.2f`; a `None` there would surface as a
