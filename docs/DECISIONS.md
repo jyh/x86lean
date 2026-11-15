@@ -25660,4 +25660,10 @@ lean`, `time lake env <binary>` as EXEMPT, two Python argv forms and one Python 
 build` → nothing; `/usr/bin/time -v python3 scripts/lean_route.py build` → nothing, a wrapper around the DOOR is
 allowed). Red first: 22 of 37 (the 20 existing arms and both controls green; all 15 shape arms red). Red backwards: the prefix emptied → 22 of
 37 again. The tree at master: 0 offenders, the same 15 exempt calls, so no wrapped call was hiding in this repository.
-**WHAT IT DOES NOT SEE.** A wrapper outside `WRAPPERS`, or `lake` reached through a shell variable or an alias.
+**kent's read of #193 (bus @103,696,373, driven on the regex): a flag's WORD argument ended the prefix.** `timeout 1h
+lake build`, `sudo -u root lake build` and `env -u FOO lake build` were not flagged. Now a flag may consume ONE following
+word that is not `lake` and does not start with `-`, and a number may carry a duration suffix (`1h`); the Python argv
+strip takes the same rule. Selftest 37 → 43 (his three shell shapes, two argv forms, and a chained `nice -n 10 time -v`).
+Red first 38/43 (the five of his shapes; the chain already held). Red backwards: the rule removed → 38/43 again.
+**WHAT IT DOES NOT SEE.** A wrapper outside `WRAPPERS`; `lake` reached through a shell variable or an alias; and a flag
+taking TWO or more word arguments before `lake` (a numeric second argument is still read, as `timeout -k 5 60`).

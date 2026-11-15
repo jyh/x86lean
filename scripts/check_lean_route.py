@@ -55,8 +55,13 @@ if __name__ == "__main__":
 # is still not a call.
 WRAPPERS = ("time", "nice", "env", "sudo", "command", "nohup", "timeout", "gtimeout", "stdbuf", "caffeinate",
             "arch", "ionice", "taskset", "chrt")
-_WRAP_TOK = (r"(?:(?:\S*/)?(?:" + "|".join(WRAPPERS) + r")|-\S+|\d+|[A-Za-z_][A-Za-z0-9_]*=\S*)")
-_PREFIX = r"(?:" + _WRAP_TOK + r"\s+)*"
+# A bare number may carry a duration suffix (`timeout 1h`), and a FLAG may consume ONE following word that is not
+# `lake` (`sudo -u root`, `env -u FOO`, `nice -n 10`): kent's read of #193 found that a flag's word argument ended
+# the prefix, so `lake` was never reached.
+_NUM = r"\d+(?:\.\d+)?[smhd]?"
+_WRAP_TOK = (r"(?:(?:\S*/)?(?:" + "|".join(WRAPPERS) + r")|-\S+|" + _NUM + r"|[A-Za-z_][A-Za-z0-9_]*=\S*)")
+_FLAG_ARG = r"(?:\s+(?!lake\b)(?!-)[^\s;&|()]+)?"
+_PREFIX = r"(?:(?:-\S+" + _FLAG_ARG + r"|" + _WRAP_TOK + r")\s+)*"
 _SH_CMD = re.compile(r"(?:^|[;&|({]|\$\(|\bexec\s|\bthen\s|\bdo\s)\s*" + _PREFIX + r"lake\s+(build\b|env\s+(\S+))")
 _STR_CMD = re.compile(r"^\s*" + _PREFIX + r"lake\s+(build\b|env\s+(\S+))")
 _WRAP_ONE = re.compile(r"^" + _WRAP_TOK + r"$")
@@ -66,7 +71,10 @@ def _strip_wrappers(lits):
     """A literal argv with its leading wrapper tokens removed (row 70)."""
     i = 0
     while i < len(lits) and lits[i] != "lake" and _WRAP_ONE.match(lits[i]):
+        flag = lits[i].startswith("-")
         i += 1
+        if flag and i < len(lits) and lits[i] != "lake" and not lits[i].startswith("-"):
+            i += 1                      # the flag's one argument (kent's read of #193)
     return lits[i:]
 
 
@@ -202,6 +210,14 @@ def selftest() -> int:
     arm("py list `[/usr/bin/time, -v, lake, build]` -> OFFENDER",
         py('subprocess.run(["/usr/bin/time", "-v", "lake", "build"])\n') == ["OFFENDER"])
     arm("py string `time lake build` -> OFFENDER", py('os.system("time lake build X86")\n') == ["OFFENDER"])
+    # ⛔ kent's read of #193 (bus @103,696,373): a flag's WORD argument, or a duration, ended the prefix.
+    for pre in ("timeout 1h ", "sudo -u root ", "env -u FOO ", "nice -n 10 time -v "):
+        arm(f"sh `{pre}lake build` -> OFFENDER (a flag's argument does not end the prefix)",
+            sh(f"{pre}lake build X86\n") == ["OFFENDER"])
+    arm("py list `[sudo, -u, root, lake, build]` -> OFFENDER",
+        py('subprocess.run(["sudo", "-u", "root", "lake", "build"])\n') == ["OFFENDER"])
+    arm("py list `[timeout, 1h, lake, build]` -> OFFENDER",
+        py('subprocess.run(["timeout", "1h", "lake", "build"])\n') == ["OFFENDER"])
     # ⭐ THE CONTROLS: a non-wrapper word in front is not a prefix, and a wrapper around the DOOR is allowed.
     arm("sh `echo lake build` -> nothing (echo is not a wrapper)", sh("echo lake build X86\n") == [])
     arm("sh `/usr/bin/time -v python3 scripts/lean_route.py build` -> nothing",
