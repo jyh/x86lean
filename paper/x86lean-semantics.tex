@@ -105,8 +105,7 @@ CRC-32 pilot has run, its records public; nothing in this paper depends on it.
 \src{README.md, the section "Part of SaltBench"; saltbench harness/systems-x86/RESULT-x86-crc32-*.md (four files, 2026-09-26 and 2026-09-29)}
 
 \paragraph{Scope.}
-Against its neighbours, x86lean is smaller. At the commits its manifest names, it tests 199 mnemonics
-differentially, where K reports 774, and the proof support reported here is a safety theorem for each of
+Against its neighbours, x86lean is smaller. At the commits its manifest names, it tests 200 mnemonics differentially, where K reports 774, and the proof support reported here is a safety theorem for each of
 six small routines, where x86isa proves full functional correctness of a copy loop of any length below
 $2^{14}$. One more x86 model underlies a proof about real libraries' compiled x86 code~\cite{anthropic-fv}
 (Section~\ref{sec:related}).
@@ -164,14 +163,14 @@ vshift\_roster\_names\_exactly\_the\_encodable\_pairs; .github/workflows/ci.yml,
 The tier is \emph{exact} when every architected bit of the result and the flags is computed,
 \emph{frame} when the set of changed state components is exact but some bits come from the oracle
 because the manual leaves them undefined, and \emph{absent} when the model refuses the mnemonic entirely; forms it refuses within a row are
-listed in that row's shapes. Of the 199 differentially tested mnemonics, 173 are exact, 26 are frame, and 0 are absent; 27 more are refereed only by processors (Sect.~\ref{sec:validation:limits}). The tier names are this project's coinage.
+listed in that row's shapes. Of the 200 differentially tested mnemonics, 174 are exact, 26 are frame, and 0 are absent; 110 more are refereed only by processors (Sect.~\ref{sec:validation:limits}). The tier names are this project's coinage.
 \src{X86/Coverage.lean inductive Tier; Tests/Coverage.lean table\_mnemonics\_subset\_roster and roster\_covered\_by\_table compare mnemonic
 lists; refused forms inside non-absent rows: docs/COVERAGE.md bswap, shld, bt (D250); docs/COVERAGE.md:13; docs/CLAIMS.tsv[coverage\_mnemonics, tier\_exact, tier\_frame,
 tier\_absent, silicon\_mnemonics]}
 
 \paragraph{Trust.}
 Decoding is trusted, not proved. The AST is produced from Intel XED's structured output, and every one
-of the 226 rows, both populations, records its decoding as trusted to XED; a Lean decoder for the covered subset is later
+of the 344 rows (the roster, its 34 VEX.128 register twins, and the processor-refereed forms) records its decoding as trusted to XED; a Lean decoder for the covered subset is later
 work.
 \src{TRUSTBASE.md, Decode trust; X86/Coverage.lean DecodeTrust; docs/CLAIMS.tsv[decode\_xed\_rows]}
 Every theorem outside the test tree and a separately compiled native library depends on at most
@@ -273,7 +272,7 @@ LEA writes is a separate function from the address a memory access uses (Appendi
 BSF and BSR share one function. It draws the five flags the cited manual leaves undefined, in a fixed order,
 before it writes anything, and when the source is zero it draws the destination as well, at the
 operand's width: the edition we cite says the destination's content is undefined, and the model draws it rather
-than inventing a value. Of the 26 frame rows, 4 draw a destination and the rest draw flags only. The
+than inventing a value. Of the 26 frame rows, 2 draw a destination and the rest draw flags only. The
 order of the draws is part of the model, which Section~\ref{sec:undef} returns to.
 \src{X86/Semantics.lean bitScanStep, called from step for bsf and bsr; docs/CLAIMS.tsv[tier\_frame, frame\_dest\_draw]}
 
@@ -672,9 +671,10 @@ Agreement with a reference model that does not implement a rule is not evidence 
 \paragraph{A processor where the reference model refuses.}
 For forms the reference model refuses to execute, a second source of another kind now exists: a probe
 runs rows derived from the manual's rules on the processors of hosted x86-64 runners, and the model is
-pinned to the same rows by \lean{decide}. It referees 27 mnemonics that no differential vector can test
-(the BMI1/BMI2 forms x86isa refuses, MOVNTI, SSSE3/SSE4.1 shuffle, align, insert and extract forms, and SSE packed-integer arithmetic) on AMD and
-Intel processors. Its rows are chosen rather than swept and are never counted with the differential
+pinned to the same rows by \lean{decide}. It referees 110 mnemonics that no differential vector can test
+(the BMI1/BMI2 forms x86isa refuses, MOVNTI and MOVNTDQA, the SHA and AES rounds and VPCLMULQDQ, SSSE3/SSE4.1 shuffle, align,
+insert, extract and absolute-value forms, SSE packed-integer arithmetic, their VEX encodings, and VEX binary32/binary64
+arithmetic) on AMD and Intel processors. Its rows are chosen rather than swept and are never counted with the differential
 figures; a processor can refute a reading of the manual, but cannot show that an undefined bit is defined.
 \src{docs/CLAIMS.tsv[silicon\_mnemonics]; X86/Coverage.lean siliconTable; hwprobe/; docs/DECISIONS.md D330, D334--D336}
 The probe also found a defect in the reference model. For BT, BTS, BTR and BTC with a memory bit base and
@@ -760,16 +760,16 @@ hwprobe/; Tests/Anchors.lean, the cvtss2sd\_*\_sticky rows marked ``x86isa diffe
 Differential validation needs a reference model that runs the instruction, and for much of what
 x86lean does not yet cover, ours does not. We measure demand with a census of the instructions in
 ten public Debian amd64 packages; in its assembly class, six codec columns counted apart from compiler output,
-362{,}093 instructions are of forms the model does not differentially validate, a count that includes the demand for the mnemonics it implements and referees only on processors.
+345{,}443 instructions are of forms the model does not differentially validate, a count that includes the demand for the mnemonics it implements and referees only on processors.
 \src{docs/DEMAND-CENSUS.md, the corpus recipe; docs/P2-ROSTER.md header; docs/CLAIMS.tsv[p2\_gap\_total]}
-Of those, 162 are scalar instructions in the census row for the LOCK vocabulary, still counted as uncovered although the vocabulary itself has landed. Most of the rest are vector instructions; the rest also include scalar forms, among them ENDBR64 (16{,}488) and the BMI2 forms (400).
+Most of those are vector instructions; the scalar remainder includes the BMI2 forms (400). Two scalar parts of the
+earlier count, the LOCK vocabulary and ENDBR64, have since landed and left it.
 Asking the reference model to execute one form of each mnemonic in the gap, at the operand class where the
-demand actually occurs, it executes the forms carrying 102{,}931 of them and refuses the forms carrying
-169{,}877; on 241, in three mnemonics, it neither advances nor refuses; and 88{,}882 have not yet been
-asked at their own class. The five parts sum to the total.
-\src{docs/P2-ROSTER.md, the additions table and the BY (mnemonic, BUCKET) table; docs/CLAIMS.tsv[p2\_addition\_lock,
-p2\_bucket\_executes, p2\_bucket\_refuses, p2\_bucket\_stalls, p2\_bucket\_stalls\_pairs, p2\_bucket\_unasked, p2\_ceiling\_partition\_residue];
-162 + 102931 + 169877 + 241 + 88882 = 362093}
+demand actually occurs, it executes the forms carrying 86{,}191 of them and refuses the forms carrying
+169{,}439; on 241, in three mnemonics, it neither advances nor refuses; and 89{,}572 have not yet been
+asked at their own class. The four parts sum to the total.
+\src{docs/P2-ROSTER.md, the additions table and the BY (mnemonic, BUCKET) table; docs/CLAIMS.tsv[p2\_bucket\_executes, p2\_bucket\_refuses, p2\_bucket\_stalls, p2\_bucket\_stalls\_pairs, p2\_bucket\_unasked, p2\_ceiling\_partition\_residue];
+86191 + 169439 + 241 + 89572 = 345443}
 The refused instructions cannot be differentially validated against it at any price, however the work
 is ordered. K has
 semantic rules for many of the refused mnemonics, but it executes assembly source rather than machine
@@ -797,13 +797,13 @@ claim a row only if the two encodings share every non-operand bit, so a mis-pars
 instances assemble to identical bytes are reported as spellings of one machine form, which is why the
 figures count both rows and distinct forms.
 \src{scripts/claimed\_forms.py module docstring}
-The published figures are 199 mnemonics in 1{,}198 differentially tested vectors, read from the table
+The published figures are 200 mnemonics in 1{,}241 differentially tested vectors, read from the table
 the model generates, and 504 of the 525 roster rows, which are 355 of the 374 distinct machine forms those
 rows describe; CI fails if the prose that states them disagrees with the derivation. The roster is K's
 scalar forms: the model's vector forms have no row there, are listed by name as exempt, and are counted
 against a separate demand roster instead.
-\src{scripts/claimed\_forms.py, the mnemonic count read from the generated COVERAGE.md, and CLAIMS\_NO\_ROW (339 SIMD entries of 378);
-111 of the 199 mnemonics take an xmm operand (README.md:63, at the pinned sha); docs/COVERAGE.md:5 and README.md:61-62, checked against the derivation by scripts/claimed\_forms.py --check in CI;
+\src{scripts/claimed\_forms.py, the mnemonic count read from the generated COVERAGE.md, and CLAIMS\_NO\_ROW (358 SIMD entries of 421);
+111 of the 200 mnemonics take an xmm operand (README.md:64, at the pinned sha); docs/COVERAGE.md:5 and README.md:61-62, checked against the derivation by scripts/claimed\_forms.py --check in CI;
 this paper's copy is checked against docs/CLAIMS.tsv[coverage\_mnemonics, coverage\_forms, coverage\_rows\_covered,
 coverage\_rows\_total, coverage\_forms\_covered, coverage\_forms\_distinct], which read COVERAGE.md at the pin (D231)}
 Numbers outside the coverage table are entered in a manifest with the command that re-derives each
@@ -962,7 +962,7 @@ The Sail x86 model~\cite{sail-x86-repo} is translated automatically from x86isa,
 theorems, and is validated by co-simulation on K's single-instruction tests, so agreement with it
 tests the translation rather than supplying a third semantics.
 \src{docs/TACAS-G1-POSITIONING.md 1c.5 and 1c.7}
-Against these, x86lean tests 199 mnemonics differentially where K reports 774; Sail's model publishes no count.
+Against these, x86lean tests 200 mnemonics differentially where K reports 774; Sail's model publishes no count.
 \src{docs/CLAIMS.tsv[coverage\_mnemonics, k\_mnemonics]; docs/TACAS-G1-POSITIONING.md, the scale row and 1d; x86isa machine/catalogue-doc.lisp at acl2 c8897a34;
 199 is derived by scripts/claimed\_forms.py into COVERAGE.md, and this copy is checked against the row (D231); docs/DECISIONS.md D220}
 Other formal x86-64 models exist outside this comparison, and the largest changes what validation
