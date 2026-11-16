@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
   push:
     branches: [paris/o38-artifact]
-    paths: [artifact/**, .github/workflows/artifact-image.yml]
+    paths: [artifact/**, .github/workflows/artifact-image.yml, '!artifact/README.md']
 permissions:
   contents: read
 jobs:
