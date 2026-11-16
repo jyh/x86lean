@@ -25700,3 +25700,9 @@ which shows the delegation is real.
 **Counts:** `kernel_cost.conditions_selftest` 31 → 35, PASS; `kernel_delta --selftest` 95, PASS. The full
 `kernel_cost --selftest` walk is CI's.
 **SEQUENCE:** both rows touch `kernel_cost.py`, a reading input, so this lands only after the C3 PR (STATUS row 64) merges.
+**The K2 that lands it (2026-11-16, katmai, `58499a6 → de5fda5`, `--repeats 12`).** CI's kernel-delta refused twice: attempt 1
+UNMEASURABLE on `Tests.Vectors` (+20.4 ms on a 21 ms unit, a commit-cost refusal), attempt 2 rc 3 with BASE and HEAD both over the
+same 9 ceilings (the runner, not the change). Kent's rule allows no third rerun, so this K2 was run on katmai (load1 1.76 to 7.21 across
+the 24 passes, read from the log's pass lines). `kernel_delta` rc 0, "delta gate: CLEAN" (`Tests.Vectors` 17.6 → 14.1 ms, ok). `ku_delta` A′ rc 0,
+CLEAN (`Tests.Vectors` 197 → 197, Δku 0). Recorded with `--record --readings --a-prime`: ms rc 0 and A′ rc 0, so the row lands on
+the ms verdict (D251). As predicted before the run: this PR changes no `.lean`, so neither arm moved.
