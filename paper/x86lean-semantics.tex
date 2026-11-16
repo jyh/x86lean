@@ -135,9 +135,9 @@ TRUSTBASE.md, Decode trust}
 % run; X86/Coverage.lean Tier, DecodeTrust; TRUSTBASE.md; docs/COVERAGE.md.
 
 \paragraph{State and step.}
-The machine state is a record: the sixteen general-purpose registers, the instruction pointer, the six arithmetic flags and the direction flag, memory, the FS and GS segment bases, sixteen 128-bit XMM registers, MXCSR, the undefined-bit
+The machine state is a record: the sixteen general-purpose registers, the instruction pointer, the six arithmetic flags and the direction flag, memory, the FS and GS segment bases, sixteen 128-bit XMM registers and their YMM upper halves, MXCSR, the undefined-bit
 oracle, and a halt field that records why the model stopped, if it did.
-\src{X86/State.lean structure Cpu; X86/Basic.lean GPR and Xmms}
+\src{X86/State.lean structure Cpu; X86/Basic.lean GPR and Xmms (its field hi : YmmHi, bits 255:128, D341)}
 The FS and GS bases are inputs: no instruction in the model writes them, so they are left out of the
 differential record, and what is compared is the address they produce.
 \src{X86/State.lean, the fsBase/gsBase docstring}
@@ -269,15 +269,17 @@ An effective address is computed at the 64-bit address size only, so it wraps mo
 LEA writes is a separate function from the address a memory access uses (Appendix~\ref{app:listings}).
 
 \paragraph{A frame-tier clause.}
-BSF and BSR share one function. It draws the five flags the cited manual leaves undefined, in a fixed order,
-before it writes anything, and when the source is zero it draws the destination as well, at the
-operand's width: the edition we cite says the destination's content is undefined, and the model draws it rather
-than inventing a value. Of the 26 frame rows, 2 draw a destination and the rest draw flags only. The
-order of the draws is part of the model, which Section~\ref{sec:undef} returns to.
-\src{X86/Semantics.lean bitScanStep, called from step for bsf and bsr; docs/CLAIMS.tsv[tier\_frame, frame\_dest\_draw]}
+BSF and BSR share one function. It draws the five flags other than ZF, in a fixed order, before it
+writes anything, because AMD's manual and x86isa leave them undefined. When the source is zero it writes
+nothing else: the destination is unmodified, even at 32 bits, as Intel's edition 093US, AMD and x86isa
+state (the edition we cite called it undefined). Of the 26 frame rows, 2 draw a destination, SHLD and
+SHRD past the operand size; the rest draw flags only. The order of the draws is part of the model,
+which Section~\ref{sec:undef} returns to.
+\src{X86/Semantics.lean bitScanStep, called from step for bsf and bsr, and the .dshift arm; docs/DECISIONS.md D346 (093US Vol.~2A BSF/BSR,
+AMD APM Vol.~3, x86isa machine/instructions/bit.lisp; 093US defines the five flags except on some older processors, D346 keeps them drawn by the union rule; the model drew the destination until D346, on D40); Tests/Nonvacuity.lean bsf\_dest\_upper\_kept\_at\_zero\_source\_d; docs/CLAIMS.tsv[tier\_frame, frame\_dest\_draw]}
 
 {\scriptsize
-% LISTING bsf file=X86/Semantics.lean from=^def\sbitScanStep to=^\s\s\s\s\(s\.setReg\ssz\sdst\s\(BitVec\.ofNat\s64\sidx\)\)\.setRip\snr$ strip=doc
+% LISTING bsf file=X86/Semantics.lean from=^def\sbitScanStep to=^\s\s\s\s\(s\.setReg\ssz\sdst\s\(BitVec\.ofNat\s64\sidx\)\)\.setRip\snr$ strip=doc elide=^\s+--\s\S+\sD346:..^\s+--\son\sthe\sSDM's\solder|D346:_the_destination_unmodified
 \begin{alltt}
 def bitScanStep (rev : Bool) (sz : Size) (dst : GPR) (a : Val)
     (nr : BitVec 64) (s : Cpu) : Cpu :=
@@ -288,10 +290,8 @@ def bitScanStep (rev : Bool) (sz : Size) (dst : GPR) (a : Val)
   let (ofU, s) := s.undefBit
   let s := s.setFlags (Flags.bitScan sz a cfU pfU afU sfU ofU s.flags)
   if Value.isZero sz a then
-    -- the SDM's "the content of the destination operand is undefined", drawn
-    -- rather than invented.  `sz.bits` bits, so the draw is the operand's width.
-    let (u, s) := s.undefVal sz.bits
-    (s.setReg sz dst u).setRip nr
+    -- ... D346: the destination unmodified (5 lines)
+    s.setRip nr
   else
     let idx := if rev then Value.bitScanReverse sz a else Value.bitScanForward sz a
     (s.setReg sz dst (BitVec.ofNat 64 idx)).setRip nr
@@ -466,10 +466,10 @@ width draws CF's bit and ignores it, because CF is the sign; SHL at a count of o
 ignores it, because OF is defined there.
 \src{X86/Flags.lean shiftFlags}
 The number of bits drawn does still depend on operand values through the coarse branch: a masked count
-of zero draws nothing, and BSF or BSR draw a further destination-width of bits only when the source is
-zero.
-\src{Tests/Nonvacuity.lean cursor\_shift\_zero\_spends\_nothing; X86/Semantics.lean bitScanStep;
-docs/DECISIONS.md D213}
+of zero draws nothing, and SHLD or SHRD draw a further destination-width of bits only past the
+operand size.
+\src{Tests/Nonvacuity.lean cursor\_shift\_zero\_spends\_nothing; X86/Semantics.lean step, the .dshift arm (``SEVEN draws'');
+docs/DECISIONS.md D213; BSF and BSR draw five at every source since D346}
 What the rule is meant to exclude is dependence on the oracle's own bits. If a branch inside a step
 could read a bit drawn in that step, two runs under different oracles could take different branches,
 and the derivation of Section~\ref{sec:undef:derived}, which compares two such runs, would report a
@@ -504,10 +504,9 @@ the first time a form's rules changed. It would go stale in the permissive direc
 that still names a flag the model now defines licenses the harness to excuse a real disagreement in it.
 Derived, there is one notion of ``undefined here'', and it is the semantics'.
 
-Registers need the opposite treatment, and the reason is instructive. BSF and BSR leave their
-destination register undefined when the source is zero (``If the content of the source operand is 0,
-the content of the destination operand is undefined'', in edition 092US; its successor, 093US, makes the
-destination unmodified and its five flags defined, except on some older processors). Deriving the undefined registers from the same
+Registers need the opposite treatment, and the reason is instructive. SHLD and SHRD leave a register
+destination undefined when the count exceeds the operand size, the second of the three cases above.
+Deriving the undefined registers from the same
 two runs would disarm the check that matters most: an oracle bit reaching a register by mistake would
 be re-read as ``that register is undefined here'' and filed as explained. So registers have two
 sources, required to agree. \lean{declaredUndefGPRs} reads the instruction and the manual's rule;
@@ -515,20 +514,21 @@ sources, required to agree. \lean{declaredUndefGPRs} reads the instruction and t
 without being declared is a leak; a register that is declared and does not move is a false claim of
 undefinedness, which would otherwise license the harness to explain away disagreements in that register
 indefinitely.
-\src{X86/Serialize.lean declaredUndefGPRs, undefinedRegs, and the P1 batch 14 note; 325462-093US (September 2026) read at its PDF 2026-10-14:
-BSF ``If the content of the source operand is zero, the destination operand is unmodified.1'', BSR the same, flags PF by parity and CF, OF,
-SF, AF cleared, footnotes 1--2 on ``some older processors''; the 092US wording is kept because it is the edition cited}
+\src{X86/Serialize.lean declaredUndefGPRs, undefinedRegs, and the P1 batch 18 note; Tests/Nonvacuity.lean
+shld\_w\_bad\_count\_declares\_and\_moves\_its\_destination, bsf\_zero\_source\_declares\_and\_moves\_no\_register; docs/DECISIONS.md D346:
+BSF and BSR declared their destination here at a zero source until 325462-093US, read at its PDF 2026-10-14
+(``If the content of the source operand is zero, the destination operand is unmodified.1''), made it unmodified}
 
 Everything outside those two channels must agree exactly between the two runs.
 \lean{undefinedLeaked}, checked on every differential case, requires the vector registers, MXCSR, the
 instruction pointer, the oracle cursor, the halt state and every watched memory window to be identical
 under both oracles,
 and the comparator will explain a disagreement as undefined only in a closed list of fields: the flags
-and the general-purpose registers, each excused whole. So the upper half that x86lean clears on a 32-bit BSF or BSR
-at a zero source, and x86isa keeps, is never compared.
+and the general-purpose registers, each excused whole. So when a 16-bit SHLD or SHRD draws its
+destination, the register's upper 48 bits, which a 16-bit write leaves alone, are not compared in that case.
 \src{X86/Serialize.lean undefinedLeaked, movedRegs compares a.regs.get r whole; Main.lean undefinableFields (flagNames ++ GPR.all.map (.name .q));
-X86/Semantics.lean bitScanStep writes its draw with setReg sz; X86/Value.lean writeView, .d zero-extends; x86isa machine/instructions/bit.lisp
-x86-bsf and x86-bsr leave the register unchanged at a zero source (acl2 c8897a34); Tests/Vectors.lean bsf\_rr\_d, bsf\_rm\_d, bsr\_rr\_d, bsr\_rm\_d}
+X86/Semantics.lean the .dshift arm writes its draw with writeOperand sz; X86/Value.lean writeView, .w keeps bits 63:16; x86isa machine/instructions/bit.lisp
+x86-bsf and x86-bsr leave the register unchanged at a zero source (acl2 c8897a34); docs/DECISIONS.md D346 1--2: until D346 a 32-bit BSF or BSR at a zero source was such an uncompared case, where x86lean cleared the upper half and x86isa kept it; both now keep it; Tests/Vectors.lean bsf\_rr\_d, bsf\_rm\_d, bsr\_rr\_d, bsr\_rm\_d}
 The derivation has a precondition it does not itself check. It finds a field whose value is a copy of a
 drawn bit, and it would miss a value that combined two drawn bits so as to agree under both constant
 oracles. Every undefined value in the model is written as drawn; we established this by a syntactic
@@ -1062,9 +1062,7 @@ x86isa at ACL2 commit \texttt{c8897a34}, pinned by \texttt{scripts/oracle\_revis
 by \texttt{scripts/setup\_oracle.sh}, which does not pin the host Lisp (the image at that commit was built
 with SBCL 2.6.8). The repository's scripts and records call the reference model ``the oracle''; in
 this paper that word names x86lean's source of undefined bits. This paper describes x86lean at commit
-\texttt{7e634fe}; later commits extend the model, by VEX-encoded instructions among others, and are not
-reported here, and one of them changes a behaviour that Sections~\ref{sec:examples}, \ref{sec:undef:draw} and \ref{sec:undef:derived} describe: BSF and
-BSR at a zero source now leave the destination unmodified, following edition 093US. The Zenodo record above
+\texttt{6f85116}. The Zenodo record above
 is the repository's concept record, which resolves to its latest version, not to that commit.
 \src{scripts/setup\_oracle.sh (brew install sbcl, unversioned); vendor/acl2/saved\_acl2 exec line reads sbcl/2.6.8 (D250);
 LICENSE; lean-toolchain; scripts/oracle\_revision.txt; docs/CLAIMS.tsv[pin\_reference\_model\_short, proof\_sample\_routines]}
