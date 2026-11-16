@@ -42,7 +42,7 @@ Measured on a hosted GitHub `ubuntu-latest` runner (4 cores, 16 GB) with `LEAN_N
 
 | Step | Time |
 |---|---|
-| `docker load` of the image | not yet measured |
+| `docker load` of the image (1.59 GB compressed) | 41 s |
 | Cold Lean build (`artifact/measure.sh`) | 5–8 min over five native runs (5:13 to 7:48); 1 h 21 min under QEMU on arm64 |
 | The full differential with its main-table split (`artifact/measure-diff.sh`) | 15–19 min (900 and 1108 s; about 9 min of that is the kernel-cost readings at the end, which are not a verdict) |
 | Building the image from source, if you choose to | 30–34 min, of which 27–31 is certifying x86isa (two runs) |
