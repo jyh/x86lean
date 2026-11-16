@@ -1001,8 +1001,7 @@ written.
 Most of x86lean's techniques have public precedents. A step over one machine state is
 the shape of all three models above: a function in x86isa and Sail, rewrite rules in K. The closest precedent in Lean~4 is
 LNSym~\cite{lnsym-repo}, a model of an Arm instruction set with co-simulation conformance testing and a
-benchmarks target; one level up, Talos~\cite{talos-repo} is a WebAssembly interpreter in Lean~4 that is
-its own proof object, tested against V8 by a harness that also has explicit verdict classes, allowlisted
+benchmarks target; one level up, Talos~\cite{talos-repo} is a WebAssembly interpreter in Lean~4 whose executable definitions are the ones its proofs are about, tested against V8 by a harness that also has explicit verdict classes, allowlisted
 divergences that fail when stale, and fault-injection controls. We cite both for the method, not for coverage.
 \src{docs/TACAS-G6-RELATED-WORK.md 1 row 7 (VERIFIED at its README) and the LNSym ruling in 6; the Talos row of 4, read at its
 README and .github/workflows/differential.yml at 80644390de3a, 2026-10-09; scripts/tests/test\_differential\_ci.py there, read 2026-10-14}
