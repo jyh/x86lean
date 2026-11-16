@@ -35,3 +35,22 @@ jobs:
         run: |
           docker save x86lean-artifact:stage1 | gzip -1 > image.tar.gz
           echo "MEASURE image-tar-gz bytes=$(stat -c %s image.tar.gz)"
+  # (a') the reviewer on an ARM laptop: the SAME linux/amd64 image under QEMU on an arm64 runner, the Lean build only.
+  # It measures the emulation penalty the README cannot otherwise state. A one-off measurement, not a gate.
+  emulated:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: amd64
+      - name: Build the amd64 image under emulation
+        run: |
+          start=$(date +%s)
+          docker build --progress=plain --platform linux/amd64 --target lean -f artifact/Dockerfile -t x86lean-artifact:emu . > /tmp/dbuild.log 2>&1; r=$?
+          echo "MEASURE emu-docker-build rc=$r secs=$(( $(date +%s) - start ))"; grep -a -F 'MEASURE' /tmp/dbuild.log | tail -2; exit $r
+      - name: Cold Lean build in the amd64 image under emulation, LEAN_NUM_THREADS=2
+        run: |
+          echo "MEASURE emu-runner arch=$(uname -m) nproc=$(nproc) mem_kb=$(awk '/MemTotal/{print $2}' /proc/meminfo)"
+          docker run --rm --platform linux/amd64 -e LEAN_NUM_THREADS=2 x86lean-artifact:emu

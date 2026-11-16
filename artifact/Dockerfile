@@ -1,7 +1,7 @@
 # x86lean artifact image, stage 1: the Lean toolchain and the repository at the pin (CAV 2027 AE, STATUS row 63 act 3).
 # Built for linux/amd64. Stage 2 (below) adds the pinned reference model, ACL2 x86isa, certified.
 # Nothing here needs a credential: every download is a public URL.
-FROM ubuntu:24.04
+FROM ubuntu:24.04 AS lean
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -17,6 +17,10 @@ WORKDIR /x86lean
 COPY . /x86lean
 RUN elan toolchain install "$(cat lean-toolchain)" && elan default "$(cat lean-toolchain)" && lean --version
 
+# The CMD for the Lean-only image (`--target lean`), used by the emulation measurement.
+CMD ["bash", "artifact/measure.sh"]
+
+FROM lean AS full
 # Stage 2: the reference model, at the pinned ACL2 commit (scripts/oracle_revision.txt), built and x86isa certified by
 # the repository's own recipe. Baked into the image so the reviewer never pays the certification; timed here.
 RUN apt-get update && apt-get install -y --no-install-recommends sbcl && rm -rf /var/lib/apt/lists/* && sbcl --version
