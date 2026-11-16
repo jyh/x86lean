@@ -25641,6 +25641,39 @@ stated at a register destination only, as the module header lists.
 **USED BY:** vir's S3 (`compiler/DECLARATIONS-S3.md`, vir 8b5913f) reads these declarations by name at the branch and
 re-pins to this PR's merge. **The names are load-bearing for vir: a rename is a change to vir's input.**
 
+## D399 — `check_lean_route` sees a `lake` call behind a wrapper (`time`, `nice`, `env`, `VAR=…`, `sudo`, …) (STATUS row 70)
+
+**THE DEFECT, found 2026-11-15 writing the CAV artifact's `artifact/measure.sh` and DRIVEN through the gate's own
+`scan_shell`.** The control `lake build X86` is flagged. `/usr/bin/time -v lake build`, `nice lake build`, `env A=1 lake
+build`, `time lake build` and `sudo lake env lean F.lean` were NOT: the shell matcher required `lake` to be the first word
+in command position, and the Python matcher required a literal argv to START with `"lake"`. So the fleet's one-heavy-job
+lock could be bypassed by a prefix, and the gate printed `0 offender(s)`.
+
+**THE RULE.** Before `lake` is matched, a leading run of wrapper tokens is skipped: a known command name by basename
+(`WRAPPERS`: time, nice, env, sudo, command, nohup, timeout, gtimeout, stdbuf, caffeinate, arch, ionice, taskset, chrt),
+a flag, a bare number, or a `VAR=value` assignment. Any other word ends the prefix, so `echo lake build` is still not a
+call. The same token rule strips a literal argv in Python (`["nice", "lake", "build"]`). A wrapper does not change a
+call's class: `time lake env <binary>` stays EXEMPT.
+
+**ARMS (`check_lean_route --selftest`, 20 → 37).** 15 new shape arms (ten shell prefixes on `lake build`, `nice lake env
+lean`, `time lake env <binary>` as EXEMPT, two Python argv forms and one Python string), plus two controls (`echo lake
+build` → nothing; `/usr/bin/time -v python3 scripts/lean_route.py build` → nothing, a wrapper around the DOOR is
+allowed). Red first: 22 of 37 (the 20 existing arms and both controls green; all 15 shape arms red). Red backwards: the prefix emptied → 22 of
+37 again. The tree at master: 0 offenders, the same 15 exempt calls, so no wrapped call was hiding in this repository.
+**kent's read of #193 (bus @103,696,373, driven on the regex): a flag's WORD argument ended the prefix.** `timeout 1h
+lake build`, `sudo -u root lake build` and `env -u FOO lake build` were not flagged. Now a flag may consume ONE following
+word that is not `lake` and does not start with `-`, and a number may carry a duration suffix (`1h`); the Python argv
+strip takes the same rule. Selftest 37 → 43 (his three shell shapes, two argv forms, and a chained `nice -n 10 time -v`), then → 47 with
+paper's four (bus @103,697,978: `timeout 60s`, `timeout 1.5`, `/usr/bin/time -o t.txt`, `/usr/bin/time -f %e`), each
+green at the fixed head.
+Red first 38/43 (the five of his shapes; the chain already held). Red backwards: the rule removed → 38/43 again.
+**WHAT IT DOES NOT SEE.** A wrapper outside `WRAPPERS`; `lake` reached through a shell variable or an alias; and a flag
+taking TWO or more word arguments before `lake` (a numeric second argument is still read, as `timeout -k 5 60`).
+**WHAT IT OVER-READS (the fail-safe direction, paper's INFO on #193):** a BOOLEAN flag also consumes the next word
+when that word is the wrapped command, so `sudo -E echo lake build`, `time -p echo lake build` and `time -p grep lake
+build.log` are flagged although `lake` never runs; the argv `[sudo, -E, echo, lake, build]` strips to `[lake, build]`.
+It over-flags rather than bypasses; the tree reads 0 offenders. A false OFFENDER is fixed by rewording the line.
+
 ## D398 — the profiler parsers are DRIVEN on `1e+03ms`, and `kernel_cost` learns D396's `runner-pool` class (STATUS rows 68 and 69)
 
 **Row 68 (paper's LOW on #190).** D397's ARM 8 matches one literal spelling of the old pattern, so a copy spelled
