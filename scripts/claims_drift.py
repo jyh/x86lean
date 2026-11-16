@@ -61,10 +61,10 @@ def selftest():
         def g(*a):
             subprocess.run(["git", *a], cwd=t, check=True, capture_output=True)
         g("init", "-q"); g("config", "user.email", "x@x"); g("config", "user.name", "x")
-        open(os.path.join(t, "f.txt"), "w").write("a\nb\n")
+        open(os.path.join(t, "f.txt"), "w", encoding="utf-8").write("a\nb\n")
         g("add", "-A"); g("commit", "-qm", "1")
         s1 = subprocess.run(["git", "rev-parse", "HEAD"], cwd=t, capture_output=True, text=True).stdout.strip()
-        open(os.path.join(t, "f.txt"), "w").write("a\nb\nc\n")
+        open(os.path.join(t, "f.txt"), "w", encoding="utf-8").write("a\nb\nc\n")
         g("add", "-A"); g("commit", "-qm", "2")
         s2 = subprocess.run(["git", "rev-parse", "HEAD"], cwd=t, capture_output=True, text=True).stdout.strip()
         cmd = 'git show "$SHA":f.txt | wc -l | tr -d " "'
