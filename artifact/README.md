@@ -10,9 +10,9 @@ comes from public sources. Nothing in it needs a credential.
 | Paper claim | Command (inside the container) | Expected output |
 |---|---|---|
 | The whole Lean tree builds | `bash artifact/measure.sh` | `lake-build rc=0 … lean_errors=0`, "Build completed successfully (85 jobs)" |
-| The axiom gate passes (the policy is in `TRUSTBASE.md`) | `bash scripts/axiom_gate.sh` | its CLEAN line, with the declaration count it read. ⚠️ Not yet run inside the image. |
+| The axiom gate passes (the policy is in `TRUSTBASE.md`) | `bash scripts/axiom_gate.sh` | its CLEAN line, with the declaration count it read (6,212 at the pin; 32 s) |
 | The differential validation (Sect. 4.1) | `bash artifact/measure-diff.sh` | the main-table line, below |
-| Every published figure re-derives at its commit | `python3 scripts/check_claims.py` | `check_claims: CLEAN`. ⚠️ Not yet run inside the image. It needs the repository's full history, because it re-derives each figure at the commit it names, and the image currently gets a shallow checkout. |
+| Every published figure re-derives at its commit | `python3 scripts/check_claims.py` | `check_claims: CLEAN` (3 s). It needs the repository's full history, because it re-derives each figure at the commit it names; the image carries it. |
 
 The main-table line the differential step must print, which is the record the paper cites
 (`docs/DIFFERENTIAL-P2-BATCH45.md`):
