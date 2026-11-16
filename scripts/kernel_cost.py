@@ -70,6 +70,13 @@ CEIL_FILE = os.environ.get("X86LEAN_CEIL_FILE", "scripts/kernel_ceilings.txt")
 # The registry's machine column. ONE FILE FORMAT, THREE PARSERS: this one,
 # `kernel_delta.read_ceilings` and `kernel_delta.gated_declarations`.
 MACHINE_TAG = "@on"
+RUNNER_POOL = "runner-pool"
+
+
+def machine_class(machine):
+    """`runner-pool` for a GitHub-hosted runner VM (`runnervm*`), else None (D396). The ONE definition: kernel_delta
+    delegates here (row 69), so the registry's two parsers cannot learn different classes."""
+    return RUNNER_POOL if machine and machine.startswith("runnervm") else None
 
 
 _THIS_MACHINE = None
@@ -1270,7 +1277,9 @@ def read_ceilings():
             # A ceiling naming ANOTHER box is not this box's bound. It is skipped
             # rather than applied, which matches the delta gate's ABSENT rule; a
             # machine-less entry still applies everywhere, as it always has.
-            if mach is not None and mach != this_machine():
+            # ⭐ …except the host's CLASS (D396, row 69): a `@on runner-pool` line is this box's when this box is a
+            # hosted runner. katmai and yukon have no class, so a pool line stays another box's there.
+            if mach is not None and mach != this_machine() and mach != machine_class(this_machine()):
                 continue
             # ⛔⛔ THE PRECEDENCE KEY IS THE DESTINATION, NOT THE LINE SHAPE.
             # My first cut derived it from the line's ARITY — `parts[0]` for a
@@ -1304,16 +1313,17 @@ def read_ceilings():
             # said so. Collecting candidates and resolving once removes the
             # asymmetry instead of documenting it.
             # ⇒ 🔑 WHEN THE COMMENT IS STRONGER THAN THE CODE, RAISE THE CODE.
-            cand.setdefault(dest, []).append((mach is not None, kind, val))
+            cand.setdefault(dest, []).append((0 if mach is None else 2 if mach == this_machine() else 1, kind, val))
     # ⚖️ RESOLUTION, stated in full: a ceiling NAMED for this box beats a
     # machine-less one wherever either sits in the file. Among entries of the
     # SAME specificity the last line wins, exactly as this parser has always
     # behaved — that is the one place order still decides, and it is now the
     # only one. `kernel_delta` REFUSES such a duplicate outright; this parser
     # deliberately does not change its contract in a commit about the column.
+    # ⭐ Specificity is now three levels (row 69): the exact host (2) > its class (1) > machine-less (0).
     for dest, entries in cand.items():
-        spec = [e for e in entries if e[0]]
-        kind, val = (spec or entries)[-1][1:]
+        top = max(e[0] for e in entries)
+        kind, val = [e for e in entries if e[0] == top][-1][1:]
         if dest[0] == "decls":
             decls.setdefault(dest[1], {})[dest[2]] = val
         elif dest[0] == "tails":
@@ -1381,6 +1391,25 @@ def conditions_selftest():
     out.append((e[0].get("X86.Basic") == ("abs", 163.0),
                 "a ceiling named for ANOTHER box is skipped, leaving the "
                 "machine-less one in force"))
+    # ⛔ ARM 0b — D396's `runner-pool` CLASS, IN THIS PARSER TOO (row 69, paper's LOW on #189). Before it, a pool
+    # line was "another box" here and was skipped on every runner. Precedence: exact host > its class > none.
+    global _THIS_MACHINE
+    _saved_m = _THIS_MACHINE
+    try:
+        _THIS_MACHINE = "runnervmzz123"
+        p1 = _parse("X86.Basic 163\nX86.Basic 999 @on runner-pool\n")
+        p2 = _parse("X86.Basic 50 @on runnervmzz123\nX86.Basic 999 @on runner-pool\n")
+        p3 = _parse("X86.Basic 999 @on runner-pool\nX86.Basic 50 @on runnervmzz123\n")
+        _THIS_MACHINE = "katmai"
+        p4 = _parse("X86.Basic 163\nX86.Basic 999 @on runner-pool\n")
+    finally:
+        _THIS_MACHINE = _saved_m
+    out.append((p1[0].get("X86.Basic") == ("abs", 999.0),
+                "a `@on runner-pool` ceiling applies on a runner VM, over a machine-less one"))
+    out.append((p2[0].get("X86.Basic") == ("abs", 50.0) and p3[0].get("X86.Basic") == ("abs", 50.0),
+                "…an exact-host ceiling beats the pool line, in either order"))
+    out.append((p4[0].get("X86.Basic") == ("abs", 163.0),
+                "…and on katmai the pool line is ANOTHER box's, leaving the machine-less one"))
 
     # ⛔ ARM 1 — THE DELEGATION IS REAL, NOT A COMMENT SAYING SO.  `conditions()`
     # claims to get its idle % from `threads_ab.idle_pct` rather than from a
@@ -1927,6 +1956,30 @@ def conditions_selftest():
     out.append((not _hits and _pd_ok,
                 "every profiler-value regex in scripts/ accepts a `%g` exponent (`1e+03ms` reads 1000.0, "
                 f"per-declaration too){'' if not _hits else ' — the old pattern at ' + ', '.join(_hits)}"))
+
+    # ⛔ ARM 8b — EVERY KNOWN PARSER IS DRIVEN, NOT GREPPED (row 68, paper's LOW on #190). ARM 8 matches one
+    # literal spelling, so a copy spelled `([0-9.]+)(ms|s)` passed it (paper's M3). This arm feeds each parse
+    # the `%g` form and reads the number back; it cannot see a parser it does not name, which ARM 8 still covers
+    # for the one spelling the defect had.
+    import importlib as _il
+    _cum = "cumulative profiling times:\n    type checking 1e+03ms\n"
+    _took = "type checking took 1e+03ms"
+    _drives = [("kernel_cost (cumulative)", lambda: parse_type_checking_ms(_cum, _decl)),
+               ("threads_ab", lambda: _tab.parse_type_checking(_cum, _decl))]
+    for _mn in ("ku_constructor_plant", "ku_kind_plants", "ku_module_census"):
+        _drives.append((_mn, (lambda _m: lambda: (lambda g: g and float(g.group(1)) *
+                                                  (1000 if g.group(2) == "s" else 1))(
+            _il.import_module(_m).TC.match(_took)))(_mn)))
+    _drives.append(("p2_batch_size", lambda: _il.import_module("p2_batch_size").parse_cumulative_ms(_cum)))
+    _bad = []
+    for _n, _fn in _drives:
+        try:
+            if _fn() != 1000.0:
+                _bad.append(_n)
+        except Exception as _e:
+            _bad.append(f"{_n} ({type(_e).__name__})")
+    out.append((not _bad, f"each of the {len(_drives)} known profiler parsers, DRIVEN on `1e+03ms`, reads 1000.0"
+                + ("" if not _bad else " — not: " + ", ".join(_bad))))
 
     # ⚠️ ARM 5 — THE LEGACY SENTINEL SURVIVES A FAILED PROBE.  Three analysers
     # format the top-level `load1` with `:.2f`; a `None` there would surface as a
