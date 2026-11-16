@@ -24,6 +24,8 @@ jobs:
         run: |
           echo "MEASURE runner nproc=$(nproc) mem_kb=$(awk '/MemTotal/{print $2}' /proc/meminfo)"
           docker run --rm -e LEAN_NUM_THREADS=2 x86lean-artifact:stage1
+      - name: The FULL differential inside the image, stage by stage
+        run: docker run --rm -e LEAN_NUM_THREADS=2 x86lean-artifact:stage1 bash artifact/measure-diff.sh
       - name: Image size, as a reviewer would download it
         run: |
           docker save x86lean-artifact:stage1 | gzip -1 > image.tar.gz

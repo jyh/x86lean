@@ -7,10 +7,9 @@ cd /x86lean || exit 9
 : "${LEAN_NUM_THREADS:=2}"
 export LEAN_NUM_THREADS
 echo "MEASURE host nproc=$(nproc) mem_kb=$(awk '/MemTotal/{print $2}' /proc/meminfo) threads=$LEAN_NUM_THREADS"
-# ⚠️ `lake build` runs BARE here on purpose: inside the artifact container there is no fleet lock to take, and the
-# reviewer's machine runs one job. check_lean_route reads every tracked .sh and does NOT flag this line, because the
-# call is prefixed by /usr/bin/time; that is a gap in the gate (STATUS-paris row 70), not an exemption it grants.
-/usr/bin/time -v lake build > /tmp/build.log 2> /tmp/build.time
+# Through the repository's own door (scripts/lean_route.py): inside the container there is no fleet wrapper, so it takes
+# bare `lake` and says so on stderr. /usr/bin/time measures the door and every child it starts.
+/usr/bin/time -v python3 scripts/lean_route.py build > /tmp/build.log 2> /tmp/build.time
 rc=$?
 wall=$(grep -F 'Elapsed (wall clock) time' /tmp/build.time | awk '{print $NF}')
 rss=$(grep -F 'Maximum resident set size' /tmp/build.time | awk '{print $NF}')
