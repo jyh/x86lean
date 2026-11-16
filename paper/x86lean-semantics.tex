@@ -65,8 +65,7 @@ step\_dshift\_mem\_undefined\_refuses.}
 
 x86lean is a formal semantics of user-level x86-64 in Lean~4, used in three ways from one definition. It
 \emph{runs}: \lean{step} is a total, executable function, so the definition proofs are about is also run against
-a processor. Theorems are \emph{stated over} it, through a characterization equation per form, a program-level
-step relation and a small program logic. And it \emph{checks its own claims}: coverage, what was validated
+a processor. Theorems are \emph{stated over} it, through a characterization equation per form, a program-level step function and a small program logic. And it \emph{checks its own claims}: coverage, what was validated
 against what, and which bits are undefined are derived from the artifact and checked in CI against the prose.
 
 This paper describes x86lean as a tool: what it does, how it is built, how it is used, and how it is
@@ -125,7 +124,7 @@ x86lean is one Lean library and the tools around it. The \emph{semantics} is the
 AST and \lean{step}. The \emph{coverage table} is a Lean value that states what the model claims, one row per
 mnemonic, and the published coverage document is generated from it. The \emph{differential harness} runs the model
 and a reference model on the same states and classifies every disagreement. The \emph{proof interface} is the
-characterization equations, a program-level step relation and a small program logic. The \emph{gates} are CI checks
+characterization equations, a program-level step function and a small program logic. The \emph{gates} are CI checks
 that re-derive the published figures from the artifact or from the manifest's recorded commands. Decoding is outside the library: the AST is produced from
 Intel XED, and that trust is recorded in the table.
 \src{X86/State.lean structure Cpu; X86/Syntax.lean structure Instr; X86/Semantics.lean step; X86/Coverage.lean;
@@ -525,7 +524,7 @@ instruction pointer, the oracle cursor, the halt state and every watched memory 
 under both oracles,
 and the comparator will explain a disagreement as undefined only in a closed list of fields: the flags
 and the general-purpose registers, each excused whole. So when a 16-bit SHLD or SHRD draws its
-destination, the register's upper 48 bits, which a 16-bit write leaves alone, are not compared in that case.
+destination, the register's upper 48 bits are not compared in that case.
 \src{X86/Serialize.lean undefinedLeaked, movedRegs compares a.regs.get r whole; Main.lean undefinableFields (flagNames ++ GPR.all.map (.name .q));
 X86/Semantics.lean the .dshift arm writes its draw with writeOperand sz; X86/Value.lean writeView, .w keeps bits 63:16; x86isa machine/instructions/bit.lisp
 x86-bsf and x86-bsr leave the register unchanged at a zero source (acl2 c8897a34); docs/DECISIONS.md D346 1--2: until D346 a 32-bit BSF or BSR at a zero source was such an uncompared case, where x86lean cleared the upper half and x86isa kept it; both now keep it; Tests/Vectors.lean bsf\_rr\_d, bsf\_rm\_d, bsr\_rr\_d, bsr\_rm\_d}
@@ -650,7 +649,7 @@ rather than by run: an unaligned load faults, an unaligned store faults, and an 
 same address does not, which is the theorem that shows the alignment flag is doing the discriminating.
 \src{docs/DECISIONS.md D91 2; X86/Theorems.lean vload\_unaligned\_faults, vstore\_unaligned\_faults,
 vload\_unaligned\_movdqu\_runs}
-MOVDQA is the example of a class. The same fault is stated by theorem for the aligned loads and stores and
+MOVDQA is the example of a class. The same stop is stated by theorem for the aligned loads and stores and
 for the packed binary, shuffle, byte-shuffle, align and shift operations at a memory source
 (\lean{vbinm\_\allowbreak unaligned\_\allowbreak faults}, \lean{vshufm\_\allowbreak unaligned\_\allowbreak faults},
 \lean{vshufbm\_\allowbreak unaligned\_\allowbreak faults}, \lean{valignrm\_\allowbreak unaligned\_\allowbreak faults},
@@ -893,7 +892,7 @@ wrapping; counted by scripts/proof\_lines.py; docs/CLAIMS.tsv[proof\_lines\_coun
 A property that depends on position, such as ``every store lands inside the destination buffer'', needs
 an invariant indexed by label, one per instruction. These theorems are stated from an entry state whose pointer registers
 are universally quantified (in the prologue, a stack pointer of at least 8) and whose other registers are fixed (defaults, and in one routine a count of
-four), over every amount of fuel and every initial memory; the two copying routines move a constant four
+four), over every amount of fuel and every initial memory; fill and copy write a constant four
 bytes. Across four routines with 2, 3, 5 and 7 labels, the proofs are 34, 50, 57
 and 76 lines. A least-squares line through the four is about 22 lines plus 7.6 per label; the routine furthest from it, by 5 lines, is the one whose store depends on a
 bounds check, and four points do not show whether the per-label cost rises with the label count.
