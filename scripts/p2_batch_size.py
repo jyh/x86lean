@@ -164,11 +164,17 @@ def profile(shape, path, lie=False):
     out = r.stderr + r.stdout
     if r.returncode != 0:
         return None, la
+    return parse_cumulative_ms(out), la
+
+
+def parse_cumulative_ms(out):
+    """The cumulative `type checking` in ms, or None. A function of its own so a selftest can drive it on a
+    `%g` exponent (`1e+03ms`, D397) without running Lean (row 68)."""
     cum = out.split("cumulative profiling times:")[-1]
     m = re.search(r"^\s*type checking ([\d.]+(?:e[+-]?\d+)?)(ms|s)\s*$", cum, re.M)
     if not m:
-        return None, la
-    return float(m.group(1)) * (1000.0 if m.group(2) == "s" else 1.0), la
+        return None
+    return float(m.group(1)) * (1000.0 if m.group(2) == "s" else 1.0)
 
 
 def med(shape, path, n):
