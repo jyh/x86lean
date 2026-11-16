@@ -122,6 +122,42 @@
                   x86)))
       (x86l-set-xmms (cdr alist) x86))))
 
+;; ⭐⭐⭐ V3 (D341): BITS 255:128 OF EACH ZMM REGISTER — THE YMM UPPER HALF.
+;;
+;; ⛔ WITHOUT THIS THE VEX.128 RULE IS UNOBSERVED. A VEX.128 write ZEROES bits
+;; MAXVL-1:128 of its destination and a legacy SSE write PRESERVES them (SDM Vol. 1
+;; §14.1.2), and `x86l-xmms` reads only bits 127:0 (`rx128`). A model and an oracle
+;; that disagreed about the upper half would agree on every record (D27).
+;;
+;; `rz256` reads the low 256 bits of a ZMM register (machine/register-readers-and-
+;; writers.lisp); bits 255:128 are that value shifted right by 128. The Lean side
+;; prints the same sixteen fields from `Xmms.hi` (`Cpu.renderYmmHis`), and
+;; `scripts/check_xmm_format.py` holds the two formats together.
+(defun x86l-ymmhis (i acc x86)
+  (declare (xargs :stobjs x86))
+  (if (or (not (natp i)) (>= i 16))
+      acc
+    (x86l-ymmhis (1+ i)
+                 (concatenate 'string acc " ymmhi"
+                              (coerce (explode-atom i 10) 'string) "="
+                              (x86l-hex (ash (rz256 i x86) -128) 32))
+                 x86)))
+
+;; ⭐ THE SEED, APPLIED AFTER `:xmms` AND THROUGH `wz256`, SO THE LOW HALF IS KEPT:
+;; the value written is (hi << 128) | rz128, and `wz256`'s default regtype
+;; (`*zmm-access*`) leaves bits 511:256 alone. ⛔ EVERY ONE OF THE SIXTEEN IS
+;; WRITTEN ON EVERY CASE — a register the alist omits gets ZERO — because the
+;; oracle's state PERSISTS between cases (D331): an upper half a VEX.128 case
+;; zeroed, or one a previous case seeded, must not leak into the next pre-state.
+(defun x86l-set-ymmhis (i alist x86)
+  (declare (xargs :stobjs x86))
+  (if (or (not (natp i)) (>= i 16))
+      x86
+    (let* ((hit (assoc i alist))
+           (hi (if (and (consp hit) (natp (cdr hit))) (cdr hit) 0))
+           (x86 (wz256 i (logior (ash (n128 hi) 128) (rz128 i x86)) x86)))
+      (x86l-set-ymmhis (1+ i) alist x86))))
+
 ;; ⭐⭐ MXCSR (sub-group B0, D266): one key per sticky flag and the control half as hex,
 ;; the same string `Cpu.renderMxcsr` builds. Per-flag keys, because a declared oracle
 ;; divergence is keyed on a FIELD and must be able to name one bit.
@@ -173,6 +209,7 @@
     (mv (concatenate 'string
           "POST " (x86l-regs 0 "" x86)
           (x86l-xmms 0 "" x86)
+          (x86l-ymmhis 0 "" x86)
           " rip=" (x86l-hex (n64 (rip x86)) 16)
           " " (x86l-flags x86)
           (x86l-mxcsr x86)
@@ -253,6 +290,7 @@
        (rflags (cadr (assoc-keyword :rflags c)))
        (mem    (cadr (assoc-keyword :mem c)))
        (xmms   (cadr (assoc-keyword :xmms c)))
+       (ymmhis (cadr (assoc-keyword :ymmhis c)))
        (mx     (cadr (assoc-keyword :mxcsr c)))
        (x86 (!app-view t x86))
        ((mv flg x86)
@@ -265,6 +303,8 @@
        ;; case intends — so emitter and reader can be updated in either order
        ;; without a run that silently compares the wrong thing.
        (x86 (x86l-set-xmms xmms x86))
+       ;; ⭐ V3 (D341): AFTER `:xmms`, so `wz256` keeps the low half just written.
+       (x86 (x86l-set-ymmhis 0 ymmhis x86))
        ;; ⛔ EVERY CASE, and the power-up value when a case omits it: `init-x86-state-64`
        ;; does NOT reset MXCSR (D265 §4), so without this a sticky flag raised by one case
        ;; is read as the next case's pre-state.

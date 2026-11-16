@@ -1,9 +1,10 @@
 # x86lean
 
 A **user-level x86-64 ISA semantics in Lean 4** ([`X86/`](X86/)) — definitional,
-executable, kernel-checked, and differentially validated against public executable models
-and (from P1) against real hardware. Built from **public sources only** and
-licensed under **Apache-2.0** (see [`LICENSE`](LICENSE)).
+executable, kernel-checked, and differentially validated against ACL2 x86isa; the rows
+the differential cannot carry are kernel-pinned to SDM-derived rules read on real processors
+(`hwprobe/`); no co-simulation of `step` with hardware has been run ([`TRUSTBASE.md`](TRUSTBASE.md)).
+Built from **public sources only** and licensed under **Apache-2.0** (see [`LICENSE`](LICENSE)).
 
 See [`PROVENANCE.md`](PROVENANCE.md) for every source and its licence,
 [`TRUSTBASE.md`](TRUSTBASE.md) for what is proven and what is trusted,
@@ -58,7 +59,7 @@ declaration in CI.
   registers, flags, RIP, RSP, the XMM registers and MXCSR, a byte-addressed
   memory, and the undefined-bit oracle. Single-threaded, one instruction at a
   time.
-- **Instructions.** 199 mnemonics in 1198 differentially tested forms, covering
+- **Instructions.** 200 mnemonics in 1241 differentially tested forms, covering
   504 of the 525 rows of the P1 roster — the rows are K's grammar of encodable
   forms, and 149 of them are alias spellings of another row. 111 of those
   mnemonics take an XMM operand (`movdqa`/`movdqu`/`movaps`/`movups` and the scalar
@@ -79,24 +80,27 @@ declaration in CI.
   move, the branch and loop group, push/pop/call/ret, the string instructions
   with their repeat prefixes, multiply and divide, compare-exchange (including
   `cmpxchg8b`) and the double-width shifts.
-- **Fidelity per form** is stated in [`docs/COVERAGE.md`](docs/COVERAGE.md),
+- **Fidelity per mnemonic** is stated in [`docs/COVERAGE.md`](docs/COVERAGE.md),
   generated from the model: `T-exact` (the result and every flag the SDM defines
   are proved), `T-frame` (the defined parts proved, the undefined bits declared
   and drawn from the oracle), and a decode-trust column. The table is checked
   against the AST by [`Tests/Coverage.lean`](Tests/Coverage.lean), and the tiers'
   behavioural theorems are in [`Tests/Nonvacuity.lean`](Tests/Nonvacuity.lean).
-- **Validation.** Every form is run against ACL2 x86isa on 72068 generated cases
+- **Validation.** Every form is run against ACL2 x86isa on 109208 generated cases
   with zero unexplained disagreements; disagreements inside SDM-undefined
   regions are recorded as such per form. Agreement is evidence gathered by
   execution, never a theorem about the other model.
-- **Refereed by a processor, not differentially (D330, D334, D335, D336).** 27
-  more mnemonics are implemented that ACL2 x86isa refuses to execute, so no
+- **Refereed by a processor, not differentially (D330, D334, D335, D336, D338).**
+  30 more mnemonics are implemented that ACL2 x86isa refuses to execute, so no
   differential vector can exist for them: `mulx`, the BMI group and `movnti`;
   six SSSE3/SSE4.1 legacy-SSE shuffle, align, insert and extract mnemonics —
-  `pshufb` `palignr` `pinsrd` `pinsrq` `pextrd` `pextrq`; and eleven SSE-legacy
+  `pshufb` `palignr` `pinsrd` `pinsrq` `pextrd` `pextrq`; eleven SSE-legacy
   packed-integer arithmetic mnemonics at both xmm shapes —
   `pmaddwd` `pmaddubsw` `pmullw` `pmulhrsw` `pmuludq` `paddsw` `psubusw`
-  `psubusb` `pmaxsw` `psadbw` `packssdw` (two of them SSSE3). Each is checked by
+  `psubusb` `pmaxsw` `psadbw` `packssdw` (two of them SSSE3); and the three
+  SHA-NI SHA-256 mnemonics at both xmm shapes — `sha256msg1` `sha256msg2`
+  `sha256rnds2` (its implicit `%xmm0` included), whose rows also carry FIPS
+  180-4's "abc" block computed by a textbook SHA-256. Each is checked by
   `hwprobe/` — rows derived from the SDM's rules, run on hosted x86-64 runners'
   processors — and the model is pinned to the same rows by `decide`. The rows
   are chosen, not swept over the pre-states, and none is counted in the 199
@@ -104,15 +108,32 @@ declaration in CI.
 
 ### What it does not cover — yet
 
-- **Not in scope.** AVX and everything VEX- or EVEX-encoded (so no YMM or ZMM
-  register), SSSE3 and SSE4 beyond the eight mnemonics refereed by a processor
+- **Not in scope.** Everything EVEX-encoded (AVX-512: no ZMM or mask
+  register), and VEX beyond the 56 mnemonics `docs/COVERAGE.md` lists: 33
+  VEX.128 and VEX.256 register twins of main-table rows in the differential
+  (V3, V6), with the memory forms of 26 packed binary kinds (V9a) and of the
+  six packed moves, loads and stores (V9b) and `vmovddup`'s memory source (D359)
+  at both lengths; the moves' aligned
+  kinds' #GP (16 bytes at VEX.128, 32 at VEX.256) is refereed by a processor,
+  since x86isa executes those forms. And 23 VEX forms refereed
+  by a processor (V4 at VEX.128; V7, V8b and V8c at both lengths; V8c adds
+  `vpbroadcastd` and the memory forms of `vpmaddwd`, `vpmulhrsw`, `vpmaddubsw`
+  and `vpackssdw`). So YMM appears only as those forms' operands; there is no
+  other AVX/AVX2 instruction (no FMA, no gather, no cross-lane permute), and no
+  other VEX memory form. SSSE3 and SSE4 beyond the eight mnemonics refereed by a processor
   above (`pshufb` `palignr` `pinsrd` `pinsrq` `pextrd` `pextrq`, and the SSSE3
-  `pmaddubsw` `pmulhrsw`), x87 and
+  `pmaddubsw` `pmulhrsw`), the SHA extensions beyond the three SHA-256
+  mnemonics above (no `sha1*`), x87 and
   MMX, the rest of SSE3, the SSE/SSE2 forms not listed above, segmentation and paging, privileged
   and system instructions, interrupts and exceptions beyond the faults named
   below, memory ordering and multi-threading, 32-bit and 16-bit modes. The
   vectors' SIMD content by class is derived, not written here:
   [`docs/PRIMITIVE-CENSUS.md`](docs/PRIMITIVE-CENSUS.md).
+  *(Until 2026-10-20 the first clause read "AVX and everything VEX- or
+  EVEX-encoded (so no YMM or ZMM register)". It was false from V3 (D341) on,
+  in the under-claiming direction, and no gate reads a scope sentence.)*
+  *(Until 2026-10-23 the twins' clause read "`vpxor` also in its VEX.128
+  memory form", false from V9a (D353) on, the same under-claiming direction.)*
   *(Until 2026-09-30 these two bullets said the scope was the integer
   instruction set and that SSE was out of scope. Both were written on 09-03,
   and the first vector semantics landed on 09-04; the list below them was the
@@ -293,7 +314,7 @@ undefined regions the SDM names. Evidence and findings in
 bug (non-canonical branch targets) that nothing inside this repository could
 have caught.
 
-**P1 SEALED — 21 batches landed. P2 IN PROGRESS — 40 batches landed.** ⭐ **P1's AVAILABLE WORK IS ZERO**: every
+**P1 SEALED — 21 batches landed. P2 IN PROGRESS — 45 batches landed.** ⭐ **P1's AVAILABLE WORK IS ZERO**: every
 remaining row either has no encoding, is refused by the oracle at every
 pre-state (measured, `scripts/oracle_availability.py`), or was declined by a
 recorded decision. The roster stands at
@@ -304,7 +325,7 @@ spellings or narrowings of another (`jz` for `je`, `sal` for `shl`, `stos m` for
 against ACL2 x86isa on every batch:
 
 ```
-1198 vectors · 88 pre-states · 105424 cases · 0 unexplained · 0 oracle leaks
+1241 vectors · 88 pre-states · 109208 cases · 0 unexplained · 0 oracle leaks
 ```
 
 ⚠️ **THE AUTHORITATIVE LIST IS GENERATED, NOT WRITTEN HERE.**

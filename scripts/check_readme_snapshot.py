@@ -84,6 +84,7 @@ def selftest():
         ("vectors",         "README.md", " vectors · ", "1 vectors · "),
         ("pre-states",      "README.md", " pre-states · ", "1 pre-states · "),
         ("cases",           "README.md", " cases · 0 unexplained", "1 cases · 0 unexplained"),
+        ("Validation: cases", "README.md", "", ""),
         ("Instructions: mnemonics", "README.md", "", ""),
         ("Instructions: vectors",   "README.md", "", ""),
         ("XMM-operand mnemonics",   "README.md", "", ""),
@@ -112,6 +113,8 @@ def selftest():
                 body = re.sub(r'(vectors · )(\d+)( pre-states)', r'\g<1>1\g<3>', body, count=1)
             elif label == "cases":
                 body = re.sub(r'(pre-states · )(\d+)( cases)', r'\g<1>1\g<3>', body, count=1)
+            elif label == "Validation: cases":
+                body = re.sub(r'(ACL2 x86isa on )(\d+)( generated cases)', r'\g<1>1\g<3>', body, count=1)
             elif label == "Instructions: mnemonics":
                 body = re.sub(r'(\*\*Instructions\.\*\* )(\d+)', r'\g<1>7', body, count=1)
             elif label == "Instructions: vectors":
@@ -257,7 +260,16 @@ if cov_xmm == 0:
     die("⛔ docs/COVERAGE.md yielded ZERO rows with an `x` operand. The table's "
         "shape column moved or the parse is broken; zero is not a count.", 2)
 
+# ⭐ 2026-10-26 (paper's routed gap, STATUS row 29): THE VALIDATION BULLET'S CASE COUNT HAD NO READER.
+# `claimed_forms.py` declared it "owned by check_readme_snapshot.py" and this script read only the status
+# block's `N cases`, so `72068` survived in the bullet from P2 batch 9 until paper restored it by hand (#134).
+vm = re.search(r'ACL2 x86isa on (\d+) generated cases', readme)
+if not vm:
+    die("⛔ could not find the README's Validation bullet (`ACL2 x86isa on N generated cases`). "
+        "A missing subject is not a pass.", 2)
+
 claims = {
+    "Validation: cases": (int(vm.group(1)), rec_cases, "the latest differential record"),
     "Instructions: mnemonics": (int(im.group(1)), cov_mnem, "docs/COVERAGE.md"),
     "Instructions: vectors":   (int(im.group(2)), cov_vecs, "docs/COVERAGE.md"),
     "XMM-operand mnemonics":   (int(xm.group(1)), cov_xmm,  "docs/COVERAGE.md rows with an `x` shape"),

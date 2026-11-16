@@ -722,4 +722,30 @@ theorem guarded_skips_out_of_bounds :
 theorem guarded_out_of_bounds_ran :
     (runP guarded 8 (guardStart 9)).rip ≠ (guardStart 9).rip := by decide
 
+/-! ### D382 — a RIP-relative `Ea` names no base and no index, and the TYPE now says so.
+Before D382, `{ ripRel := true, base := some .rdx, index := some .rcx, scale := .s8, disp := 0x2000 }` elaborated, and
+`Ea.offset` read it as RIP+disp, silently dropping both registers. ModR/M mod=00 r/m=101 has no SIB byte, so no encoding
+produces that shape. The `ripWf` field makes it unrepresentable. -/
+
+/-- RED ARM: the unencodable shape does NOT elaborate (with a base and an index, with an index alone, with a base alone). -/
+example : True := by
+  fail_if_success (have _ : Ea := { ripRel := true, base := some .rdx, index := some .rcx, scale := .s8, disp := 0x2000 })
+  fail_if_success (have _ : Ea := { ripRel := true, index := some .rcx, scale := .s8, disp := 0x2000 })
+  fail_if_success (have _ : Ea := { ripRel := true, base := some .rdx, disp := 0x2000 })
+  trivial
+
+/-- CONTROL: the encodable shapes still elaborate — a bare RIP-relative `Ea`, and a base+index one built from variables. -/
+example (b i : GPR) : True := by
+  have _ : Ea := { ripRel := true, disp := 0x2000 }
+  have _ : Ea := { base := some b, index := some i, scale := .s8, disp := 0x2000 }
+  trivial
+
+/-- The default `Ea` is the old derived one: not RIP-relative, no base, no index (the hand `Inhabited`). -/
+example : (default : Ea).ripRel = false ∧ (default : Ea).base = none ∧ (default : Ea).index = none := ⟨rfl, rfl, rfl⟩
+
+/-- And the invariant is USABLE: on every RIP-relative `Ea` the offset is RIP+disp because there is nothing else. -/
+theorem riprel_offset (e : Ea) (h : e.ripRel = true) (s : Cpu) (nr : BitVec 64) :
+    e.offset s nr = nr + e.disp ∧ e.base = none ∧ e.index = none :=
+  ⟨by simp [Ea.offset, h], e.ripWf h⟩
+
 end Tests

@@ -61,10 +61,44 @@ root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SILICON_REFEREES = (
     ("D334", ("AMD EPYC 7763", "Intel Core i7-8700B")),
     ("D335", ("AMD EPYC 9V45", "Intel Core i7-8700B")),
+    # D342 (V4): AES-NI / VPCLMULQDQ / the VEX shuffles (hwprobe runs 38814323211, 38814623311).
+    ("D342", ("AMD EPYC 7763", "AMD EPYC 9V45", "Intel Core i7-8700B")),
+    # D345 (V7): the VEX-silicon path (hwprobe runs 38995460544, 39014709807); the AMD legs by CPUID signature only.
+    ("D345", ("AMD CPUID feda3203", "Intel Core i7-8700B")),
+    # D348 (V8b): the second VEX-silicon path (hwprobe run 39368903666); the AMD leg NAMED by /proc/cpuinfo.
+    ("D348", ("AMD EPYC 7763", "Intel Core i7-8700B")),
+    # D350 (V8c): the VEX memory-operand path (hwprobe run 39464224033); the AMD leg named by /proc/cpuinfo.
+    ("D350", ("AMD EPYC 9V74", "Intel Core i7-8700B")),
+    # D361 (V10): the VEX memory forms of the silicon rows (hwprobe runs 40190842502, 40191605877); every leg NAMED by its
+    # processor: Intel Core i7-8700B on both runs, Intel Xeon Platinum 8573C (the first), AMD EPYC 7763 (the second).
+    ("D361", ("AMD EPYC 7763", "Intel Xeon Platinum 8573C", "Intel Core i7-8700B")),
+    # D371: VEX vmovd/vmovq (hwprobe run 41041988507); both legs NAMED by their processor.
+    ("D371", ("AMD EPYC 7763", "Intel Core i7-8700B")),
+    # D373: pminsw/pmulhw/pmulhuw/pavgb, set B of the packed-integer path (hwprobe run 41144876498); both legs NAMED.
+    ("D373", ("AMD EPYC 7763", "Intel Core i7-8700B")),
+    # D374: the VEX twins of eleven modelled kinds (hwprobe run 41147377467); both legs NAMED by their processor.
+    ("D374", ("AMD EPYC 9V74", "Intel Core i7-8700B")),
+    # D375: the VEX.256 lane insert/extract (hwprobe run 41148735460); both legs NAMED by their processor.
+    ("D375", ("AMD EPYC 9V74", "Intel Core i7-8700B")),
+    # D376: movntdqa and the VEX.128 half-moves (hwprobe run 41150000436); both legs NAMED by their processor.
+    ("D376", ("AMD EPYC 9V74", "Intel Core i7-8700B")),
+    # D379: pabs and pmulld, legacy and VEX (hwprobe runs 41270561289, Intel i7-8700B + Xeon 8573C, and 41270709768,
+    # AMD EPYC 9V45 + Intel i7-8700B); both vendors NAMED by their processor.
+    ("D379", ("AMD EPYC 9V45", "Intel Core i7-8700B")),
+    # D384: wave E, legacy and VEX (hwprobe run 41338494131, AMD EPYC 7763 + Intel i7-8700B); both NAMED by processor.
+    ("D384", ("AMD EPYC 7763", "Intel Core i7-8700B")),
+    # D393: wave F, the five VEX unpacks (hwprobe runs 42389772285 and 42390014629, Intel i7-8700B + Xeon 8573C, and
+    # 42390234925, AMD EPYC 9V45 + Intel i7-8700B); both vendors NAMED by their processor.
+    ("D393", ("AMD EPYC 9V45", "Intel Core i7-8700B")),
+    # D394: wave G, VEX scalar floating point (hwprobe runs 42670416049 and 42677501619, AMD EPYC 7763 + Intel i7-8700B);
+    # both vendors NAMED by their processor.
+    ("D394", ("AMD EPYC 7763", "Intel Core i7-8700B")),
 )
 SILICON_PAIRS = "; ".join(" + ".join(rs) + " (" + d + ")" for d, rs in SILICON_REFEREES)
 SILICON_LABEL = ("silicon-refereed only (AMD + Intel hwprobe: " + SILICON_PAIRS
                  + ") — NOT a semantic oracle")
+VEX_LABEL = ("Implemented in the VEX table only (VEX.128 and, since D344, VEX.256, differentially tested against "
+             "x86isa — D341; NOT in the published 199-mnemonic figures)")
 
 
 class Model(frozenset):
@@ -73,11 +107,20 @@ class Model(frozenset):
     `.silicon` the `siliconTable` mnemonics (class (b)).  ⛔ A plain set passed
     where a `Model` is expected behaves as a model with no silicon rows, which
     is exactly the reference pass `check_no_pooling` needs."""
-    def __new__(cls, names, silicon=()):
+    def __new__(cls, names, silicon=(), vex=(), silicon256=(), lockable=()):
         sil = frozenset(silicon)
         self = super().__new__(cls, frozenset(names) - sil)
         self.names = frozenset(names)
         self.silicon = sil
+        # ⭐ D342 (a): the VEX table's mnemonics (COVERAGE.md's VEX section, D341) — a THIRD population,
+        # differentially tested but outside the published figures, credited on its own line (never in (a)).
+        self.vex = frozenset(vex)
+        # ⭐ D345 (V7): the `siliconTable` rows modelled at VEX.256 too (their note declares it), so a `%ymm`
+        # spelling of one maps to itself and lands in the silicon line (b), never in (a).
+        self.silicon256 = frozenset(silicon256) & sil
+        # ⭐ D367: the mnemonics `x86lean-diff coverage` DERIVES from `Op.lockable` over the vectors
+        # (COVERAGE.md's "Lockable" line). Only a differential mnemonic can be credited, so it is cut to (a).
+        self.lockable = frozenset(lockable) & (frozenset(names) - sil)
         return self
 
 
@@ -88,6 +131,21 @@ def names_of(model):
 
 def silicon_of(model):
     return getattr(model, "silicon", frozenset())
+
+
+def silicon256_of(model):
+    """⭐ D345: the silicon rows modelled at VEX.256, or nothing for a plain set."""
+    return getattr(model, "silicon256", frozenset())
+
+
+def lockable_of(model):
+    """⭐ D367: the derived lockable mnemonics, or nothing for a plain set (LOCK stays refused there)."""
+    return getattr(model, "lockable", frozenset())
+
+
+def vex_of(model):
+    """⭐ D342 (a): the VEX table's mnemonics, or nothing for a plain set (the no-pooling reference)."""
+    return getattr(model, "vex", frozenset())
 
 
 def silicon_mnemonics():
@@ -109,7 +167,35 @@ def silicon_mnemonics():
     return frozenset(mn)
 
 
+def silicon256_mnemonics():
+    """⭐ D345 (V7): the `siliconTable` rows whose `note` declares `VEX.256` — the rows the model implements at
+    both lengths — read row by row from the same definition `silicon_mnemonics` reads, never a hand list.  A
+    row whose note does not name VEX.256 is not credited at `%ymm`, which is the conservative direction."""
+    src = open(os.path.join(root, "X86", "Coverage.lean"), encoding="utf-8").read()
+    m = re.search(r'^def siliconTable\b.*?(?=\n[ \t]*\n)', src, re.M | re.S)
+    if not m:
+        print("⛔ silicon: `def siliconTable` not found in X86/Coverage.lean")
+        sys.exit(2)
+    rows = re.findall(r'mnemonic := "([^"]+)", shapes := "[^"]*", note := "([^"]*)"', m.group(0))
+    return frozenset(mn for mn, note in rows if "VEX.256" in note)
+
+
 SILICON_SECTION = "## Implemented, refereed by a processor, NOT differentially tested"
+
+def lockable_mnemonics(text=None):
+    """⭐ D367: the `Lockable:` line of the GENERATED COVERAGE.md (derived from `Op.lockable` over the vectors).
+    ⛔ A COVERAGE.md without it is stale, and a census that read its absence as "nothing is lockable" would
+    report the old residue as a measurement, so it REFUSES."""
+    if text is None:
+        text = open(os.path.join(root, "docs", "COVERAGE.md"), encoding="utf-8").read()
+    lk = re.findall(r'^Lockable: (.*)$', text, re.M)
+    lockable = re.findall(r'`([a-z0-9]+)`', lk[0]) if len(lk) == 1 else []
+    if not lockable:
+        print("⛔ LOCK: docs/COVERAGE.md has no (or more than one) `Lockable:` line, or it names nothing — "
+              "refusing, not reading zero. Regenerate: lake exe x86lean-diff coverage docs/COVERAGE.md")
+        sys.exit(2)
+    return lockable
+
 
 def model_mnemonics():
     """The mnemonics the model implements, as a `Model` (D337).  ⚠️ Read from
@@ -120,6 +206,15 @@ def model_mnemonics():
     never assumed to."""
     path = os.path.join(root, "docs", "COVERAGE.md")
     text = open(path, encoding="utf-8").read()
+    lockable = lockable_mnemonics(text)
+    # ⭐ V3 (D341): the VEX.128 twins are a THIRD population, published in a section of their
+    # own and NOT counted in this census's model. ⭐ D342 (a): they are now read — into the
+    # Model's `.vex`, credited on a separately labelled line beside the silicon one, never in (a).
+    text, _sep, vtext = text.partition("\n## VEX.128 register twins")
+    vex = re.findall(r'^\| `([a-z0-9]+)` \|', vtext, re.M)
+    if _sep and not vex:
+        print("⛔ VEX: docs/COVERAGE.md has a VEX section and no mnemonic rows in it — refusing, not reading zero")
+        sys.exit(2)
     ms = re.findall(r'^\| `([a-z0-9]+)` \|', text, re.M)
     if not ms:
         print("⛔ no mnemonics read from docs/COVERAGE.md; a census with no "
@@ -133,7 +228,7 @@ def model_mnemonics():
               f"disagree — only in COVERAGE.md: {sorted(sect - sil)}; only in "
               f"siliconTable: {sorted(set(sil) - sect)}. Regenerate COVERAGE.md.")
         sys.exit(2)
-    return Model(ms, sil)
+    return Model(ms, sil, vex, silicon256_mnemonics(), lockable)
 
 # ── objdump mnemonic -> roster name ────────────────────────────────────────
 CC = ("o no b c nae ae nb nc e z ne nz be na a nbe s ns p pe np po l nge "
@@ -210,8 +305,18 @@ def to_roster(m, ext=None, model=None):
     # ⚖️ D337: the MAPPING's vocabulary is every implemented mnemonic
     # (`names_of`), silicon-refereed ones included; whether the mapped name is
     # COVERED is `_decide`'s question, and it asks the differential set alone.
-    if model is not None and ext in XMM_EXT and m in names_of(model):
+    if model is not None and ext in XMM_EXT and (m in names_of(model) or m in vex_of(model)):
         return m
+    # ⭐ D344 (V6): every VEX-table row is also modelled at VEX.256, so a `%ymm` spelling that IS a VEX-table
+    # row maps to itself. A legacy name never does: no legacy SSE form names a YMM register.
+    if model is not None and ext == YMM and m in vex_of(model):
+        return m
+    # ⭐ D369: D342's rule at `AVX (state)`: `vzeroupper` is a VEX-table row (a VEX-only one), so it maps to itself there.
+    if model is not None and ext == AVX_STATE and m in vex_of(model):
+        return m
+    # ⚠️ D345 (V7) needs no rule here: a `%ymm` spelling of a siliconTable mnemonic already maps to itself through
+    # the identity rule below (a name the model has), and `_decide` decides its class. A branch added here was
+    # dead code, found by `census_redprobe.py` (its mutation changed nothing), and removed.
     if m in EXACT:
         return EXACT[m]
     # the width-changing moves: movs/movz + src width + dst width
@@ -250,7 +355,9 @@ def to_roster(m, ext=None, model=None):
         return m
     return None
 
-INSN_RE = re.compile(r"^\s*([0-9a-f]+):\s+([a-z][a-z0-9.]*)\s*(.*)")
+# ⭐ D386: `_` is part of a mnemonic. AVX's compare pseudo-ops are spelled `vcmplt_oqpd`, `vcmpnle_uqps`, …, and with
+# `[a-z0-9.]*` the key stopped at the `_` (`vcmplt`) and the rest of the mnemonic became an operand (158 in glibc).
+INSN_RE = re.compile(r"^\s*([0-9a-f]+):\s+([a-z][a-z0-9._]*)\s*(.*)")
 # ⛔⛔ TWO WAYS A MNEMONIC-LEVEL CENSUS OVER-CLAIMS, BOTH MEASURED RATHER THAN
 # FOOTNOTED.  This tool maps an objdump MNEMONIC to a roster name, but the model
 # covers FORMS -- so an instruction whose mnemonic the model has can still be
@@ -522,7 +629,10 @@ _BUCKET_PROBE_OPS = ("", "(%rbx)", "(%rbx),%eax", "%ax", "%rax, %rbx",
                      "%xmm0,%eax", "%mm1, %mm0", "%st(1)", "%ymm0, %ymm1",
                      "%zmm0, %zmm1", "%fs:0x28, %rax")
 
-def isa_bucket(mn, ops, kind="plain"):
+# ⭐ D367: the LOCK bucket's name, ONE spelling, so `_decide` and `isa_bucket` cannot drift apart.
+LOCK_BUCKET = "LOCK prefix (P2 addition 2)"
+
+def isa_bucket(mn, ops, kind="plain", evex=False):
     """⛔ THE BUCKET IS THE REASON THE MODEL CANNOT EXECUTE IT, not just the
     register file it touches.  `movq %gs:0x28, %rax` is a `mov` the model has;
     what it lacks is the SEGMENT BASE — and a table that files that under
@@ -531,12 +641,18 @@ def isa_bucket(mn, ops, kind="plain"):
     `Ea`, a LOCK vocabulary, and the `movabs` mov form) are therefore each a
     NAMED ROW here, so the roster can be priced off this table directly."""
     if kind == "lock":
-        return "LOCK prefix (P2 addition 2)"
+        return LOCK_BUCKET
     if kind == "segment":
         return "segment base %fs:/%gs: (P2 addition 1)"
     if mn == "movabsq" or mn == "movabs":
         return "mov imm64 / movabs (P2 addition 3)"
-    if re.search(r"%zmm|%k[0-7]\b", ops):
+    # ⭐ D385: an instruction whose own bytes are EVEX (`62` after any legacy prefix) is AVX-512 whatever its text says.
+    # Its TEXT can be a VEX form's (dav1d's `vpmulhrsw 0x3c0(%rdx),%xmm7,%xmm1` is `62 f2 45 08 0b 4a 3c`, the EVEX
+    # encoding the assembler chose for disp8*N), so no rule over the text can see it.  `evex` comes from `_classify`.
+    if evex:
+        return "AVX-512 (zmm/k)"
+    # ⭐ D380: %xmm16-31 / %ymm16-31 exist only under EVEX, so a form naming one is AVX-512 with or without a mask.
+    if re.search(r"%zmm|%k[0-7]\b|%[xy]mm(1[6-9]|2[0-9]|3[01])\b", ops):
         return "AVX-512 (zmm/k)"
     if "%ymm" in ops:
         return "AVX2/AVX (ymm)"
@@ -606,6 +722,9 @@ EXT_SCOPE.update({
     # 9,945 instructions (0.07% of this corpus), and the refusal names the
     # cheaper build: export `Op.lockIllegal` into a generated artifact and this
     # line becomes derivable ([[feedback-a-gate-that-refuses-names-a-cheaper-build]]).
+    # ⭐ D367 BUILT THAT: `x86lean-diff coverage` derives the lockable mnemonics from `Op.lockable` over the
+    # vectors, and `_decide` credits a locked form whose roster name is on that line. The ruling below stays
+    # False, so a locked form the model does not derive as lockable is still refused.
     "LOCK prefix (P2 addition 2)":            False,
     "GPR/other (unclassified)":               True,
 })
@@ -614,6 +733,11 @@ EXT_SCOPE.update({
 # reason: `vmovq %xmm0,%rax` must resolve its spelling the same way even though
 # `EXT_SCOPE` then refuses it for the ENCODING.
 XMM_EXT = frozenset({"SSE-legacy (xmm)", "VEX-128 (v… xmm)"})
+VEX128 = "VEX-128 (v… xmm)"
+# ⭐ D344 (V6): the VEX.256 bucket, where a VEX-table mnemonic is credited in the same VEX class.
+YMM = "AVX2/AVX (ymm)"
+# ⭐ D369: the bucket `vzeroupper` lives in. `EXT_SCOPE` keeps it out of (a); a VEX-table row in it is credited on the VEX line.
+AVX_STATE = "AVX (state)"
 
 def form_in_scope(ext):
     """⛔ REFUSES rather than defaulting. See EXT_SCOPE."""
@@ -734,7 +858,54 @@ def width_key(mn, ops):
 _WIDTH_PROBE_SRCS = ("%eax", "%r8d", "%r15d", "%esp", "%rax", "%r8", "%r15",
                      "%rsp", "%ax", "%al", "(%rbx)", "0x8(%rsp,%rcx,4)", "%xmm1")
 
-def _classify(lines, syms=None, fn_sink=None):
+def is_mem_form(ops):
+    """⭐ STATUS 7c — True when an instruction's operands carry an ADDRESSING MODE: a parenthesised base/index
+    (`(%rbx)`, `0x8(%rip)`) or a segment-relative address (`%fs:0x28`). That is the operand SHAPE `m` in this
+    repository's coverage rows. It says nothing about whether memory is touched (`lea` names an address and reads
+    none); it classifies the FORM, which is what a credited figure claims."""
+    return "(" in ops or bool(SEGMENT_RE.search(ops))
+
+
+# ⭐ D385: the raw-bytes line of LLVM objdump, "addr: bytes<pad>\tmnemonic\toperands". The TAB is the boundary between
+# the bytes and the mnemonic; a byte pattern is never used to find it (a scratch parser that did read `c1` as a
+# mnemonic, and lost 948 instructions, before this was written).
+RAW_HEAD_RE = re.compile(r"^(\s*[0-9a-f]+:)\s+((?:[0-9a-f]{2} ?)+)\s*$")
+LEGACY_PREFIXES = {"66", "67", "f2", "f3", "2e", "36", "3e", "26", "64", "65", "f0"}
+
+
+def raw_split(line):
+    """(the line without its bytes, is-EVEX). A line with no bytes is returned unchanged, not EVEX, so the
+    `--no-show-raw-insn` lines the selftests drive still classify as before.  ⛔ A line holding ONLY bytes is GNU
+    objdump's wrap of a long instruction onto a continuation line (card `a-parsed-column-belongs-to-the-tool`): the
+    census would count the instruction once and read its prefix from the wrong line, so it REFUSES."""
+    parts = line.rstrip("\n").split("\t")
+    m = RAW_HEAD_RE.match(parts[0])
+    if not m:
+        # ⛔ GNU objdump's raw format puts the TAB after the ADDRESS ("0:\t62 f2 …\tvpmulhrsw\t…"), so the head above
+        # never matches and the line would fall to `INSN_RE`, which drops it (a hex byte is not a mnemonic). Refused
+        # rather than dropped: it is the format whose 7-byte wrap D385 cannot read (paper's LOW 1 at 1430d65).
+        if len(parts) >= 2 and re.match(r"^\s*[0-9a-f]+:\s*$", parts[0]) \
+                and re.match(r"^\s*(?:[0-9a-f]{2} )+\s*$", parts[1]):   # each byte FOLLOWED by a space, so `fadd` is not bytes
+            raise SystemExit("⛔ demand_census: a GNU-objdump raw line (bytes after the address's TAB); D385 reads "
+                             "only LLVM objdump's one-line format: " + line.strip()[:80])
+        return line, False
+    if len(parts) < 2 or not "".join(parts[1:]).strip():
+        raise SystemExit("⛔ demand_census: a line of instruction bytes with no mnemonic (an objdump that wraps long "
+                         "instructions, as GNU's does after 7 bytes): " + line.strip()[:80])
+    first = next((b for b in m.group(2).split() if b not in LEGACY_PREFIXES), None)
+    return m.group(1) + "\t" + "\t".join(parts[1:]), first == "62"
+
+
+def require_llvm_objdump():
+    """⛔ D385: the census reads instruction bytes, and only LLVM's objdump is measured to print them on one line
+    (the corpus's longest instruction, 13 bytes, on one line; 0 continuation lines, 2026-11-01)."""
+    v = subprocess.run(["objdump", "--version"], capture_output=True, text=True).stdout
+    if "LLVM" not in v:
+        raise SystemExit("⛔ demand_census: objdump is not LLVM's (" + (v.splitlines() or ["?"])[0] + "); D385 reads "
+                         "raw instruction bytes and is measured only against LLVM objdump's one-line format")
+
+
+def _classify(lines, syms=None, fn_sink=None, mem_sink=None):
     """objdump lines -> Counter keyed by (mnemonic, kind, origin, ext).
 
     ⚠️ SPLIT OUT OF `disassemble` SO IT CAN BE DRIVEN ON SYNTHETIC INPUT.  The
@@ -746,7 +917,12 @@ def _classify(lines, syms=None, fn_sink=None):
     routes saying hand-written, `CC` both saying compiler, `AC` and `CA` the two
     disagreements, `U` an address no function symbol covers, and `-` a column
     with no symbol map at all.  Nothing collapses them here; `report` does the
-    collapsing where a reader can see the cells it collapsed."""
+    collapsing where a reader can see the cells it collapsed.
+
+    ⭐ STATUS 7c (the helm, 10-19 21:09, O88: claims match what is modelled): `mem_sink`, when given, receives
+    EXACTLY the keys `c` does, for the instructions whose operands carry an ADDRESSING MODE (`is_mem_form`) and
+    no others. `report` runs the same `_split` over it, so every credited figure can print its register/memory
+    split under the one rule that produced the figure, never a second one."""
     c = collections.Counter()
     run = 0
     pending_lock = False
@@ -774,8 +950,10 @@ def _classify(lines, syms=None, fn_sink=None):
         nonlocal buf, n_packed
         if buf:
             k = cell()
-            for mn, kind, ext in buf:
+            for mn, kind, ext, mem in buf:
                 c[(mn, kind, k, ext)] += 1
+                if mem and mem_sink is not None:
+                    mem_sink[(mn, kind, k, ext)] += 1
             # ⚠️ THE RESIDUE IS KEPT BY NAME, not just counted.  A disagreement
             # cell that cannot be read is a number nobody can check.
             if fn_sink is not None and cur is not None:
@@ -792,6 +970,7 @@ def _classify(lines, syms=None, fn_sink=None):
         return syms[i] if a <= addr < e else None
 
     for line in lines:
+        line, ev = raw_split(line)
         mm = INSN_RE.match(line)
         if not mm:
             continue
@@ -824,9 +1003,12 @@ def _classify(lines, syms=None, fn_sink=None):
             # probe found it: mutating `cell()` to return "CC" left the selftest
             # GREEN.  ⇒ 🔑 A RULE WRITTEN TWICE IS A RULE ONE ARM CAN ONLY
             # HALF-TEST, and the half nobody exercises is the half that moves.
-            c[(width_key(mn, ops), kind, cell(), isa_bucket(mn, ops, kind))] += 1
+            key = (width_key(mn, ops), kind, cell(), isa_bucket(mn, ops, kind, ev))
+            c[key] += 1
+            if mem_sink is not None and is_mem_form(ops):
+                mem_sink[key] += 1
         else:
-            buf.append((width_key(mn, ops), kind, isa_bucket(mn, ops, kind)))
+            buf.append((width_key(mn, ops), kind, isa_bucket(mn, ops, kind, ev), is_mem_form(ops)))
             if is_packed(mn, ops):
                 n_packed += 1
     flush_padding(run)
@@ -845,14 +1027,20 @@ def classify_lines(lines):
     return c
 
 
-def disassemble(path, syms=None, fn_sink=None):
+# ⭐ D388 (paper's LOW at 5ae0e68): ONE disassembly command for the corpus AND the model's own forms, WITH the raw bytes
+# (D385), so the two sides of the join cannot drift apart by an argv; the selftest asserts `model_forms` runs exactly this.
+OBJDUMP_DISASM = ["objdump", "-d"]
+
+
+def disassemble(path, syms=None, fn_sink=None, mem_sink=None):
     """⚠️ STREAMED, not captured.  vmlinux is 63 MB of ELF and disassembles to
     well over a gigabyte of text; `capture_output` would hold all of it in
     memory at once for a job whose whole output is a counter."""
-    with subprocess.Popen(["objdump", "-d", "--no-show-raw-insn", path],
+    # ⭐ D385: WITH the raw bytes, so `_classify` can read EVEX from the instruction itself.
+    with subprocess.Popen(OBJDUMP_DISASM + [path],
                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                           text=True, bufsize=1 << 20) as pr:
-        c = _classify(pr.stdout, syms, fn_sink)
+        c = _classify(pr.stdout, syms, fn_sink, mem_sink)
         rc = pr.wait()
     return c if rc == 0 else None
 
@@ -893,11 +1081,12 @@ def elf_targets(paths):
     return out
 
 
-def census(paths, dbg=None):
+def census(paths, dbg=None, mem_sink=None):
     """⚠️ RETURNS THE SYMBOL COVERAGE TOO, because "how many of this column's
     binaries had a symbol map" is the condition under which every attribution
     number below it is true, and a column measured with no symbols reports the
     default silently."""
+    require_llvm_objdump()
     total = collections.Counter()
     fns = {}
     n = n_sym = 0
@@ -909,10 +1098,13 @@ def census(paths, dbg=None):
             syms = symbols(d) if d else symbols(p)
             if not syms:
                 syms = None
-        c = disassemble(p, syms, fns)
+        mem = collections.Counter()
+        c = disassemble(p, syms, fns, mem)
         if c is None:
             continue
         total += c
+        if mem_sink is not None:
+            mem_sink.update(mem)    # only for a file whose counts were kept, as `total` is
         n += 1
         n_sym += 1 if syms else 0
     return total, n, n_sym, fns
@@ -958,12 +1150,16 @@ def census(paths, dbg=None):
 # rule that starts claiming a mnemonic must name that mnemonic somewhere here.
 STAMP_RE = re.compile(r"<!-- census-model: mnemonics=(\d+) sha=([0-9a-f]{16}) "
                       r"rules=([0-9a-f]{16}) -->")
+FORMS_STAMP_RE = re.compile(r"<!-- census-forms: vectors=(\d+) probes=(\d+) sha=([0-9a-f]+) -->")
 
 def _rule_domain(model):
     """Every mnemonic this file's mapping tables can possibly rewrite, plus the
     model's own names.  ⛔ NOT read from the census's output: a gate whose
     domain came from the document it checks could only agree with it."""
-    d = set(names_of(model)) | set(EXACT) | set(SUFFIXED) | set(STRING) | set(REPS) \
+    # ⛔ D344: `vex_of(model)` too. `names_of` excludes the VEX table, so until D344 no VEX-table mnemonic was in the
+    # domain and the stamp could not see a rule that moved one: the VEX.256 rule (ymm → the VEX class) left
+    # `rules=` byte-identical, and V5's document read CLEAN against V6's mapping.
+    d = set(names_of(model)) | set(vex_of(model)) | set(EXACT) | set(SUFFIXED) | set(STRING) | set(REPS) \
         | set(GPR_EXT)
     for base in list(SUFFIXED) + list(STRING):
         d |= {base + c for c in "bwlq"}
@@ -978,7 +1174,10 @@ def model_stamp(model):
     # ⚖️ D337: the identity is the implemented set AND its silicon split — moving
     # a mnemonic between (a) and (b) moves every figure, so it must move the stamp
     h = hashlib.sha256((" ".join(sorted(names_of(model))) + " | silicon: "
-                        + " ".join(sorted(silicon_of(model)))).encode()).hexdigest()[:16]
+                        + " ".join(sorted(silicon_of(model)))
+                        + (" | vex: " + " ".join(sorted(vex_of(model))) if vex_of(model) else "")
+                        + (" | lock: " + " ".join(sorted(lockable_of(model))) if lockable_of(model) else "")
+                        ).encode()).hexdigest()[:16]
     rows = []
     for m in sorted(_rule_domain(model)):
         for ext in sorted(EXT_SCOPE):
@@ -1033,6 +1232,26 @@ def check_stale(out_path):
               f"   Regenerate: demand_census.py --corpus <dir>  "
               f"(the recipe is in the document).")
         return 1
+    # ⭐ D352: the modelled figure reads the model's FORMS, which the mnemonic stamp above cannot see — a new
+    # memory-form vector moves no mnemonic. Its INPUTS are hashed (text only, so this runs on any runner).
+    fm = FORMS_STAMP_RE.search(text)
+    fv, fp, fd = forms_digest(root)
+    unread = forms_unread(root)
+    if unread:
+        print(f"⛔ {len(unread)} probe file(s) yield ZERO forms to the census's model side (D360): {', '.join(unread)}. "
+              f"Their forms read as unmodelled in every \"of which the model executes a memory form\" figure, and the "
+              f"forms stamp cannot see it, because it hashes what was READ. Teach `forms_inputs` that file's idiom.")
+        return 1
+    if not fm:
+        print(f"⛔ {out_path} carries no `census-forms` stamp, so nothing can tell which of the model's forms its "
+              f"modelled figures are about (D352). Regenerate it.")
+        return 1
+    if (int(fm.group(1)), int(fm.group(2)), fm.group(3)) != (fv, fp, fd):
+        print(f"⛔ THE CENSUS IS STALE — the model's FORMS have moved (D352): generated against {fm.group(1)} vectors "
+              f"+ {fm.group(2)} probe forms (sha {fm.group(3)}); now {fv} + {fp} (sha {fd}). Every \"of which the model "
+              f"executes a memory form\" figure is against the older forms.\n"
+              f"   Regenerate: demand_census.py --corpus <dir>.")
+        return 1
     print(f"demand-census staleness gate: CLEAN — the document was generated "
           f"against this exact model ({n} mnemonics, sha {h}) AND this exact "
           f"mapping (rules {rh}).")
@@ -1062,7 +1281,27 @@ def _decide(m, ext, model):
     r = to_roster(m, ext, model)
     if r is None:
         return None, False, "unmapped"
+    # ⭐ D367: a LOCK-prefixed form is covered when the model DERIVES its mnemonic as lockable (and runs it
+    # differentially); the bucket's own ruling stays False, so every other locked form is still refused.
+    if ext == LOCK_BUCKET and r in lockable_of(model) and r in model:
+        return r, True, "mapped"
     if not form_in_scope(ext):
+        # ⭐ D342 (a): a VEX.128 instruction is outside (a)'s scope (the model's VEX forms are not in the
+        # published figures), but one whose mnemonic is a VEX-table row or a siliconTable row is credited
+        # in that row's OWN labelled class rather than filed as unrepresentable.
+        if ext == VEX128 and r in vex_of(model):
+            return r, False, "vex"
+        # ⭐ D344 (V6): the same class at VEX.256 — credited by mnemonic within the bucket, as VEX.128 is.
+        if ext == YMM and r in vex_of(model):
+            return r, False, "vex"
+        # ⭐ D369: and at `AVX (state)`, for the VEX-only rows (`vzeroupper`); the bucket's own scope ruling is unchanged.
+        if ext == AVX_STATE and r in vex_of(model):
+            return r, False, "vex"
+        if ext == VEX128 and r in silicon_of(model):
+            return r, False, "silicon-vex"
+        # ⭐ D345 (V7): a silicon row the model implements at VEX.256 too, in the same labelled class.
+        if ext == YMM and r in silicon256_of(model):
+            return r, False, "silicon-vex"
         return r, False, "outscope"
     # ⚖️ D337: (b) is NOT covered — it is its own class, counted beside (a)
     if r in silicon_of(model):
@@ -1196,7 +1435,213 @@ def ext_table(name, counts, model, fh):
             {e: k for e, k in covered_buckets.items()},
             {m: dict(c) for m, c in by_mn.items()})
 
-def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
+def shape_split(mem, model):
+    """⭐ STATUS 7c — (differential, silicon, VEX) MEMORY-FORM counts, by the SAME `_split` and the same three set
+    tests `report` uses for the credited figures, over the memory-form tally `_classify` kept beside them."""
+    mapped, _u, _o, _p, _r = _split(mem, model)
+    sil_set, vex_set = silicon_of(model), vex_of(model)
+    return (sum(k for r, k in mapped.items() if r in model),
+            sum(k for r, k in mapped.items() if r in sil_set),
+            sum(k for r, k in mapped.items() if r in vex_set and r not in sil_set))
+
+
+def _shape(credited, mem_n):
+    """The split printed beside a credited figure: register-form, memory-form."""
+    return f" (register-form {credited - mem_n:,} · memory-form {mem_n:,})"
+
+
+# ── ⭐ D352 (STATUS 7d): the MODELLED part of each memory-form figure ─────────
+# The model's forms are classified by the SAME `_classify` and keyed by the SAME
+# `to_roster`, so demand and model meet under one rule, never a second one.  The
+# population is what the model EXECUTES: every differential vector's bytes, and
+# the instruction under test in every `hwprobe/*_ops.S` (the line after an
+# `AT(...)` label, or after `LOAD` in `sse_ops.S`, the oldest probe).  A form the
+# AST can express and no row runs is not counted, so the figure can only
+# under-count.  ⚠️ NOT the `_ops.S` files whole: their PRE/POST loads
+# (`vmovdqu`, `movq`, …) would read as modelled forms.
+
+def forms_inputs(root_dir):
+    """(vector rows [(id, mnemonic, bytes)], probe lines [(file, line)]) — the
+    model side's INPUTS, as text.  Pure parsing: runs on any box, so the staleness
+    stamp below can be checked where no x86 assembler exists."""
+    import glob
+    src = open(os.path.join(root_dir, "Tests", "Vectors.lean"), encoding="utf-8").read()
+    vecs = []
+    for part in re.split(r'\{\s*id := "', src)[1:]:
+        rec = part.split('id := "')[0]
+        vid = part.split('"', 1)[0]
+        mm = re.search(r'mnemonic := "([^"]+)"', rec)
+        bb = re.search(r'bytes := "([0-9a-fA-F]+)"', rec)
+        if mm and bb:
+            vecs.append((vid, mm.group(1), bb.group(1).lower()))
+    probes = []
+    for f in sorted(glob.glob(os.path.join(root_dir, "hwprobe", "*_ops.S"))):
+        lines = open(f, encoding="utf-8").read().split("\n")
+        for i, line in enumerate(lines):
+            t = line.strip()
+            # three idioms (D360): an `AT(…)` label, or a `LOAD`/`LOAD4` load macro, then the form on the next
+            # line; or `OP(name, form)` inline (`shuf_ops.S`), whose form is everything after the first comma
+            if t.startswith("AT(") or re.fullmatch(r"LOAD[0-9]*", t):
+                j = i + 1
+                while j < len(lines) and not lines[j].strip():
+                    j += 1
+                ins = lines[j].split("/*")[0].strip() if j < len(lines) else ""
+                probes.append((os.path.basename(f), ins))
+            elif t.startswith("OP("):
+                body = t[len("OP("):].split("/*")[0].strip()
+                ins = body.split(",", 1)[1].strip() if "," in body else ""
+                if ins.endswith(")") and ins.count(")") > ins.count("("):
+                    ins = ins[:-1].rstrip()      # the macro call's own closing parenthesis
+                probes.append((os.path.basename(f), ins))
+    return vecs, probes
+
+
+def forms_unread(root_dir, probes=None):
+    """The `hwprobe/*_ops.S` files from which `forms_inputs` read ZERO forms (D360).  A file written in an idiom the
+    parser does not know is not a file with no forms — it is a file the census cannot read, and its forms would be
+    reported as unmodelled.  `shuf_ops.S` (41 inline `OP(…)` forms) sat here from D352 to D360.  ⚠️ LIMIT: a file
+    that MIXES a known idiom with an unknown one yields some forms and passes this check (`sse_ops.S`'s `LOAD4`, D360)."""
+    import glob
+    if probes is None:
+        probes = forms_inputs(root_dir)[1]
+    seen = {f for f, _l in probes}
+    return sorted(os.path.basename(f) for f in glob.glob(os.path.join(root_dir, "hwprobe", "*_ops.S"))
+                  if os.path.basename(f) not in seen)
+
+
+def forms_digest(root_dir):
+    import hashlib
+    vecs, probes = forms_inputs(root_dir)
+    blob = "\n".join(f"V\t{v}\t{m}\t{b}" for v, m, b in vecs) + "\n" + \
+           "\n".join(f"P\t{f}\t{l}" for f, l in probes)
+    return len(vecs), len(probes), hashlib.sha256(blob.encode()).hexdigest()[:16]
+
+
+# objdump's spellings of a PREFIX in the mnemonic column; a vector whose disassembly is one of these is
+# exempted from the mnemonic check, by name, and counted where the run reports
+FORMS_PREFIX_SPELLINGS = frozenset({"rep", "repne", "addr32", "data16", "lock"})
+
+
+def forms_from_lines(lines, model):
+    """objdump lines of the model's own forms -> ({(roster, bucket)} with a
+    register form, {(roster, bucket)} with a memory form).  `_classify` and
+    `to_roster`, nothing else, so a rule change moves both sides at once."""
+    mem = collections.Counter()
+    c = _classify(lines, None, None, mem)
+    reg, msk = set(), set()
+    for key, k in c.items():
+        m, kind, _o, ext = key
+        if kind == "padding":
+            continue
+        r = to_roster(m, ext, model)
+        if r is None:
+            continue
+        if mem[key] > 0:
+            msk.add((r, ext))
+        if k - mem[key] > 0:
+            reg.add((r, ext))
+    return reg, msk
+
+
+def model_forms(root_dir, model, tmp):
+    """Assemble the model's forms into one x86-64 object, disassemble it with the
+    census's own objdump command, and classify it.  Returns (reg, mem, note) or
+    (None, None, why) — a REFUSAL, never an empty set read as 'nothing modelled'."""
+    vecs, probes = forms_inputs(root_dir)
+    if not vecs or not probes:
+        return None, None, f"the model side parsed EMPTY (vectors {len(vecs)}, probe lines {len(probes)})"
+    unread = forms_unread(root_dir, probes)
+    if unread:
+        return None, None, (f"{len(unread)} probe file(s) yield ZERO forms, so their forms would read as unmodelled "
+                            f"(D360): {', '.join(unread)} — teach `forms_inputs` that file's idiom")
+    if any(not l for _f, l in probes):
+        return None, None, "a probe label is followed by no instruction"
+    asm = [".text"]
+    for i, (_v, _m, b) in enumerate(vecs):
+        asm.append(f".globl _v{i}\n_v{i}:\n  .byte " + ",".join("0x" + b[k:k+2] for k in range(0, len(b), 2)))
+    for i, (_f, l) in enumerate(probes):
+        asm.append(f".globl _p{i}\n_p{i}:\n  {l}")
+    S, O = os.path.join(tmp, "forms.S"), os.path.join(tmp, "forms.o")
+    open(S, "w", encoding="utf-8").write("\n".join(asm) + "\n")
+    r = subprocess.run(["clang", "-target", "x86_64-apple-macos11", "-c", S, "-o", O],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        return None, None, f"the assembler refused the model's forms (rc {r.returncode}): {r.stderr[:300]}"
+    # ⭐ D388 (paper's LOW 2 on D385): WITH the raw bytes, so the model's own forms are bucketed by `raw_split` exactly
+    # as the corpus is. Bucketing them by text alone would put an EVEX model form on one side of the join and its corpus
+    # instance on the other, with no red.
+    d = subprocess.run(OBJDUMP_DISASM + [O], capture_output=True, text=True)
+    lines = d.stdout.split("\n")
+    # one instruction per symbol, or the population is not what it claims to be
+    per, cur, bad = collections.Counter(), None, []
+    for ln in lines:
+        mm = re.match(r'^[0-9a-f]+ <(_[vp]\d+)>:', ln)
+        if mm:
+            cur = mm.group(1)
+        elif cur and re.match(r'^\s+[0-9a-f]+:\s', ln) and raw_split(ln)[0].split(":", 1)[1].strip() != "lock":
+            # ⭐ D388: through `raw_split`, so the bytes (`f0`) are not read as the text after the address
+            # a LOCK prefix is printed on its own line; `_classify` attributes it to the next one
+            per[cur] += 1
+    want = len(vecs) + len(probes)
+    bad = [k for k, n in per.items() if n != 1]
+    if len(per) != want or bad:
+        return None, None, (f"the disassembly does not have one instruction per form: {len(per)} symbols of "
+                            f"{want}, {len(bad)} with a count other than 1 (e.g. {bad[:5]})")
+    # each vector's declared mnemonic must be what its bytes disassemble to, under `to_roster` — except where
+    # objdump prints a PREFIX as the mnemonic (`repe` as `rep`, a 32-bit-address `loop` as `addr32`), which is
+    # exempted BY NAME and counted in the note, never silently
+    syms, cur = {}, None
+    for ln in lines:
+        mm = re.match(r'^[0-9a-f]+ <(_[vp]\d+)>:', ln)
+        if mm:
+            cur = mm.group(1); syms[cur] = []
+        elif cur:
+            syms[cur].append(ln)
+    exempt, wrong = collections.Counter(), []
+    for i, (vid, mn, _b) in enumerate(vecs):
+        keys = _classify(syms[f"_v{i}"], None, None, collections.Counter())
+        if any(to_roster(k[0], k[3], model) == mn for k in keys):
+            continue
+        objm = {k[0] for k in keys}
+        if objm and objm <= FORMS_PREFIX_SPELLINGS:
+            exempt[mn] += 1
+        else:
+            wrong.append((vid, mn, sorted(objm)))
+    if wrong:
+        return None, None, (f"{len(wrong)} vector(s) whose bytes disassemble to another mnemonic: {wrong[:5]}")
+    reg, msk = forms_from_lines(lines, model)
+    ex = ", ".join(f"{m} {k}" for m, k in sorted(exempt.items())) or "none"
+    return reg, msk, (f"{len(vecs)} vectors + {len(probes)} probe forms; {sum(exempt.values())} vector(s) whose "
+                      f"disassembly names a prefix, exempted from the mnemonic check by name ({ex})")
+
+
+def modelled_mem(mem, model, msk):
+    """(differential, silicon, VEX) memory-form demand for which the model EXECUTES
+    a memory form at the same (roster name, bucket) — the same keys and the same
+    `_decide` classes as `shape_split`, filtered by `msk`."""
+    sil_set, vex_set = silicon_of(model), vex_of(model)
+    cov = sil = vex = 0
+    for (m, kind, _o, ext), k in mem.items():
+        if kind == "padding":
+            continue
+        r, _c, cls = _decide(m, ext, model)
+        if cls in ("unmapped", "outscope") or (r, ext) not in msk:
+            continue
+        if r in sil_set:
+            sil += k
+        elif r in vex_set:
+            vex += k
+        elif r in model:
+            cov += k
+    return cov, sil, vex
+
+
+def _shape_modelled(credited, mem_n, mod_n):
+    return (f" (register-form {credited - mem_n:,} · memory-form {mem_n:,}, of which the model "
+            f"executes a memory form for {mod_n:,})")
+
+
+def report(name, counts, model, fh, fns=None, n=0, n_sym=0, mem=None, msk=None):
     mapped, unmapped, outscope, padding, rest = _split(counts, model)
     counts = rest
     tot = sum(counts.values())
@@ -1205,9 +1650,19 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
     # differentially cover" and printed on its own line — never added to (a)
     sil_set = silicon_of(model)
     silicon = sum(k for r, k in mapped.items() if r in sil_set)
-    out_of  = sum(k for r, k in mapped.items() if r not in model) - silicon
+    # ⭐ D342 (a): the VEX table's line, carved out the same way and never added to (a)
+    vex_set = vex_of(model)
+    vexn = sum(k for r, k in mapped.items() if r in vex_set and r not in sil_set)
+    out_of  = sum(k for r, k in mapped.items() if r not in model) - silicon - vexn
     unk     = sum(unmapped.values())
     oos     = sum(outscope.values())
+    # ⭐ STATUS 7c: the operand-shape split of each credited figure, or nothing when no tally was kept
+    cov_m, sil_m, vex_m = shape_split(mem, model) if mem is not None else (None, None, None)
+    # ⭐ D352 (STATUS 7d): the modelled part of each memory-form figure, when the model's forms were read
+    cov_x, sil_x, vex_x = modelled_mem(mem, model, msk) if (mem is not None and msk is not None) else (None, None, None)
+    _sp = (lambda cred, m: "" if m is None else _shape(cred, m))
+    def sp(cred, m, x=None):
+        return _sp(cred, m) if (m is None or x is None) else _shape_modelled(cred, m, x)
     fh.write(f"\n### {name}\n\n")
     fh.write(f"- **{tot:,} instructions** over "
              f"{len(set(m for m, _k, _o, _e in counts))} "
@@ -1218,18 +1673,34 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
                  f"percentage below. Before this exclusion they were "
                  f"{100.0*padding/(tot+padding):.1f}% of this column.\n")
     fh.write(f"- **Covered by the model (differentially tested mnemonics): "
-             f"{covered:,} ({100.0*covered/tot:.1f}%).**\n")
+             f"{covered:,} ({100.0*covered/tot:.1f}%).**{sp(covered, cov_m, cov_x)}\n")
     if sil_set:
         fh.write(f"- ⚙ **Implemented, {SILICON_LABEL}: {silicon:,} "
-                 f"({100.0*silicon/tot:.2f}%)** — counted as NOT covered above, "
+                 f"({100.0*silicon/tot:.2f}%)**{sp(silicon, sil_m, sil_x)} — counted as NOT covered above, "
                  f"printed beside the differential figure and never summed into it "
                  f"(D337).\n")
+    if vex_set:
+        fh.write(f"- ⚙ **{VEX_LABEL}: {vexn:,} ({100.0*vexn/tot:.2f}%)**{sp(vexn, vex_m, vex_x)} — VEX.128 and VEX.256 instructions whose "
+                 f"mnemonic is a VEX-table row, credited by mnemonic within the bucket (memory forms included, "
+                 f"modelled or not: the 'of which' figure is the modelled part, D352); counted as NOT covered above, printed beside it and "
+                 f"never summed into it (D342, D344).\n")
+    if mem is not None:
+        fh.write("- ⚠️ **The shape split beside each credited figure is MEASURED, not modelled** (STATUS 7c): a "
+                 "mnemonic is credited within its bucket WHATEVER its operand form, so a memory-form count beside a "
+                 "figure is credited whether or not the model has that form. `is_mem_form` = an addressing mode in the "
+                 "operands.\n")
+    if msk is not None:
+        fh.write("- ⭐ **D352 (STATUS 7d): \"of which the model executes a memory form for\" is the MODELLED part** — "
+                 "memory-form demand whose (roster name, bucket) the model runs a memory form of, in a differential "
+                 "vector or a processor probe, classified by the same `_classify`. One memory form stands for every "
+                 "addressing mode at that (name, bucket); a form the AST has and no row runs is not counted, so it "
+                 "can only under-count.\n")
     fh.write(f"- Mapped to a roster name the model does not have: {out_of:,} "
              f"({100.0*out_of/tot:.1f}%).\n")
     fh.write(f"- Mapped to a roster name the model HAS, but in a form its state "
              f"cannot represent — an MMX, `%ymm`, `%zmm`, `%k` or x87 register, "
-             f"a VEX encoding, or a `lock` prefix (whose legality is per-form "
-             f"and not published here): {oos:,} ({100.0*oos/tot:.2f}%) — "
+             f"a VEX encoding, or a `lock` prefix on a form the model does not "
+             f"list as lockable (`Lockable:` in docs/COVERAGE.md): {oos:,} ({100.0*oos/tot:.2f}%) — "
              f"counted as NOT covered.\n")
     fh.write(f"- Not mapped at all, and therefore counted as NOT covered: "
              f"{unk:,} ({100.0*unk/tot:.1f}%).\n\n")
@@ -1244,7 +1715,12 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
         merged[m] += k
     for i, (m, k) in enumerate(merged.most_common(30), 1):
         plain = m.strip("`").split("`")[0]
-        yes = "✅" if plain in model else "⚙ silicon only" if plain in sil_set else "—"
+        # ⛔ D344: an UNMAPPED key names a spelling no roster row took (e.g. `vpaddd` at zmm), so it is never in
+        # the model whatever its bare name matches. Until D344 such a row printed "⚙ VEX table only": V5's dav1d
+        # table showed `vpaddd` 4,078 (ymm 2,975 + zmm 1,103, all unmapped) under that label.
+        yes = ("—" if m.endswith("*(unmapped)*")
+               else "✅" if plain in model else "⚙ silicon only" if plain in sil_set
+               else "⚙ VEX table only" if plain in vex_set else "—")
         fh.write(f"| {i} | `{plain}` | {k:,} | {100.0*k/tot:.2f}% | {yes} |\n")
     fh.write(f"\n**The ranked list of mnemonics the model does NOT cover** "
              f"(the P2 roster candidates, by demand):\n\n")
@@ -1258,7 +1734,8 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
     for m, k in outscope.items():
         miss[m] += k
     for i, (m, k) in enumerate(miss.most_common(25), 1):
-        ref = "⚙ silicon (hwprobe), implemented" if m in sil_set else "—"
+        ref = ("⚙ silicon (hwprobe), implemented" if m in sil_set
+               else "⚙ VEX table (differential, D341), implemented" if m in vex_set else "—")
         fh.write(f"| {i} | `{m}` | {k:,} | {100.0*k/tot:.2f}% | {ref} |\n")
     att = attribution(name, counts, model, fns or {}, n, n_sym, fh)
     ext, ext_covered, miss_by_ext = ext_table(name, counts, model, fh)
@@ -1269,15 +1746,23 @@ def report(name, counts, model, fh, fns=None, n=0, n_sym=0):
     return dict(total=tot, covered=covered, pct=100.0*covered/tot,
                 silicon=silicon, silicon_pct=100.0*silicon/tot,
                 silicon_all={r: k for r, k in mapped.items() if r in sil_set},
+                vex=vexn, vex_pct=100.0*vexn/tot,
+                vex_all={r: k for r, k in mapped.items() if r in vex_set and r not in sil_set},
                 miss=miss.most_common(40), miss_all=dict(miss),
                 attribution=att, ext=ext, ext_covered=ext_covered,
-                miss_by_ext=miss_by_ext)
+                miss_by_ext=miss_by_ext,
+                # ⭐ STATUS 7c: the memory-form part of each credited figure (None when no tally was kept)
+                covered_mem=cov_m, silicon_mem=sil_m, vex_mem=vex_m,
+                # ⭐ D352 (STATUS 7d): the modelled part of each memory-form figure (None when not read)
+                covered_mem_modelled=cov_x, silicon_mem_modelled=sil_x, vex_mem_modelled=vex_x)
 
 def differential_reference(model):
     """The reference model for `check_no_pooling`: every implemented mnemonic
     minus `siliconTable` READ FRESH FROM THE TREE, as a plain set.  ⛔ Never the
-    `Model` the report used: a model that pooled would then be its own referee."""
-    return frozenset(names_of(model)) - silicon_mnemonics()
+    `Model` the report used: a model that pooled would then be its own referee.
+    ⭐ D367: it carries the lockable line (read fresh, like the silicon list), because a LOCK credit is class
+    (a), differential, and a reference without it would read every credited locked form as pooled silicon."""
+    return Model(frozenset(names_of(model)) - silicon_mnemonics(), lockable=lockable_mnemonics())
 
 
 def check_no_pooling(counts, ref, reported):
@@ -1287,7 +1772,8 @@ def check_no_pooling(counts, ref, reported):
     is a PLAIN set of the differential mnemonics, so its mapping cannot even name
     a silicon mnemonic: if (a) moved when the silicon rows were loaded,
     something pooled them."""
-    ref = frozenset(ref)                     # a PLAIN set: no `.names`, no `.silicon`
+    # a PLAIN set (no `.names`, no `.silicon`), or a silicon-free `Model` carrying only D367's lockable line
+    ref = ref if isinstance(ref, Model) and not silicon_of(ref) else frozenset(ref)
     tot, cov = _covered(counts, ref)
     if cov != reported["covered"] or tot != reported["total"]:
         return (f"covered {reported['covered']:,} of {reported['total']:,} with the "
@@ -1357,9 +1843,19 @@ def selftest():
         ("movd",   "SSE-legacy (xmm)",   "movd"),
         # ⭐ the form P2 batch 3 landed and nothing mapped
         ("movabsq", "mov imm64 / movabs (P2 addition 3)", "mov"),
-        # ⛔ a VEX spelling is still not a roster name, model or no model
-        ("vmovdqa", "VEX-128 (v… xmm)",  None),
-        ("vpaddd",  "AVX2/AVX (ymm)",    None),
+        # ⛔ a VEX spelling the model does not name is still not a roster name
+        ("vpshufd", "VEX-128 (v… xmm)",  None),
+        # ⭐ D344 (V6): a VEX-table spelling at ymm maps to itself; a ymm spelling of no VEX-table row does not
+        ("vpaddd",  "AVX2/AVX (ymm)",    "vpaddd"),
+        ("vpermq",  "AVX2/AVX (ymm)",    None),
+        # ⭐ D345 (V7): a silicon row the model implements at VEX.256 maps to itself at ymm; a silicon row that is
+        # VEX.128 only (`vaesenc`) maps by name but is NOT the silicon class there (the class arm below)
+        ("vshufps", "AVX2/AVX (ymm)",    "vshufps"),
+        ("vpmovmskb", "AVX2/AVX (ymm)",  "vpmovmskb"),
+        # ⭐ D342 (a): a VEX-128 spelling that IS a VEX-table row maps to itself (and `_decide` files it
+        # in the VEX class, never covered); since D344 the same spelling at ymm maps to itself too
+        ("vmovdqa", "VEX-128 (v… xmm)",  "vmovdqa"),
+        ("vmovdqa", "AVX2/AVX (ymm)",    "vmovdqa"),
         # ⛔ and the rewrite rules still win over the identity rule
         ("movsbl",  None,                "movsx"),
         ("nopw",    None,                "nop"),
@@ -1387,12 +1883,17 @@ def selftest():
         # ⭐ the two P2 additions that LANDED and are therefore in scope
         ("movq",    "segment base %fs:/%gs: (P2 addition 1)", True),
         ("movabsq", "mov imm64 / movabs (P2 addition 3)",     True),
-        # ⛔ and the one that landed and is still REFUSED, on purpose: the
-        # model's lock legality is per-form and this tool cannot read it.
-        ("addq",    "LOCK prefix (P2 addition 2)",            False),
-        # a GPR extension the model does not have is refused by `r in model`,
-        # not by the partition — the partition says its FORM is representable.
-        ("endbr64", "CET-IBT",                                False),
+        # ⭐ D367: the LOCK bucket's ruling stays False, but a mnemonic the model DERIVES as lockable is
+        # credited — and a form `lockable` refuses is still refused, which is the over-claim this arm exists for.
+        ("addq",    "LOCK prefix (P2 addition 2)",            True),
+        ("movq",    "LOCK prefix (P2 addition 2)",            False),
+        ("cmpq",    "LOCK prefix (P2 addition 2)",            False),
+        # a form the model does not have is refused by `r in model`, not by the
+        # partition — the partition says its FORM is representable.  ⭐ D347 (V8a)
+        # MODELLED `endbr64`, so this arm moved to `endbr32` (same bucket, still
+        # absent), and `endbr64` now asserts the other direction: landed ⇒ covered.
+        ("endbr32", "CET-IBT",                                False),
+        ("endbr64", "CET-IBT",                                True),
         ("popcntq", "POPCNT",                                 True),
     ]
     for m, ext, want in scope_arms:
@@ -1443,7 +1944,7 @@ def selftest():
     buckets, cov_buckets, by_ext = ext_table("conservation", synth, _M,
                                              io.StringIO())
     ok = (c_cov + sum(buckets.values()) == c_tot and c_tot == 235
-          and c_cov == 167 and sum(cov_buckets.values()) == c_cov
+          and c_cov == 170 and sum(cov_buckets.values()) == c_cov
           # ⛔ the per-mnemonic keying is the SAME residue, not a second count
           and sum(sum(v.values()) for v in by_ext.values())
               == sum(buckets.values())
@@ -1451,7 +1952,7 @@ def selftest():
     print(("  ✔ " if ok else "  ⛔ ") +
           f"conservation: covered {c_cov} + uncovered {sum(buckets.values())} "
           f"== total {c_tot} (padding {_pad} excluded)" +
-          ("" if ok else "   EXPECTED 167 + 68 == 235"))
+          ("" if ok else "   EXPECTED 170 + 65 == 235 (D367: the 3 `lock addq` are credited)"))
     bad += [] if ok else ["conservation"]
 
     # ── ⚖️ D337: the silicon class, the mapping it needed, and NO POOLING ──────
@@ -1491,18 +1992,130 @@ def selftest():
                          ("pmaddwd", "MMX (mm)",         (False, "outscope")),
                          ("andnl",   "BMI1",             (False, "silicon")),
                          ("adcxq",   "ADX",              (True,  "mapped")),
-                         ("pmulld",  "SSE-legacy (xmm)", (False, "unmapped"))):
+                         # ⚠️ D379 moved `pmulld` from this arm's "unmapped" example into the silicon class; the
+                         # unmapped example is now `phaddw`, which no table names at the stack's top (pmuldq is mapped by a later wave of the stack)
+                         ("phaddw",  "SSE-legacy (xmm)", (False, "unmapped")),
+                         # D342 (a): a VEX-table mnemonic at VEX-128 is its own class; a VEX siliconTable
+                         # mnemonic is silicon; a VEX spelling of neither is still out of scope
+                         ("vpxor",   "VEX-128 (v… xmm)", (False, "vex")),
+                         ("vaesenc", "VEX-128 (v… xmm)", (False, "silicon-vex")),
+                         # ⚠️ D345 moved `vmulps` from this arm's "unmapped" example into the silicon class; the
+                         # unmapped example is now `vdivps`, which no table names
+                         ("vmulps",  "VEX-128 (v… xmm)", (False, "silicon-vex")),
+                         ("vdivps",  "VEX-128 (v… xmm)", (False, "unmapped")),
+                         # D344: a VEX-table mnemonic at ymm is the same VEX class; a ymm spelling of none is not
+                         ("vpxor",   "AVX2/AVX (ymm)",   (False, "vex")),
+                         ("vpermq",  "AVX2/AVX (ymm)",   (False, "unmapped")),
+                         # D345: a silicon row modelled at VEX.256 is the silicon class at ymm; a VEX.128-only one
+                         # stays "a name the model has, in a form it cannot represent"
+                         ("vmulps",  "AVX2/AVX (ymm)",   (False, "silicon-vex")),
+                         ("vaesenc", "AVX2/AVX (ymm)",   (False, "outscope"))):
         _r, cov, cls = _decide(m, ext, _M)
         arm((cov, cls) == want, f"class {m:8s} in {ext:18s} -> covered={cov} {cls}"
             + ("" if (cov, cls) == want else f"   EXPECTED {want}"), "class:" + m)
         d337 += 1
+    # ⭐ STATUS 7c — the operand-shape split, derived from synthetic objdump lines by the one loop and the one rule:
+    # two silicon-VEX ymm forms (one register, one memory), three differential `mov`s (register, base+disp, and a
+    # `%fs:` address with no parenthesis), and a `lea` (an addressing mode that reads no memory: SHAPE m, by design)
+    _lines = ["  1000:\tvpmaddwd\t%ymm1, %ymm2, %ymm0", "  1004:\tvpmaddwd\t0x20(%rbx), %ymm2, %ymm0",
+              "  1009:\tmovl\t%ecx, %eax", "  100b:\tmovl\t0x8(%rbx), %eax", "  100e:\tmovq\t%fs:0x28, %rax",
+              "  1017:\tleaq\t0x10(%rip), %rax"]
+    _mem = collections.Counter()
+    _cnt = _classify(_lines, None, None, _mem)
+    _cm, _sm, _vm = shape_split(_mem, _M)
+    _rep = report("fixture", _cnt, _M, io.StringIO(), {}, 1, 1, _mem)
+    arm(all(_mem[k] <= _cnt[k] for k in _mem) and set(_mem) <= set(_cnt),
+        "7c: the memory-form tally is a SUB-counter of the main one, key by key", "7c:sub")
+    arm(_sm == 1 and _rep["silicon"] == 2 and _rep["silicon_mem"] == 1,
+        f"7c: silicon vpmaddwd at ymm credited 2, of which memory-form 1 (got {_rep['silicon']} / {_sm})", "7c:silicon")
+    arm(_rep["covered_mem"] == _cm and _cm == 3,
+        f"7c: differential memory-form = 3 (0x8(%rbx), %fs:0x28, lea's 0x10(%rip)); got {_cm}", "7c:diff")
+    arm(is_mem_form("%fs:0x28, %rax") and not is_mem_form("%ecx, %eax") and is_mem_form("0x10(%rip), %rax"),
+        "7c: is_mem_form reads a segment address and a base/disp as memory-form, two registers as not", "7c:rule")
+    # red arm: a rule that never sees memory-form must change the reading, or the arms above prove nothing
+    _orig = is_mem_form
+    try:
+        globals()["is_mem_form"] = lambda ops: False
+        _mem2 = collections.Counter()
+        _classify(_lines, None, None, _mem2)
+        arm(shape_split(_mem2, _M) != (_cm, _sm, _vm),
+            "7c red arm: a blind is_mem_form changes the split (the arms above can fail)", "7c:red")
+    finally:
+        globals()["is_mem_form"] = _orig
+    d337 += 5          # the five 7c arms above
+    # ⭐ D352 (STATUS 7d) — the MODELLED part, from synthetic lines for BOTH sides through the one `_classify`.
+    # The model "executes" a register vpmaddwd at ymm, `movl 0x8(%rbx)` and `leaq 0x10(%rip)`: so of the fixture's
+    # differential memory-form demand (3: base+disp, %fs:, rip-relative lea) it models 2 — the `%fs:` one is in
+    # ANOTHER BUCKET (segment base), and the same mnemonic in another bucket must not count — and of the silicon
+    # memory-form demand (1) it models 0, because it has vpmaddwd's REGISTER form only.
+    _mlines = ["  2000:\tvpmaddwd\t%ymm1, %ymm2, %ymm0", "  2004:\tmovl\t0x8(%rbx), %eax",
+               "  2007:\tleaq\t0x10(%rip), %rax"]
+    _freg, _fmem = forms_from_lines(_mlines, _M)
+    _x = modelled_mem(_mem, _M, _fmem)
+    arm(_x == (2, 0, 0), f"7d: modelled memory-form (diff, silicon, vex) = (2, 0, 0); got {_x}", "7d:modelled")
+    arm(any(r == "vpmaddwd" for r, _e in _freg) and not any(r == "vpmaddwd" for r, _e in _fmem),
+        "7d: a register-only form is in the register set and NOT the memory set", "7d:sides")
+    _buf = io.StringIO()
+    _rep2 = report("fixture", _cnt, _M, _buf, {}, 1, 1, _mem, _fmem)
+    arm(_rep2["covered_mem_modelled"] == 2 and _rep2["silicon_mem_modelled"] == 0
+        and "of which the model executes a memory form for 2)" in _buf.getvalue()
+        and _rep["covered_mem_modelled"] is None,
+        "7d: report prints the modelled part when forms are given, and None (7c's text) when not", "7d:report")
+    # red arms, both directions: no forms models nothing; every demand form modelled equals the memory-form figure
+    _all = {(_decide(m, e, _M)[0], e) for (m, _k, _o, e) in _mem}
+    arm(modelled_mem(_mem, _M, set()) == (0, 0, 0) and modelled_mem(_mem, _M, _all) == (_cm, _sm, _vm),
+        "7d red arms: an empty model reads 0; a model with every demanded form reads the 7c memory-form figure", "7d:red")
+    # the staleness half: the stamp hashes the model side's INPUTS, and a planted vector must move it
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix="x86lean-census-stale-") as _td:
+        os.makedirs(os.path.join(_td, "Tests")); os.makedirs(os.path.join(_td, "hwprobe"))
+        _vf = os.path.join(_td, "Tests", "Vectors.lean")
+        open(_vf, "w", encoding="utf-8").write('[ { id := "a", mnemonic := "mov", asm := "movl %ecx, %eax", bytes := "89c8" }\n')
+        open(os.path.join(_td, "hwprobe", "x_ops.S"), "w", encoding="utf-8").write(
+            "FN(x)\n  PRE\nAT(x_at)\n  vpxor (%rbx), %xmm1, %xmm3\n  POST\nSYM(p):\n  LOAD\n  mulsd %xmm1, %xmm0 /* f2 */\n")
+        _d1 = forms_digest(_td)
+        _vi, _pi = forms_inputs(_td)
+        open(_vf, "a", encoding="utf-8").write(', { id := "b", mnemonic := "mov", asm := "movl 0x8(%rbx), %eax", bytes := "8b4308" }\n')
+        _d2 = forms_digest(_td)
+    arm(_d1[:2] == (1, 2) and _d2[:2] == (2, 2) and _d1[2] != _d2[2]
+        and [l for _f, l in _pi] == ["vpxor (%rbx), %xmm1, %xmm3", "mulsd %xmm1, %xmm0"],
+        f"7d: the forms stamp reads both probe conventions (AT, LOAD) and moves on a planted vector ({_d1} -> {_d2})",
+        "7d:stamp")
+    arm({"rep", "addr32", "lock"} <= FORMS_PREFIX_SPELLINGS and "mov" not in FORMS_PREFIX_SPELLINGS,
+        "7d: the prefix exemption names prefixes only", "7d:prefix")
+    d337 += 6          # the six 7d arms above
+    # ⭐ D360: the third idiom (`OP(name, form)` inline) and `LOAD4`, and a file in an UNKNOWN idiom is REFUSED by
+    # name — never read as a file with no forms.  The red arm is the shape that hid shuf_ops.S's 41 forms.
+    with tempfile.TemporaryDirectory(prefix="x86lean-census-idiom-") as _td:
+        os.makedirs(os.path.join(_td, "Tests")); os.makedirs(os.path.join(_td, "hwprobe"))
+        open(os.path.join(_td, "Tests", "Vectors.lean"), "w", encoding="utf-8").write(
+            '[ { id := "a", mnemonic := "mov", asm := "movl %ecx, %eax", bytes := "89c8" }\n')
+        open(os.path.join(_td, "hwprobe", "o_ops.S"), "w", encoding="utf-8").write(
+            "#define OP(name, ...) FN(name) PRE; FN(name##_at) __VA_ARGS__; POST\n"
+            "OP(s_a, pshufb (%rbx), %xmm0)\nOP(s_b, palignr $5, (%rbx), %xmm0)   /* rm */\n"
+            "SYM(p):\n  LOAD4\n  mulps %xmm1, %xmm0 /* 0f 59 c1 */\n  RET128\n")
+        _pi3 = [l for _f, l in forms_inputs(_td)[1]]
+        _u0 = forms_unread(_td)
+        open(os.path.join(_td, "hwprobe", "z_ops.S"), "w", encoding="utf-8").write(
+            "TEST(s_c)\n  pshufb %xmm1, %xmm0\n  DONE\n")
+        _u1 = forms_unread(_td)
+        with contextlib.redirect_stdout(io.StringIO()):
+            _mf = model_forms(_td, _M, _td)
+    arm(_pi3 == ["pshufb (%rbx), %xmm0", "palignr $5, (%rbx), %xmm0", "mulps %xmm1, %xmm0"] and _u0 == [],
+        f"D360: OP(name, form) inline and LOAD4 are read, the macro's own ')' and a comment stripped ({_pi3})", "D360:idiom")
+    arm(_u1 == ["z_ops.S"] and _mf[0] is None and "z_ops.S" in _mf[2],
+        f"D360 red arm: a probe file in an unknown idiom is REFUSED by name ({_u1}), never counted as having no forms",
+        "D360:unread")
+    arm(forms_unread(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) == [],
+        "D360: every hwprobe/*_ops.S in this tree yields at least one form", "D360:tree")
+    d337 += 3
     # ⛔⛔ THE NO-POOLING ARM, with its plants.  One fixture: 50 differential, 30 +
     # 5 silicon-refereed, 4 out of scope, 2 unmapped.
     fx = collections.Counter({("paddd",   "vector", "CC", "SSE-legacy (xmm)"): 50,
                               ("pmaddwd", "vector", "AA", "SSE-legacy (xmm)"): 30,
                               ("andnl",   "plain",  "CC", "BMI1"):             5,
                               ("paddw",   "vector", "AA", "MMX (mm)"):         4,
-                              ("pmulld",  "vector", "AA", "SSE-legacy (xmm)"): 2})
+                              ("phaddw",  "vector", "AA", "SSE-legacy (xmm)"): 2})  # D379: was pmulld
     ref = differential_reference(_M)
     with contextlib.redirect_stdout(io.StringIO()):
         honest = report("fixture", fx, _M, io.StringIO(), {}, 1, 1)
@@ -1552,6 +2165,12 @@ def selftest():
           "does not — the exact blindness D98 was" +
           ("" if ok else f"   model {_h0}/{_h1}  rules {_r0}/{_r1}/{_r2}"))
     bad += [] if ok else ["stamp-rules-half"]
+    # ⛔ D344: the `rules` half must see a rule that moves a VEX-table mnemonic. Its domain once held none, so the
+    # VEX.256 rule left the stamp byte-identical. The arm asks the precondition directly (every VEX-table mnemonic is
+    # in the domain); `census_redprobe.py` drives the mutation that removes them and sees this arm fail.
+    ok = bool(vex_of(_M)) and vex_of(_M) <= _rule_domain(_M)
+    print(("  ✔ " if ok else "  ⛔ ") + "every VEX-table mnemonic is in the stamp's rule domain (D344)")
+    bad += [] if ok else ["stamp-vex-domain"]
 
     # ── the LINE-LEVEL rules, each driven on the shape that moved the number ──
     def L(*rows):
@@ -1701,6 +2320,14 @@ def selftest():
         (("vzeroupper", ""), "AVX (state)"),
         # ⛔ the DEFAULT is a named, printed bucket — never a silent "other"
         (("frobnicate", "%rax"), "GPR/other (unclassified)"),
+        # ⭐ D380: registers 16-31 exist only under EVEX, so they are AVX-512 even with no %zmm and no mask (an
+        # unmasked `vpmulld %ymm17,…` was bucketed ymm and CREDITED as VEX.256). The 15s and the low registers stay.
+        (("vpmulld", "%ymm17,%ymm1,%ymm3"), "AVX-512 (zmm/k)"),
+        (("vpaddd", "%xmm16,%xmm1,%xmm0"), "AVX-512 (zmm/k)"),
+        (("vmovdqu64", "(%rax),%ymm31"), "AVX-512 (zmm/k)"),
+        (("vpaddd", "%ymm15,%ymm1,%ymm0"), "AVX2/AVX (ymm)"),
+        (("paddd", "%xmm15,%xmm0"), "SSE-legacy (xmm)"),
+        (("vpaddd", "%xmm1,%xmm2,%xmm0"), "VEX-128 (v… xmm)"),
     ]
     for (mn, ops), want in ext_arms:
         got = isa_bucket(mn, ops)
@@ -1728,6 +2355,128 @@ def selftest():
               ("" if ok else f"   EXPECTED {want}"))
         if not ok:
             bad.append("pfx:" + mn)
+
+    # ⭐ D385: EVEX is read from the BYTES. Red-first: the EVEX line and its VEX twin have IDENTICAL text, so any rule
+    # over the text gives them one bucket; only the bytes separate them. Lines in LLVM objdump's raw format.
+    raw_arms = [
+        ("   24041: 62 f2 45 08 0b 4a 3c         \tvpmulhrsw\t0x3c0(%rdx), %xmm7, %xmm1", "AVX-512 (zmm/k)"),
+        ("   24041: c4 e2 41 0b 8a c0 03 00 00   \tvpmulhrsw\t0x3c0(%rdx), %xmm7, %xmm1", "VEX-128 (v… xmm)"),
+        ("   24056: 62 f2 45 28 0b 52 0a         \tvpmulhrsw\t0x140(%rdx), %ymm7, %ymm2", "AVX-512 (zmm/k)"),
+        # a legacy prefix before the 62 is still EVEX; a 66-prefixed SSE form is not
+        ("   10: 67 62 f1 7d 08 6f 01            \tvmovdqa32\t(%ecx), %xmm0", "AVX-512 (zmm/k)"),
+        ("   20: 66 0f 6f c1                     \tmovdqa\t%xmm1, %xmm0", "SSE-legacy (xmm)"),
+        # the no-bytes format the other arms drive is unchanged
+        ("   30:\tvpmulhrsw\t0x3c0(%rdx), %xmm7, %xmm1", "VEX-128 (v… xmm)"),
+    ]
+    for line, want in raw_arms:
+        got = [e for (_m, _k, _o, e) in _classify([line])]
+        ok = got == [want]
+        print(("  ✔ " if ok else "  ⛔ ") + f"raw bucket {line.split(chr(9))[0].strip()[:28]:28s} -> {got}" +
+              ("" if ok else f"   EXPECTED {want}"))
+        if not ok:
+            bad.append("raw:" + line[:20])
+    try:
+        _classify(["   40: 62 f2 45 08 0b 4a 3c 11 22 33 44 55"])
+        ok = False
+    except SystemExit:
+        ok = True
+    print(("  ✔ " if ok else "  ⛔ ") + "a bytes-only line (a wrapped instruction's continuation) REFUSES rather than miscounting")
+    if not ok:
+        bad.append("raw:continuation")
+    # paper's LOW 1: the arm above is LLVM-shaped; GNU's own raw line (TAB after the address) must refuse too, and
+    # its continuation line ("  7:\t44 55") with it.
+    # ...and a no-bytes line whose mnemonic is spelled in hex letters is NOT taken for bytes
+    got = sorted(m for (m, _k) in classify_lines(["   60:\tfadd\t%st(1), %st", "   62:\tfaddp\t%st, %st(1)"]))
+    ok = got == ["fadd", "faddp"]
+    print(("  ✔ " if ok else "  ⛔ ") + f"a hex-lettered mnemonic in a no-bytes line is a mnemonic: {got}")
+    if not ok:
+        bad.append("raw:hexmn")
+    for gl in ["   0:\t62 f2 45 08 0b 4a 3c \tvpmulhrsw 0x3c0(%rdx),%xmm7,%xmm1", "   7:\t44 55 "]:
+        try:
+            _classify([gl])
+            ok = False
+        except SystemExit:
+            ok = True
+        print(("  ✔ " if ok else "  ⛔ ") + f"a GNU-objdump raw line REFUSES: {gl.strip()[:40]!r}")
+        if not ok:
+            bad.append("raw:gnu")
+    # ⭐ D388: the model's own forms go through the SAME bucket rule as the corpus: a raw EVEX line is AVX-512 on the
+    # model side too, and its VEX twin is not (paper's LOW 2 on D385). Memory forms, so the SECOND set holds them.
+    try:
+        _m = model_mnemonics()
+        _, _ev = forms_from_lines(["   0: 62 f2 45 08 0b 4a 3c         \tvpmulhrsw\t0x3c0(%rdx), %xmm7, %xmm1"], _m)
+        _, _vx = forms_from_lines(["   0: c4 e2 41 0b 8a c0 03 00 00   \tvpmulhrsw\t0x3c0(%rdx), %xmm7, %xmm1"], _m)
+        _evb = {b for (_r, b) in _ev}; _vxb = {b for (_r, b) in _vx}
+        ok = _evb == {"AVX-512 (zmm/k)"} and _vxb == {"VEX-128 (v… xmm)"}
+    except SystemExit as e:
+        ok, _evb, _vxb = False, str(e)[:60], "-"
+    print(("  ✔ " if ok else "  ⛔ ") + f"model forms bucket by bytes: EVEX -> {_evb}, VEX twin -> {_vxb}")
+    if not ok:
+        bad.append("model:evex")
+    # ⭐ D388's guard (paper's LOW at 5ae0e68: the arm above never reached the line D388 changes). Run the REAL
+    # `model_forms` with `subprocess.run` recorded, and require its objdump argv to be the corpus's OBJDUMP_DISASM,
+    # with the bytes. Reverting `model_forms` to `--no-show-raw-insn`, or to any argv of its own, reds this.
+    import tempfile
+    # paper's NIT 1 at 6ab8264: the CORPUS side too: `disassemble` (Popen) is driven on the same object and recorded.
+    # ⚠️ `subprocess.run` is built on `Popen`, so a Popen made INSIDE a run call is not recorded twice.
+    _seen, _pseen, _real, _realp, _in_run = [], [], subprocess.run, subprocess.Popen, [0]
+
+    def _rec(argv, *a, **k):
+        if argv and argv[0] == "objdump":
+            _seen.append(list(argv))
+        _in_run[0] += 1
+        try:
+            return _real(argv, *a, **k)
+        finally:
+            _in_run[0] -= 1
+
+    def _recp(argv, *a, **k):
+        if argv and argv[0] == "objdump" and not _in_run[0]:
+            _pseen.append(list(argv))
+        return _realp(argv, *a, **k)
+    # ⛔ D388 POST-MERGE RED (22050cd6, CI run 41587035787): on a box whose `objdump` is GNU's (ubuntu CI), the forms half
+    # CANNOT run: CI's binutils printed nothing the forms reader could use ("0 symbols of 1764"), and GNU 2.47 prints raw
+    # lines that D385's parser refuses by design (paper, reproduced on yukon). The census itself refuses that box
+    # (`require_llvm_objdump`, D385). So the ARGV half — the regression
+    # this arm guards — is required on EVERY box; the forms-READ half is required where the census runs (an LLVM
+    # objdump) and, elsewhere, is printed NOT RUN with the reason, beside the verdict.
+    _ver = subprocess.run(["objdump", "--version"], capture_output=True, text=True).stdout
+    _llvm = "LLVM" in _ver
+    _dc = None
+    try:
+        subprocess.run, subprocess.Popen = _rec, _recp
+        with tempfile.TemporaryDirectory(prefix="x86lean-census-argv-") as _td:
+            # GNU objdump's raw lines are REFUSED by D385's parser (SystemExit at `raw_split`), AFTER the argv is
+            # recorded, so the refusal is caught here and carried as the reason; it fails the arm only on an LLVM box.
+            try:
+                _r, _mk, _why = model_forms(root, model_mnemonics(), _td)
+            except SystemExit as _e:
+                _mk, _why = None, "refused: " + str(_e)[:90]
+            if os.path.exists(os.path.join(_td, "forms.o")):
+                try:
+                    _dc = disassemble(os.path.join(_td, "forms.o"))
+                except SystemExit:
+                    _dc = None
+    finally:
+        subprocess.run, subprocess.Popen = _real, _realp
+    _raw = lambda v: v[:-1] == OBJDUMP_DISASM and "--no-show-raw-insn" not in v
+    _argv_ok = (len(_seen) == 1 and _raw(_seen[0]) and len(_pseen) == 1 and _raw(_pseen[0])
+                and OBJDUMP_DISASM == ["objdump", "-d"])
+    ok = _argv_ok and (not _llvm or (_mk is not None and _dc is not None))
+    _read = ("yes" if _mk is not None else _why) if _llvm else (
+        "NOT RUN here: objdump is not LLVM's (" + ((_ver.splitlines() or ["?"])[0])[:60] + "), whose output the forms "
+        "reader cannot use; the census refuses this box too (require_llvm_objdump). The argv half above WAS checked")
+    print(("  ✔ " if ok else "  ⛔ ") + f"model_forms AND disassemble run the one command with bytes: "
+          f"run {[v[:-1] for v in _seen]} · Popen {[v[:-1] for v in _pseen]} "
+          f"(forms read: {_read})")
+    if not ok:
+        bad.append("model:argv")
+    # ⭐ D386: the whole compare pseudo-op is the key, never its prefix up to the `_`.
+    got = sorted(m for (m, _k) in classify_lines(["   50:\tvcmplt_oqpd\t%ymm1, %ymm2, %ymm3"]))
+    ok = got == ["vcmplt_oqpd"]
+    print(("  ✔ " if ok else "  ⛔ ") + f"mnemonic key vcmplt_oqpd -> {got}")
+    if not ok:
+        bad.append("key:vcmp_oq")
 
     # ── attribution by ADDRESS, with the unattributed gap printed as `U` ──
     def LA(base, *rows):
@@ -1979,7 +2728,9 @@ def selftest():
              # D257: the width key, its origin invariance, the stamp seeing it
              len(width_arms) + 2 +
              # D337: the silicon class, its mapping, and the no-pooling plants
-             d337)
+             d337 +
+             # D388: the model-side bucket arm and the one-command arm (D385–D387's inline arms are NOT counted here)
+             2)
     print(f"demand-census selftest: PASS ({len(arms)+len(line_arms)+7+n_new} arms; "
           f"the width-changing/string-move trap in both directions, every "
           f"line-level rule that moved the number, and both routes of the "
@@ -2068,15 +2819,19 @@ explicitly — there is no default:
 | a `%ymm`, `%zmm` or `%k` register | ⛔ | no AVX/AVX-512 state |
 | a VEX-encoded `%xmm` form (`v…`) | ⛔ | a different encoding, not a different name |
 | an x87 `%st` register | ⛔ | no x87 state |
-| a `lock` prefix | ⛔ | see below |
+| a `lock` prefix | ✅ per form | see below |
 
-⛔ **The `lock` exclusion is a REFUSAL, not an absence.** P2 addition 2 landed a
-LOCK vocabulary, so the model does execute locked forms — but only the SDM's
-nineteen, and whether a given form is one of them is `Op.lockIllegal`, which
-this document's inputs do not publish. Claiming a locked instruction by
-MNEMONIC would credit the model with `lock movq %rax,(%rbx)`, which is `#UD` on
-silicon and the form a reader most expects to be lockable. So it is counted as
-NOT covered, at a measured cost, until that predicate is exported.
+⭐ **The `lock` prefix is credited PER FORM, through a published predicate (D367).** P2
+addition 2 landed a LOCK vocabulary, and `docs/COVERAGE.md` now publishes a `Lockable:`
+line: every mnemonic with a vector whose form `Op.lockable` accepts. A locked instruction
+is covered when its roster name is in the model AND on that line; any other locked form
+is refused and counted as NOT covered. Claiming a locked instruction by MNEMONIC alone
+would credit the model with `lock movq %rax,(%rbx)`, which is `#UD` on silicon and the
+form a reader most expects to be lockable; the line is what prevents that.
+⚠️ **The limit, declared:** a name is on the line when a vector's FORM is lockable, which
+need not be a vector that carries the `lock` byte. Some credited names (`and`, `sub`,
+`btr`, `xor` among them) are credited from an unlocked memory-destination vector plus
+the predicate, not from a differentially run locked instruction.
 
 ⛔ **The MMX exclusion was a real over-claim.** `%[xyz]mm` does not match
 `%mm0`, so until the assembly class arrived every MMX instruction whose mnemonic
@@ -2171,6 +2926,15 @@ def main():
         print("⛔ --corpus is required")
         return 2
     model = model_mnemonics()
+    # ⭐ D352 (STATUS 7d): the model's executed forms, read once; a refusal stops the run (never an empty set)
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix="x86lean-census-forms-") as _td:
+        _reg, msk, _fnote = model_forms(root, model, _td)
+    if msk is None:
+        print(f"⛔ D352: the model's forms could not be read — {_fnote}. Nothing written.")
+        return 2
+    print(f"D352: model forms read — {_fnote}; {len(_reg)} (name, bucket) with a register form, "
+          f"{len(msk)} with a memory form")
     dbg = debug_index(args.debug)
     groups = {}
     for g in sorted(os.listdir(args.corpus)):
@@ -2193,7 +2957,9 @@ def main():
         fh.write("*Generated by `scripts/demand_census.py`. Do not edit.*\n\n")
         n_m, h_m, rh_m = model_stamp(model)
         fh.write(f"<!-- census-model: mnemonics={n_m} sha={h_m} "
-                 f"rules={rh_m} -->\n\n")
+                 f"rules={rh_m} -->\n")
+        _nv, _np, _fd = forms_digest(root)
+        fh.write(f"<!-- census-forms: vectors={_nv} probes={_np} sha={_fd} -->\n\n")
         fh.write(DOC_PREAMBLE)
         fh.write(f"The model implements **{len(names_of(model))} mnemonics**: "
                  f"**{len(model)} differentially tested** (refereed by ACL2 x86isa "
@@ -2205,6 +2971,12 @@ def main():
                  f"way and refuses (exit 3) if it differs. The silicon-refereed "
                  f"demand is printed on its own line beside it and is never summed "
                  f"into it; a reader may cite the two side by side.\n\n")
+        if vex_of(model):
+            fh.write(f"⭐ **D342 (a): a third population, {len(vex_of(model))} VEX-table mnemonics** (VEX.128, "
+                     f"differentially tested against x86isa in the VEX table of `docs/COVERAGE.md`, D341, and NOT "
+                     f"in the 199-mnemonic figure). A VEX.128 instruction is outside the differential figure's scope, "
+                     f"so one whose mnemonic is a VEX-table row is printed on a third labelled line, and one whose "
+                     f"mnemonic is a `siliconTable` row on the silicon line; neither is summed into \"covered\".\n\n")
         fh.write(f"Every number below "
                  f"is a STATIC count of instruction occurrences in a disassembly, "
                  f"not a dynamic profile: it measures what a binary CONTAINS, which "
@@ -2221,11 +2993,12 @@ def main():
             if klass == "asm":
                 fh.write(ASM_CLASS_PREAMBLE)
             for g in sorted(cols):
-                counts, n, n_sym, fns = census(groups[g], dbg)
+                mem = collections.Counter()
+                counts, n, n_sym, fns = census(groups[g], dbg, mem)
                 if not counts:
                     continue
                 results[g] = report(f"{g} — {n} ELF x86-64 objects", counts,
-                                    model, fh, fns, n, n_sym)
+                                    model, fh, fns, n, n_sym, mem, msk)
                 results[g]["class"] = klass
                 # ⛔ D337 NO-POOLING: checked per column, before the document is
                 # finished, so a pooled figure never reaches a reader
@@ -2243,6 +3016,7 @@ def main():
                 tot = sum(results[g]["total"] for g in cols if g in results)
                 cov = sum(results[g]["covered"] for g in cols if g in results)
                 sil_n = sum(results[g]["silicon"] for g in cols if g in results)
+                vex_n = sum(results[g].get("vex", 0) for g in cols if g in results)
                 fh.write(f"\n### The assembly class, pooled\n\n")
                 fh.write(f"- **{tot:,} instructions**, covered by the model "
                          f"(differentially tested mnemonics) "
@@ -2251,6 +3025,9 @@ def main():
                     fh.write(f"- ⚙ **Implemented, {SILICON_LABEL}: {sil_n:,} "
                              f"({100.0*sil_n/tot:.2f}%)** — inside the not-covered "
                              f"figure below, never added to the line above (D337).\n")
+                if vex_of(model):
+                    fh.write(f"- ⚙ **{VEX_LABEL}: {vex_n:,} ({100.0*vex_n/tot:.2f}%)** — inside the "
+                             f"not-covered figure below, never added to the line above (D342).\n")
                 fh.write(f"- ⛔ Pooled ACROSS the codec columns and never with "
                          f"compiler output: the two are different demands, which "
                          f"is why this class exists.\n\n")
@@ -2267,6 +3044,7 @@ def main():
                                               pct=100.0*cov/tot,
                                               silicon=sil_n,
                                               silicon_pct=100.0*sil_n/tot,
+                                              vex=vex_n, vex_pct=100.0*vex_n/tot,
                                               ext=dict(ext_pool))
         # ── the pre-registered controls, checked in the generated document ──
         fh.write("\n## The controls, and the one that fired\n\n")

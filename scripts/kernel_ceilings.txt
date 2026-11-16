@@ -405,3 +405,184 @@ Tests.AnchorsSimd 20310 @on katmai
 # runner, 2026-10-13: the line PR #92's kernel-delta job PRINTED on refusing the NEW unit (job 115618753011, head 9340.0 ms
 # on runnervmmprz5 => max(9340.0 x 3, 50) = 28020), copied, not retyped. Same step as the two runner lines above.
 Tests.AnchorsSimd 28020 @on runnervmmprz5
+# D338 arm (A) (the V2 SHA-NI pins in their own module from the start, 2026-10-14): the gate's own suggested line from kernel_delta
+# 76b6890 → 34cee41, yukon.lan, --repeats 3, not retyped: Tests.AnchorsSha head 2630.0 ms ⇒ max(2630.0 × 3, 50) = 7890. The runner
+# line follows the merge ref's first refusal (D252 §6): no runner reading exists before CI runs the module.
+Tests.AnchorsSha 7890 @on yukon.lan
+# katmai, 2026-10-14, the line kernel_delta PRINTED on refusing the NEW unit there (base 76b6890 -> 5441610, --repeats 6):
+# head 2535.0 ms => max(2535.0 x 3, 50) = 7605, copied, not retyped.
+Tests.AnchorsSha 7605 @on katmai
+# runner, 2026-10-15: the line PR #96's kernel-delta job PRINTED on refusing the NEW unit (job 116210156569, head 4945.0 ms
+# on runnervm8k3b6 => max(4945.0 x 3, 50) = 14835), copied, not retyped. Same step as the runner lines above (D252 §6).
+Tests.AnchorsSha 14835 @on runnervm8k3b6
+# V3 (D341) arm (A) (the YMM upper half's new state in its own module, 2026-10-14): the gate's own suggested line from
+# kernel_delta 76b6890 → c5bb943, yukon.lan, not retyped: X86.YmmHi head 9.2 ms. Built inside X86.Basic the same
+# declarations moved that unit by +54.9 ms, then +37.7 ms, against its 21.6 ms delta budget; the budget was not widened.
+X86.YmmHi 50 @on yukon.lan
+# V3 (D341) arm (A) (the YMM upper half's new state in its own module, 2026-10-14): the gate's own suggested line from
+# kernel_delta 76b6890 → c5bb943, yukon.lan, not retyped: X86.Vex head 28.7 ms. Built inside X86.Basic the same
+# declarations moved that unit by +54.9 ms, then +37.7 ms, against its 21.6 ms delta budget; the budget was not widened.
+X86.Vex 86 @on yukon.lan
+# V3 (D341) arm (A) (the VEX twins' step equations, upper-half theorems and SDM anchors in their own module, 2026-10-14): the gate's own
+# suggested line from kernel_delta 76b6890 → 3a88a63, yukon.lan, not retyped: Tests.AnchorsVex head 35.3 ms.
+Tests.AnchorsVex 106 @on yukon.lan
+# V3 (D341) arm (A) (the VEX table's own coverage checks, kept out of Tests.Coverage, whose table theorems are quadratic in
+# the row count: as tableP0 rows the 33 moved that unit +5,300 ms against its 2,671 ms budget, 2026-10-14): the gate's own
+# suggested line from kernel_delta 76b6890 → 3a88a63, yukon.lan, not retyped: Tests.CoverageVex head 3000.0 ms.
+Tests.CoverageVex 9000 @on yukon.lan
+# katmai, 2026-10-15, the lines kernel_delta PRINTED on refusing the four NEW units there (base 63bc82d -> cfefffd, --repeats 6;
+# heads X86.YmmHi 10.4 · X86.Vex 35.0 · Tests.AnchorsVex 41.4 · Tests.CoverageVex 3345.0 ms), copied, not retyped.
+X86.YmmHi 50 @on katmai
+X86.Vex 105 @on katmai
+Tests.AnchorsVex 124 @on katmai
+Tests.CoverageVex 10035 @on katmai
+# runner, 2026-10-15: the lines PR #98's kernel-delta job PRINTED on refusing the four NEW units (D252 §6), copied, not retyped.
+Tests.AnchorsVex 152 @on runnervm8k3b6
+Tests.CoverageVex 13800 @on runnervm8k3b6
+X86.Vex 112 @on runnervm8k3b6
+X86.YmmHi 50 @on runnervm8k3b6
+# D342 (V4): the NEW unit kernel_delta printed on refusing it, 9d81f4b (origin/master) → fc5f3e1, yukon.lan,
+# --repeats 3, copied from its output, not retyped: Tests.AnchorsAes head 3430.0 ms ⇒ max(3430.0 × 3, 50).
+Tests.AnchorsAes 10290 @on yukon.lan
+# katmai, 2026-10-15, the line kernel_delta PRINTED on refusing the NEW unit there (base 40ad9ae -> 3fc46fd, --repeats 6):
+# head 3355.0 ms => max(3355.0 x 3, 50) = 10065, copied, not retyped.
+Tests.AnchorsAes 10065 @on katmai
+# runner, 2026-10-16: the line PR #102's kernel-delta job PRINTED on refusing the NEW unit (D252 §6), copied, not retyped.
+Tests.AnchorsAes 13890 @on runnervm8k3b6
+# D344 (V6): the NEW unit kernel_delta printed on refusing it, e92b5fc (V5's head) → 59f2b96, yukon.lan,
+# --repeats 3, copied from its output, not retyped: Tests.CoverageVex256 head 774.0 ms ⇒ max(774.0 × 3, 50).
+Tests.CoverageVex256 2322 @on yukon.lan
+# katmai, 2026-10-16, the line kernel_delta PRINTED on refusing the NEW unit (base 2feb887 → 883aed0, --repeats 6;
+# head Tests.CoverageVex256 794.5 ms), copied, not retyped. The ledger row is measured AFTER this line, on the tree that lands.
+Tests.CoverageVex256 2384 @on katmai
+# runner, 2026-10-17: the line PR #104's kernel-delta job PRINTED on refusing the NEW unit (D252 §6; run 38994375361,
+# head Tests.CoverageVex256 990.0 ms ⇒ max(990.0 × 3, 50)), copied, not retyped.
+Tests.CoverageVex256 2970 @on runnervm8k3b6
+# D345 (V7): the NEW unit kernel_delta printed on refusing it, 8862206 (origin/master) → cac895b, yukon.lan,
+# --repeats 3, copied from its output, not retyped: Tests.AnchorsVexSil head 3680.0 ms ⇒ max(3680.0 × 3, 50).
+Tests.AnchorsVexSil 11040 @on yukon.lan
+# katmai, 2026-10-17, the line kernel_delta PRINTED on refusing the NEW unit (base 5171fff → 7ad1fd3, --repeats 6;
+# head Tests.AnchorsVexSil 4210.0 ms), copied, not retyped. The ledger row is measured AFTER this line, on the tree that lands.
+Tests.AnchorsVexSil 12630 @on katmai
+# runner, 2026-10-18: the line PR #108's kernel-delta job PRINTED on refusing the NEW unit (D252 §6; run 39159507167,
+# head Tests.AnchorsVexSil 7105.0 ms ⇒ max(7105.0 × 3, 50)), copied, not retyped.
+Tests.AnchorsVexSil 21315 @on runnervm8k3b6
+# D348 (V8b): the NEW unit kernel_delta printed on refusing it, b14c4e0 (V8a's head) → 7c54f8a, yukon.lan,
+# --repeats 3, copied from its output, not retyped: Tests.AnchorsVexSilB head 351.0 ms ⇒ max(351.0 × 3, 50).
+Tests.AnchorsVexSilB 1053 @on yukon.lan
+# D348 (V8b): the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1 (1a70f4b → 714a69f,
+# katmai, --repeats 6), copied, not retyped: Tests.AnchorsVexSilB head 420.5 ms ⇒ max(420.5 × 3, 50).
+Tests.AnchorsVexSilB 1262 @on katmai
+# runner, 2026-10-20: the line PR #115's kernel-delta job PRINTED on refusing the NEW unit (D252 §6; run 39418919573,
+# head Tests.AnchorsVexSilB 902.5 ms ⇒ max(902.5 × 3, 50)), copied, not retyped.
+Tests.AnchorsVexSilB 2708 @on runnervm8k3b6
+# D350 (V8c): the NEW unit kernel_delta printed on refusing it, 0f0a069 → 95ef3d3, yukon.lan, --repeats 3, copied, not
+# retyped: Tests.AnchorsVexSilC head 5450.0 ms ⇒ max(5450.0 × 3, 50). (Its first design read 36,300 ms; D350.)
+Tests.AnchorsVexSilC 16350 @on yukon.lan
+# D350 (V8c): the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1 (32b535f → e776518,
+# katmai, --repeats 6), copied, not retyped: Tests.AnchorsVexSilC head 5535.0 ms ⇒ max(5535.0 × 3, 50).
+Tests.AnchorsVexSilC 16605 @on katmai
+# D350 (V8c), runner, 2026-10-21: the line PR #120's kernel-delta job PRINTED on refusing the NEW unit (D252 §6; run
+# 39611122360, head Tests.AnchorsVexSilC 10250.0 ms ⇒ max(10250.0 × 3, 50)), copied, not retyped.
+Tests.AnchorsVexSilC 30750 @on runnervm8k3b6
+# D353 (V9a): the NEW unit kernel_delta printed on refusing it, 6b10e8b → 1ffdbc1, yukon.lan, --repeats 3, copied, not
+# retyped: Tests.CoverageVexMem head 2650.0 ms ⇒ max(2650.0 × 3, 50).
+Tests.CoverageVexMem 7950 @on yukon.lan
+# D353 (V9a): the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1b (6b10e8b → 1ffdbc1,
+# katmai, --repeats 6), copied, not retyped: Tests.CoverageVexMem head 2545.0 ms ⇒ max(2545.0 × 3, 50).
+Tests.CoverageVexMem 7635 @on katmai
+# D353 (V9a), runner, 2026-10-23: the line PR #125's kernel-delta job PRINTED on refusing the NEW unit (D252 §6; run
+# 39918139772, head Tests.CoverageVexMem 4515.0 ms ⇒ max(4515.0 × 3, 50)), copied, not retyped.
+Tests.CoverageVexMem 13545 @on runnervm8k3b6
+# D354 (V9b): the two NEW units' katmai ceilings, the lines kernel_delta printed on refusing them at K1 (61edd92 -> 27ee2d2,
+# katmai, --repeats 6), copied, not retyped: Tests.AnchorsVexSilD head 5810.0 ms, Tests.CoverageVexMov head 3475.0 ms, each max(x 3, 50).
+Tests.AnchorsVexSilD 17430 @on katmai
+Tests.CoverageVexMov 10425 @on katmai
+# D354 (V9b), runner, 2026-10-25: the lines PR #129's kernel-delta job PRINTED on refusing its two NEW units (D252 §6; run
+# 40146284481 attempt 2, the merged head 2962b906: Tests.AnchorsVexSilD head 7915.0 ms, Tests.CoverageVexMov head 5105.0 ms,
+# each max(x 3, 50)), copied, not retyped.
+Tests.AnchorsVexSilD 23745 @on runnervmtai0g
+Tests.CoverageVexMov 15315 @on runnervmtai0g
+
+# D361 (V10): the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1 (738411c → 709af7c,
+# katmai, --repeats 6), copied, not retyped: Tests.AnchorsVexSilE head 14450.0 ms ⇒ max(14450.0 × 3, 50).
+Tests.AnchorsVexSilE 43350 @on katmai
+# D361 (V10), runner, 2026-11-07: the line PR #170's kernel-delta job PRINTED on refusing its NEW unit (D252 §6; run
+# 42422806454, job 128554722159, the merged head 36218271: Tests.AnchorsVexSilE head 24800.0 ms, max(x 3, 50)), copied,
+# not retyped. The helm's XF condition (4), in the next PR of the stack.
+Tests.AnchorsVexSilE 74400 @on runnervmwuk1x
+# D362: the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1 (06ca21f → b45a6a8,
+# katmai, --repeats 6), copied, not retyped: Tests.AnchorsShufM head 721.0 ms ⇒ max(721.0 × 3, 50).
+Tests.AnchorsShufM 2163 @on katmai
+# D362, runner, 2026-11-08: the line PR #171's kernel-delta job PRINTED on refusing its NEW unit (D252 §6; run
+# 42456363772 attempt 3, job 128695472829, the merged head 07bccca: Tests.AnchorsShufM head 1250.0 ms, max(x 3, 50)),
+# copied, not retyped. The helm's XF condition (4), in the next PR of the stack.
+Tests.AnchorsShufM 3750 @on runnervmwuk1x
+# D371: the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1 (733f8f2 → 914ab1c,
+# katmai, --repeats 6), copied, not retyped: Tests.AnchorsVexSilF head 490.5 ms ⇒ max(490.5 × 3, 50).
+Tests.AnchorsVexSilF 1472 @on katmai
+# D371, runner, 2026-11-10: the line PR #172's kernel-delta job PRINTED on refusing its NEW unit (D252 §6; run
+# 42510106753, job 128821113277, the merged head 3921719: Tests.AnchorsVexSilF head 618.0 ms, max(x 3, 50)), copied,
+# not retyped. The helm's XF condition (4), in the next PR of the stack.
+Tests.AnchorsVexSilF 1854 @on runnervmwuk1x
+# D373: the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1 (5796e5b → f5d9ffa,
+# katmai, --repeats 6), copied, not retyped: Tests.AnchorsSimdB head 2500.0 ms ⇒ max(2500.0 × 3, 50).
+Tests.AnchorsSimdB 7500 @on katmai
+# D373, runner, 2026-11-10: the line PR #173's kernel-delta job PRINTED on refusing its NEW unit (D252 §6; run
+# 42908386152, job 130152270536, the merged head 85e7e8f: Tests.AnchorsSimdB head 2900.0 ms, max(x 3, 50)), copied,
+# not retyped. The helm's XF condition (4), in the next PR of the stack.
+Tests.AnchorsSimdB 8700 @on runnervmwuk1x
+
+# D374: the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1 (f5d9ffa → f0364d8,
+# katmai, --repeats 6), copied, not retyped: Tests.AnchorsVexSilG head 12000.0 ms ⇒ max(12000.0 × 3, 50).
+Tests.AnchorsVexSilG 36000 @on katmai
+# D374, runner, 2026-11-11: the line PR #174's kernel-delta job PRINTED on refusing its NEW unit (D252 §6; run
+# 42965975430, job 130343186046, the merged head 9e568e1: Tests.AnchorsVexSilG head 27500.0 ms, max(x 3, 50)), copied,
+# not retyped. The helm's XF condition (4), in the next PR of the stack.
+Tests.AnchorsVexSilG 82500 @on runnervmwuk1x
+# D375: the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1 (f0364d8 → 3248cf3,
+# katmai, --repeats 6), copied, not retyped: Tests.AnchorsVexSilH head 4285.0 ms ⇒ max(4285.0 × 3, 50).
+Tests.AnchorsVexSilH 12855 @on katmai
+# D375, runner, 2026-11-11: the line PR #175's kernel-delta job PRINTED on refusing its NEW unit (D252 §6; run
+# 43041177551, job 130593061644, the merged head 75d2531: Tests.AnchorsVexSilH head 6185.0 ms, max(x 3, 50)), copied,
+# not retyped. The helm's XF condition (4), in the next PR of the stack.
+Tests.AnchorsVexSilH 18555 @on runnervmwuk1x
+
+# D376: the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1 (244dac3 → 681dd86,
+# katmai, --repeats 6), copied, not retyped: Tests.AnchorsVexSilI head 3625.0 ms ⇒ max(3625.0 × 3, 50).
+Tests.AnchorsVexSilI 10875 @on katmai
+# D376, runner, 2026-11-11: the line PR #178's kernel-delta job PRINTED on refusing its NEW unit (D252 §6; run
+# 43120172000, job 130858343671, the merged head 8002444: Tests.AnchorsVexSilI head 7020.0 ms, max(x 3, 50)), copied,
+# not retyped. The helm's XF condition (4), in the next PR of the stack.
+Tests.AnchorsVexSilI 21060 @on runnervmwuk1x
+# D379: the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1 (cbc52e8 → e09965c,
+# katmai, --repeats 6), copied, not retyped: Tests.AnchorsVexSilJ head 13450.0 ms ⇒ max(13450.0 × 3, 50).
+Tests.AnchorsVexSilJ 40350 @on katmai
+# D379, runner, 2026-11-12: the line PR #179's kernel-delta job PRINTED on refusing its NEW unit (D252 §6; run
+# 43189017152, job 131083468268, the merged head 0767192: Tests.AnchorsVexSilJ head 22600.0 ms, max(x 3, 50)), copied,
+# not retyped. The helm's XF condition (4), in the next PR of the stack.
+Tests.AnchorsVexSilJ 67800 @on runnervmwuk1x
+# D384: the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1 (0875143 → 0710c63,
+# katmai, --repeats 6), copied, not retyped: Tests.AnchorsVexSilK head 5195.0 ms ⇒ max(5195.0 × 3, 50).
+Tests.AnchorsVexSilK 15585 @on katmai
+# D384, runner, 2026-11-12: the line PR #180's kernel-delta job PRINTED on refusing its NEW unit (D252 §6; run
+# 43288008209, job 131426435695, the merged head d6d99a7: Tests.AnchorsVexSilK head 9625.0 ms, max(x 3, 50)), copied,
+# not retyped. ⚠️ The VM is runnervmccnms, not the wuk1x the stack's other runner lines name (STATUS-paris row 62).
+Tests.AnchorsVexSilK 28875 @on runnervmccnms
+# D393: the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1 (cb636b5 → f042629,
+# katmai, --repeats 6), copied, not retyped: Tests.AnchorsVexSilL head 4765.0 ms ⇒ max(4765.0 × 3, 50).
+Tests.AnchorsVexSilL 14295 @on katmai
+# D393, runner, 2026-11-13: the line PR #183's kernel-delta job PRINTED on refusing its NEW unit (D252 §6; run
+# 43391584443, job 131772556456, the merged head b8920d0: Tests.AnchorsVexSilL head 8880.0 ms, max(x 3, 50)), copied,
+# not retyped. The VM is runnervmccnms, as #180's line (STATUS-paris row 62).
+Tests.AnchorsVexSilL 26640 @on runnervmccnms
+# D394: the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1 (fc9f804 → 53299ce,
+# katmai, --repeats 6), copied, not retyped: Tests.AnchorsVexSilM head 2280.0 ms ⇒ max(2280.0 × 3, 50).
+Tests.AnchorsVexSilM 6840 @on katmai
+# D394, runner, 2026-11-14: the line PR #184's kernel-delta job PRINTED on refusing its NEW unit (D252 §6; run
+# 43484981343, job 132090914220, the merged head 9310928: Tests.AnchorsVexSilM head 3380.0 ms, max(x 3, 50)), copied,
+# not retyped. The VM is runnervmwuk1x.
+Tests.AnchorsVexSilM 10140 @on runnervmwuk1x
+# D395: the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1b (1d48ff7 → 97036fc,
+# katmai, --repeats 12), copied, not retyped: X86.Effects head 280.0 ms ⇒ max(280.0 × 3, 50).
+X86.Effects 840 @on katmai

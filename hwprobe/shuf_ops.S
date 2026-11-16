@@ -7,7 +7,8 @@
        struct sio { uint64_t a[2], b[2], g, f, r[2], ro, fo; }     offsets 0 16 32 40 48 64 72 (16-byte aligned)
    On entry to the instruction under test:
        XMM0 = a (the destination)        XMM1 = b (the register source)
-       RBX  = &p->b (the memory source: 16-byte aligned, so a Type-4 m128 does not fault; PINSRD's m32 is its low dword)
+       RBX  = &p->b (the memory source: 16-byte aligned, so a Type-4 m128 does not fault; PINSRD's m32 is its low dword,
+               PINSRQ's m64 its low qword; D362: PEXTRD/Q's memory DESTINATION, read back by the probe after the call)
        RCX  = g (the GPR source of PINSRD/PINSRQ)        RAX = c3c3c3c3c3c3c3c3 (the canary; PEXTRD/Q's destination)
        RFLAGS = the process's RFLAGS with its six arithmetic bits (0x8d5) replaced by f's
    On exit: fo = RFLAGS (read immediately after the instruction), r = XMM0, ro = RAX. RBX is callee-saved and restored. */
@@ -97,3 +98,20 @@ OP(s_pextrq_rr_i0, pextrq $0, %xmm1, %rax)
 OP(s_pextrq_rr_i1, pextrq $1, %xmm1, %rax)
 OP(s_pextrq_rr_i3, pextrq $3, %xmm1, %rax)
 OP(s_pextrq_rr_i128, pextrq $128, %xmm1, %rax)
+
+/* D362: the memory shapes. The stores extract from XMM0 (= a), never XMM1 (= b, the bytes already at [RBX]), so a
+   dropped store cannot agree with a performed one (D358). */
+OP(s_pextrd_mr_i0, pextrd $0, %xmm0, (%rbx))
+OP(s_pextrd_mr_i1, pextrd $1, %xmm0, (%rbx))
+OP(s_pextrd_mr_i2, pextrd $2, %xmm0, (%rbx))
+OP(s_pextrd_mr_i3, pextrd $3, %xmm0, (%rbx))
+OP(s_pextrd_mr_i5, pextrd $5, %xmm0, (%rbx))
+OP(s_pextrd_mr_i255, pextrd $255, %xmm0, (%rbx))
+OP(s_pextrq_mr_i0, pextrq $0, %xmm0, (%rbx))
+OP(s_pextrq_mr_i1, pextrq $1, %xmm0, (%rbx))
+OP(s_pextrq_mr_i3, pextrq $3, %xmm0, (%rbx))
+OP(s_pextrq_mr_i128, pextrq $128, %xmm0, (%rbx))
+OP(s_pinsrq_rm_i0, pinsrq $0, (%rbx), %xmm0)
+OP(s_pinsrq_rm_i1, pinsrq $1, (%rbx), %xmm0)
+OP(s_pinsrq_rm_i2, pinsrq $2, (%rbx), %xmm0)
+OP(s_pinsrq_rm_i255, pinsrq $255, (%rbx), %xmm0)

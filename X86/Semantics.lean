@@ -8,7 +8,7 @@ and changes nothing else (the ACL2 x86isa model-state discipline).
 
 WHAT MAKES IT AN INTERPRETER RATHER THAN A RELATION: `step` computes, so the
 same definition that the theorems are about is the one the differential harness
-RUNS against ACL2 x86isa and (P1) against real hardware.  A relational or
+RUNS against ACL2 x86isa (no hardware co-simulation has been run).  A relational or
 axiomatic semantics could not be differentially tested at all, and a separate
 executable "reference" would be a second model to keep honest.
 
@@ -23,8 +23,8 @@ count draws exactly THREE bits, in the order CF, OF, AF, whether or not each is
 needed; the logic group draws exactly ONE (AF).  Once an instruction's branch is
 decided its draws are UNCONDITIONAL, so they never depend on WHICH flags are
 undefined — but the draw COUNT does depend on operand values through that branch
-(a masked count of zero draws nothing; BSF/BSR draw a further destination width
-only when the source is zero).  What must never happen is a branch reading a bit
+(a masked count of zero draws nothing; BSF/BSR drew a further destination width
+at a zero source until D346, which made the destination unmodified there).  What must never happen is a branch reading a bit
 drawn in the same step: the two opposite-oracle runs that derive the undefined set
 could then take different branches and report a difference of CONTROL as undefined
 fields (D213).  *(This paragraph said fixing the count makes the cursor "a
@@ -36,6 +36,7 @@ LANE. Personal lane, public sources only.  SDM read per instruction, cited at
 each case.
 -/
 import X86.Flags
+import X86.Vex
 
 namespace X86
 
@@ -134,6 +135,13 @@ KIND of thing — a property of a computed address that decides whether the acce
 happens at all — and neither is a property of the `Cpu`. -/
 def aligned16 (a : BitVec 64) : Bool := (a &&& 0xF) == 0
 
+/-- ⭐⭐ V9b (D354) — the alignment a VEX packed move requires, AT ITS OWN WIDTH: 16 bytes at VEX.128,
+32 at VEX.256 (SDM Vol. 2B, MOVDQA: "aligned on a 16 (VEX.128) / 32 (VEX.256)-byte boundary").  One
+definition for both widths, so the 16 and the 32 cannot drift apart; `alignedVex false` is `aligned16`
+(`alignedVex_false`, X86/Theorems.lean). -/
+def alignedVex (wide : Bool) (a : BitVec 64) : Bool :=
+  (a &&& (if wide then 0x1F else 0xF)) == 0
+
 namespace Cpu
 
 /-- Set RIP to a branch target, CHECKING that the target is canonical.
@@ -213,7 +221,7 @@ def bitStringByte (s : Cpu) (sz : Size) (ea : Ea) (r : GPR) (h8 : Bool)
 
 ⭐ THEY ARE ONE FUNCTION BECAUSE EVERYTHING THAT IS SUBTLE ABOUT THEM IS SHARED:
 five undefined flags drawn in a fixed order, ZF from the SOURCE, and the
-UNDEFINED DESTINATION at a zero source.  `rev` selects which index the non-zero
+destination at a zero source (UNMODIFIED since D346; drawn from the oracle before it).  `rev` selects which index the non-zero
 case reports.  Writing the two arms out separately would have duplicated the
 undefined-destination branch — the one thing in this batch that had never been
 written before — and a duplicate born in agreement diverges on the next edit.
@@ -230,10 +238,12 @@ def bitScanStep (rev : Bool) (sz : Size) (dst : GPR) (a : Val)
   let (ofU, s) := s.undefBit
   let s := s.setFlags (Flags.bitScan sz a cfU pfU afU sfU ofU s.flags)
   if Value.isZero sz a then
-    -- the SDM's "the content of the destination operand is undefined", drawn
-    -- rather than invented.  `sz.bits` bits, so the draw is the operand's width.
-    let (u, s) := s.undefVal sz.bits
-    (s.setReg sz dst u).setRip nr
+    -- ⭐ D346: the destination is UNMODIFIED — no write at all, so a 32-bit form does not
+    -- zero-extend either.  SDM 253666-093US Vol. 2A BSF/BSR: "If the content of the source
+    -- operand is zero, the destination operand is unmodified"; AMD APM Vol. 3 and x86isa
+    -- (`(if (equal source 0) x86 …)`) agree.  Until D346 this arm drew `sz.bits` oracle bits,
+    -- on the SDM's older "undefined" (D40).
+    s.setRip nr
   else
     let idx := if rev then Value.bitScanReverse sz a else Value.bitScanForward sz a
     (s.setReg sz dst (BitVec.ofNat 64 idx)).setRip nr
@@ -386,6 +396,12 @@ the saturation rule below apply per lane to a value that has already been
 truncated.  The count is a Nat here and stays one. -/
 def vlanes1 (w : Nat) (f : BitVec w → BitVec w) (a : BitVec 128) : BitVec 128 :=
   vlanes1Aux w f a (128 / w)
+
+/-- ⭐ D379 — PABS's lane, over 128 bits, through `vlanes1` (the unary combinator): `|x|` as an UNSIGNED result. `-x`
+in `BitVec` is two's-complement negation, so the minimum maps to itself, which is the SDM's "80H → 80H" (it wraps; a
+saturating abs would give 7FH). -/
+def vabsApply (w : VAbsW) (b : BitVec 128) : BitVec 128 :=
+  vlanes1 w.bits (fun y => if y.msb then -y else y) b
 
 /-- ⭐⭐⭐ ONE LANE OF A PACKED SHIFT — THE SATURATING COUNT RULE, WHICH IS THE
 WHOLE CONTENT OF THE GROUP (SDM Vol. 2B, PSLLW/PSRLW/PSRAW and their D and Q
@@ -579,9 +595,152 @@ def vinsrApply (sz : Size) (dst : BitVec 128) (v : Val) (imm : BitVec 8) : BitVe
   (dst &&& ~~~m) ||| (((Value.trunc sz v).setWidth 128) <<< sh)
 
 /-- PEXTRD/PEXTRQ (SDM Vol. 2B): lane `vlaneSel sz imm` of `src`, zero above the
-width (the GPR write then zero-extends a 32-bit lane by the ordinary rule). -/
+width (a GPR write then zero-extends a 32-bit lane by the ordinary rule; a memory
+write stores `sz.bits / 8` bytes of it, D362). -/
 def vextrApply (sz : Size) (src : BitVec 128) (imm : BitVec 8) : Val :=
   (src.extractLsb' (sz.bits * vlaneSel sz imm) sz.bits).setWidth 64
+
+/-! ### D338 (V2) — SHA256MSG1, SHA256MSG2, SHA256RNDS2 (SHA-NI, legacy SSE)
+
+x86isa refuses all three (`scripts/oracle_availability.py`, D338 prediction 1), so
+each is refereed by a processor (`hwprobe/mk_sha_rows.py`, D338) and pinned to the
+same rows by `decide` in `Tests/AnchorsSha.lean`.  None writes a flag.  The six
+functions of FIPS 180-4 §4.1.2 are stated once, on 32-bit words, and every rule
+below is built from them; dword `i` of a 128-bit value is bits `32i+31 : 32i`. -/
+
+/-- FIPS 180-4 σ0 (the SDM's `σ0`): `ROR 7 ⊕ ROR 18 ⊕ SHR 3`. -/
+def shaSig0 (w : BitVec 32) : BitVec 32 := w.rotateRight 7 ^^^ w.rotateRight 18 ^^^ (w >>> 3)
+/-- FIPS 180-4 σ1: `ROR 17 ⊕ ROR 19 ⊕ SHR 10`. -/
+def shaSig1 (w : BitVec 32) : BitVec 32 := w.rotateRight 17 ^^^ w.rotateRight 19 ^^^ (w >>> 10)
+/-- FIPS 180-4 Σ0: `ROR 2 ⊕ ROR 13 ⊕ ROR 22`. -/
+def shaSum0 (a : BitVec 32) : BitVec 32 := a.rotateRight 2 ^^^ a.rotateRight 13 ^^^ a.rotateRight 22
+/-- FIPS 180-4 Σ1: `ROR 6 ⊕ ROR 11 ⊕ ROR 25`. -/
+def shaSum1 (e : BitVec 32) : BitVec 32 := e.rotateRight 6 ^^^ e.rotateRight 11 ^^^ e.rotateRight 25
+/-- FIPS 180-4 Ch: `(E ∧ F) ⊕ (¬E ∧ G)`. -/
+def shaCh (e f g : BitVec 32) : BitVec 32 := (e &&& f) ^^^ (~~~e &&& g)
+/-- FIPS 180-4 Maj: `(A ∧ B) ⊕ (A ∧ C) ⊕ (B ∧ C)`. -/
+def shaMaj (a b c : BitVec 32) : BitVec 32 := (a &&& b) ^^^ (a &&& c) ^^^ (b &&& c)
+
+/-- Dword `i` of a 128-bit value. -/
+def shaD (x : BitVec 128) (i : Nat) : BitVec 32 := x.extractLsb' (32 * i) 32
+
+/-- Four dwords to a 128-bit value, HIGH first: `shaPack d3 d2 d1 d0` (the SDM's
+`DEST[127:96] … DEST[31:0]` order). -/
+def shaPack (d3 d2 d1 d0 : BitVec 32) : BitVec 128 :=
+  (d3.setWidth 128 <<< 96) ||| (d2.setWidth 128 <<< 64) ||| (d1.setWidth 128 <<< 32) ||| d0.setWidth 128
+
+/-- SHA256MSG1 (SDM Vol. 2B) on the dword `w4 = SRC2[31:0]`: `W3 + σ0(W4) : W2 + σ0(W3) :
+W1 + σ0(W2) : W0 + σ0(W1)`, W3..W0 the dwords of SRC1.  Stated on `w4` so that "only
+SRC2's LOW dword is read" is the TYPE of the argument, not a remark. -/
+def sha256msg1W (src1 : BitVec 128) (w4 : BitVec 32) : BitVec 128 :=
+  shaPack (shaD src1 3 + shaSig0 w4) (shaD src1 2 + shaSig0 (shaD src1 3))
+    (shaD src1 1 + shaSig0 (shaD src1 2)) (shaD src1 0 + shaSig0 (shaD src1 1))
+
+/-- SHA256MSG2 (SDM Vol. 2B) on `w14 = SRC2[95:64]`, `w15 = SRC2[127:96]`:
+`W16 := SRC1[31:0] + σ1(W14)`, `W17 := SRC1[63:32] + σ1(W15)`, and ⚠️ `W18`, `W19`
+from `W16`, `W17` — the serial chain the SDM's Operation states.  DEST = W19:W18:W17:W16. -/
+def sha256msg2W (src1 : BitVec 128) (w14 w15 : BitVec 32) : BitVec 128 :=
+  let w16 := shaD src1 0 + shaSig1 w14
+  let w17 := shaD src1 1 + shaSig1 w15
+  shaPack (shaD src1 3 + shaSig1 w17) (shaD src1 2 + shaSig1 w16) w17 w16
+
+/-- One FIPS 180-4 round on `(A, B, C, D, E, F, G, H)` with the word `wk` (= K[t] + W[t]):
+`T1 := H + Σ1(E) + Ch(E,F,G) + wk`, `T2 := Σ0(A) + Maj(A,B,C)`, and the state shifts to
+`(T1+T2, A, B, C, D+T1, E, F, G)`. -/
+def shaRound (st : BitVec 32 × BitVec 32 × BitVec 32 × BitVec 32 × BitVec 32 × BitVec 32 × BitVec 32 × BitVec 32)
+    (wk : BitVec 32) :
+    BitVec 32 × BitVec 32 × BitVec 32 × BitVec 32 × BitVec 32 × BitVec 32 × BitVec 32 × BitVec 32 :=
+  let (a, b, c, d, e, f, g, h) := st
+  let t1 := h + shaSum1 e + shaCh e f g + wk
+  let t2 := shaSum0 a + shaMaj a b c
+  (t1 + t2, a, b, c, d + t1, e, f, g)
+
+/-- SHA256RNDS2 (SDM Vol. 2B) on `wk0 = XMM0[31:0]`, `wk1 = XMM0[63:32]`: A B E F from
+SRC2 (`[127:96] [95:64] [63:32] [31:0]`), C D G H from SRC1 (the same positions), two
+rounds, DEST := A₂ : B₂ : E₂ : F₂.  ⚠️ Stated on the two words, so "XMM0's high
+quadword is not read" is the TYPE again. -/
+def sha256rnds2W (src1 src2 : BitVec 128) (wk0 wk1 : BitVec 32) : BitVec 128 :=
+  let s0 := (shaD src2 3, shaD src2 2, shaD src1 3, shaD src1 2,
+             shaD src2 1, shaD src2 0, shaD src1 1, shaD src1 0)
+  let (a, b, _, _, e, f, _, _) := shaRound (shaRound s0 wk0) wk1
+  shaPack a b e f
+
+/-- The three kinds on the WHOLE operands — SRC1 (the destination's value), SRC2, and
+XMM0 — each reading only the dwords its rule names. -/
+def shaApply (k : ShaKind) (src1 src2 xmm0 : BitVec 128) : BitVec 128 :=
+  match k with
+  | .msg1 => sha256msg1W src1 (shaD src2 0)
+  | .msg2 => sha256msg2W src1 (shaD src2 2) (shaD src2 3)
+  | .rnds2 => sha256rnds2W src1 src2 (shaD xmm0 0) (shaD xmm0 1)
+
+/-! ### D342 (V4) — the AES round and the carry-less product
+
+x86isa refuses AESENC, AESENCLAST and PCLMULQDQ (and their VEX forms); `hwprobe/mk_aes_rows.py`
+referees them (D342) and `Tests/AnchorsAes.lean` pins this model to the same rows.  The state is
+FIPS-197's column-major 4×4 matrix: byte `r + 4c` (bits 8(r+4c)+7 : 8(r+4c)) is s[r][c]. -/
+
+/-- FIPS-197 Figure 7, the S-box, as a TABLE — GENERATED by `hwprobe/mk_aes_rows.py`'s derivation
+(the GF(2^8) inverse, then the affine map), never typed; `Tests/AnchorsAes.lean` holds the model
+to FIPS-197 Appendix B round by round. -/
+def aesSbox : List (BitVec 8) := [
+    0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
+    0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
+    0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
+    0x04, 0xc7, 0x23, 0xc3, 0x18, 0x96, 0x05, 0x9a, 0x07, 0x12, 0x80, 0xe2, 0xeb, 0x27, 0xb2, 0x75,
+    0x09, 0x83, 0x2c, 0x1a, 0x1b, 0x6e, 0x5a, 0xa0, 0x52, 0x3b, 0xd6, 0xb3, 0x29, 0xe3, 0x2f, 0x84,
+    0x53, 0xd1, 0x00, 0xed, 0x20, 0xfc, 0xb1, 0x5b, 0x6a, 0xcb, 0xbe, 0x39, 0x4a, 0x4c, 0x58, 0xcf,
+    0xd0, 0xef, 0xaa, 0xfb, 0x43, 0x4d, 0x33, 0x85, 0x45, 0xf9, 0x02, 0x7f, 0x50, 0x3c, 0x9f, 0xa8,
+    0x51, 0xa3, 0x40, 0x8f, 0x92, 0x9d, 0x38, 0xf5, 0xbc, 0xb6, 0xda, 0x21, 0x10, 0xff, 0xf3, 0xd2,
+    0xcd, 0x0c, 0x13, 0xec, 0x5f, 0x97, 0x44, 0x17, 0xc4, 0xa7, 0x7e, 0x3d, 0x64, 0x5d, 0x19, 0x73,
+    0x60, 0x81, 0x4f, 0xdc, 0x22, 0x2a, 0x90, 0x88, 0x46, 0xee, 0xb8, 0x14, 0xde, 0x5e, 0x0b, 0xdb,
+    0xe0, 0x32, 0x3a, 0x0a, 0x49, 0x06, 0x24, 0x5c, 0xc2, 0xd3, 0xac, 0x62, 0x91, 0x95, 0xe4, 0x79,
+    0xe7, 0xc8, 0x37, 0x6d, 0x8d, 0xd5, 0x4e, 0xa9, 0x6c, 0x56, 0xf4, 0xea, 0x65, 0x7a, 0xae, 0x08,
+    0xba, 0x78, 0x25, 0x2e, 0x1c, 0xa6, 0xb4, 0xc6, 0xe8, 0xdd, 0x74, 0x1f, 0x4b, 0xbd, 0x8b, 0x8a,
+    0x70, 0x3e, 0xb5, 0x66, 0x48, 0x03, 0xf6, 0x0e, 0x61, 0x35, 0x57, 0xb9, 0x86, 0xc1, 0x1d, 0x9e,
+    0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94, 0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf,
+    0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16 ]
+
+/-- Byte `i` of a 128-bit value. -/
+def aesByte (v : BitVec 128) (i : Nat) : BitVec 8 := v.extractLsb' (8 * i) 8
+
+/-- The 128-bit value whose byte `i` is `f i`. -/
+def aesOfBytes (f : Nat → BitVec 8) : BitVec 128 :=
+  (List.range 16).foldl (fun acc i => acc ||| ((f i).setWidth 128 <<< (8 * i))) 0
+
+/-- ShiftRows (FIPS-197 §5.1.2): s'[r][c] = s[r][(c + r) mod 4]. -/
+def aesShiftRows (v : BitVec 128) : BitVec 128 :=
+  aesOfBytes fun i => aesByte v (i % 4 + 4 * ((i / 4 + i % 4) % 4))
+
+/-- SubBytes (FIPS-197 §5.1.1): every byte through the S-box. -/
+def aesSubBytes (v : BitVec 128) : BitVec 128 :=
+  aesOfBytes fun i => aesSbox.getD (aesByte v i).toNat 0
+
+/-- Multiplication by x in GF(2^8) mod x^8 + x^4 + x^3 + x + 1 (FIPS-197 §4.2.1). -/
+def aesXtime (b : BitVec 8) : BitVec 8 := (b <<< 1) ^^^ (if b.msb then 0x1b else 0)
+
+/-- MixColumns (FIPS-197 §5.1.3): each column times {03}x³ + {01}x² + {01}x + {02}, i.e.
+s'[r][c] = 2·s[r][c] ⊕ 3·s[r+1][c] ⊕ s[r+2][c] ⊕ s[r+3][c] (rows mod 4). -/
+def aesMixColumns (v : BitVec 128) : BitVec 128 :=
+  aesOfBytes fun i =>
+    let a := fun k => aesByte v (4 * (i / 4) + (i % 4 + k) % 4)
+    aesXtime (a 0) ^^^ (aesXtime (a 1) ^^^ a 1) ^^^ a 2 ^^^ a 3
+
+/-- One AES encryption round (SDM Vol. 2A AESENC / AESENCLAST): ShiftRows, SubBytes, then
+MixColumns unless `last`, then the round key XORed in. -/
+def aesRound (last : Bool) (state key : BitVec 128) : BitVec 128 :=
+  let s := aesSubBytes (aesShiftRows state)
+  (if last then s else aesMixColumns s) ^^^ key
+
+/-- The carry-less product of two 64-bit values: bit 127 is always 0. -/
+def clmul64 (a b : BitVec 64) : BitVec 128 :=
+  (List.range 64).foldl
+    (fun acc i => if b.getLsbD i then acc ^^^ (a.setWidth 128 <<< i) else acc) 0
+
+/-- PCLMULQDQ (SDM Vol. 2B): `src1`'s quadword imm8[0] times `src2`'s quadword imm8[4]; every other
+bit of imm8 is ignored. -/
+def pclmulApply (src1 src2 : BitVec 128) (imm : BitVec 8) : BitVec 128 :=
+  clmul64 (if imm.getLsbD 0 then (src1 >>> 64).setWidth 64 else src1.setWidth 64)
+    (if imm.getLsbD 4 then (src2 >>> 64).setWidth 64 else src2.setWidth 64)
 
 /-- One saturated byte of `packuswb`, folded from the top down.  ⚠️ The source
 lane is read SIGNED and the result lane is UNSIGNED, which is the asymmetry the
@@ -732,6 +891,8 @@ def vbinApply (k : VBinKind) (a b : BitVec 128) : BitVec 128 :=
   | .maddwd   => vlanes 32 vmaddwdLane a b
   | .maddubsw => vlanes 16 vmaddubswLane a b
   | .mullw    => vlanes 16 (· * ·) a b
+  -- ⭐ D379: the dword twin, the low 32 bits of each product (`*` on `BitVec 32` is mod 2^32).
+  | .mulld    => vlanes 32 (· * ·) a b
   | .mulhrsw  => vlanes 16 vmulhrswLane a b
   -- the EVEN dwords, UNSIGNED, full 64-bit product: the low dword of each quadword lane
   | .muludq   => vlanes 64 (fun x y => (x.setWidth 32).setWidth 64 * (y.setWidth 32).setWidth 64) a b
@@ -743,6 +904,20 @@ def vbinApply (k : VBinKind) (a b : BitVec 128) : BitVec 128 :=
   | .maxsw    => vlanes 16 (fun x y => if y.slt x then x else y) a b
   | .sadbw    => vlanes 64 vsadLane a b
   | .packssdw => vpackss a b
+  -- ⭐ D373 — refereed by silicon (`mk_simda_rows.py --set-b`).  ⛔ `slt` again:
+  -- `DEST < SRC` (SIGNED) keeps DEST, else SRC.
+  | .minsw    => vlanes 16 (fun x y => if x.slt y then x else y) a b
+  -- bits 31:16 of the 32-bit product; the two differ ONLY in how a word is widened.
+  | .mulhw    => vlanes 16 (fun x y => (x.signExtend 32 * y.signExtend 32).extractLsb' 16 16) a b
+  | .mulhuw   => vlanes 16 (fun x y => (x.setWidth 32 * y.setWidth 32).extractLsb' 16 16) a b
+  -- the sum in 9 bits, so FFH + FFH + 1 does not wrap before the shift.
+  | .avgb     => vlanes 8 (fun x y => (x.setWidth 9 + y.setWidth 9 + 1).extractLsb' 1 8) a b
+  -- ⭐ D384 (wave E) — refereed by silicon (`mk_simda_rows.py --set-c`, `mk_vexsilk_rows.py`).  Each sits beside
+  -- the kind it mirrors: `addsw` with the sum turned to a difference, `avgb` at 16 bits (the sum in 17), and
+  -- `muludq` with each even dword SIGN-extended instead of zero-extended.
+  | .subsw    => vlanes 16 (fun x y => ssatW (x.signExtend 32 - y.signExtend 32)) a b
+  | .avgw     => vlanes 16 (fun x y => (x.setWidth 17 + y.setWidth 17 + 1).extractLsb' 1 16) a b
+  | .muldq    => vlanes 64 (fun x y => (x.setWidth 32).signExtend 64 * (y.setWidth 32).signExtend 64) a b
 
 /-- ⭐⭐ P2 BATCH 38 — THE SCALAR MIN/MAX WRITE (SDM Vol. 2B, MINSS/MINSD/MAXSS/
 MAXSD): the destination's low lane becomes `fmin`/`fmax` of `d`'s low lane and
@@ -902,6 +1077,272 @@ def cvttFlags (dbl wide : Bool) (b : BitVec 64) : BitVec 32 :=
   SoftFloat.truncFlags (if dbl then SoftFloat.binary64 else SoftFloat.binary32)
     (if wide then 64 else 32) b
 
+/-- V7 (D345) — the sign bit of each of the sixteen bytes of `v`, at bits 15:0: the legacy `vmovmsk`
+arm's fold, with its lane width at `VMovMskKind.b`'s 8.  `Tests.AnchorsVexSil` proves the legacy
+`pmovmskb` writes exactly this, so the VEX twins share its arithmetic rather than restate it. -/
+def pmovmskbLane (v : BitVec 128) : Val :=
+  (List.range (128 / 8)).foldl
+    (fun acc i => acc ||| (((v >>> (8 * i + (8 - 1))) &&& 1).setWidth 64 <<< i)) 0
+
+/-- ⭐⭐ V5 (D343) — `step` over the nested VEX forms (`Op.vex`): V3's and V4's arms, VERBATIM,
+moved out of `step`'s match and nothing else.  `nr` is `step`'s next-instruction address and the
+lock guard has already run in `step`, so no arm here re-checks it.
+
+⭐ `@[simp]`, so `simp [step]` sees through the nesting exactly as it saw the arms in place: every
+theorem about a VEX form keeps its proof, and only its statement gains the `.vex` wrap. -/
+@[simp] def stepVex (v : VexOp) (s : Cpu) (nr : BitVec 64) : Cpu :=
+  match v with
+  -- ⭐⭐⭐ V3 (D341) — THE VEX.128 REGISTER TWINS.  Each computes exactly the legacy
+  -- form's 128-bit value and writes it through `setXmmVex128`, which zeroes bits
+  -- 255:128 of the destination's YMM register (SDM Vol. 1 §14.1.2).  That setter is
+  -- the whole difference from the legacy arm, by construction.
+  | .vexmov _ dst src =>
+      (s.setXmmVex128 dst (s.getXmm src)).setRip nr
+  | .vexddup dst src =>
+      let lo := ((s.getXmm src).setWidth 64).setWidth 128
+      (s.setXmmVex128 dst ((lo <<< 64) ||| lo)).setRip nr
+  | .vexbin k dst src1 src =>
+      if k.vexTaken || k.vexSilTaken then
+        (s.setXmmVex128 dst (vbinApply k (s.getXmm src1) (s.getXmm src))).setRip nr
+      else s.halt (.unimplemented s!"v{k.mnemonic}: a VEX twin not taken (D339)")
+  -- ⭐⭐ V4 (D342) — the VEX.128 memory twin: `vexbin`'s value with the m128 at `ea` as the
+  -- second source, and NO alignment check (VEX Exception Type 4; `vbinm` keeps the legacy #GP).
+  | .vexbinm k dst src1 ea =>
+      if k.vexMemTaken || k.vexSilMemTaken then
+        let a := ea.addr s nr
+        (s.setXmmVex128 dst (vbinApply k (s.getXmm src1) (s.readMem128 a))).setRip nr
+      else s.halt (.unimplemented s!"v{k.mnemonic} m128: a VEX memory twin not taken (D342)")
+  -- ⭐⭐ V4 (D342) — AES-NI, VPCLMULQDQ and the VEX shuffles.  x86isa refuses all nine;
+  -- `hwprobe/` referees them.  The legacy AES form writes through `setXmm` (bits 255:128
+  -- PRESERVED); every VEX form through `setXmmVex128` (ZEROED).  None writes a flag.
+  | .vexaes k dst src1 src =>
+      (s.setXmmVex128 dst (aesRound k.last (s.getXmm src1) (s.getXmm src))).setRip nr
+  | .vexclmul dst src1 src imm =>
+      (s.setXmmVex128 dst (pclmulApply (s.getXmm src1) (s.getXmm src) imm)).setRip nr
+  | .vexshufb dst src1 src =>
+      (s.setXmmVex128 dst (vshufbApply (s.getXmm src1) (s.getXmm src))).setRip nr
+  | .vexalignr dst src1 src imm =>
+      (s.setXmmVex128 dst (valignrApply (s.getXmm src1) (s.getXmm src) imm)).setRip nr
+  | .vexshiftdq left dst src cnt =>
+      (s.setXmmVex128 dst (vshiftdqApply left (s.getXmm src) cnt.toNat)).setRip nr
+  -- ⭐⭐ D369 — VZEROUPPER: every upper half to zero, the low halves and everything else kept.
+  | .vexzeroupper =>
+      ({ s with xmm := { s.xmm with hi := {} } }).setRip nr
+  -- ⭐⭐⭐ V6 (D344) — THE VEX.256 REGISTER TWINS.  Each lane is the VEX.128 twin's 128-bit
+  -- function, applied to the low halves (`getXmm`) and to the high halves (`getYmmHi`)
+  -- separately, and both are written through `setYmm`.  That the high lane uses the SAME
+  -- function as the low one is the lane rule, by construction.
+  | .vexmov256 _ dst src =>
+      (s.setYmm dst (s.getXmm src) (s.getYmmHi src)).setRip nr
+  | .vexddup256 dst src =>
+      let dup := fun (x : BitVec 128) => let lo := (x.setWidth 64).setWidth 128; (lo <<< 64) ||| lo
+      (s.setYmm dst (dup (s.getXmm src)) (dup (s.getYmmHi src))).setRip nr
+  | .vexbin256 k dst src1 src =>
+      if k.vexTaken || k.vexSilTaken then
+        (s.setYmm dst (vbinApply k (s.getXmm src1) (s.getXmm src))
+                      (vbinApply k (s.getYmmHi src1) (s.getYmmHi src))).setRip nr
+      else s.halt (.unimplemented s!"v{k.mnemonic} ymm: a VEX.256 twin not taken (D344)")
+  -- ⭐⭐⭐ V7 (D345) — THE SILICON-REFEREED VEX TWINS.  Each VEX.128 arm is its legacy twin's 128-bit
+  -- function with `src1` (VEX.vvvv) in the legacy destination's place, written through
+  -- `setXmmVex128`; each VEX.256 arm applies that SAME function to the low and the high halves and
+  -- writes through `setYmm`.  No arm here has arithmetic of its own (D345 prediction 3).
+  | .vexshufps dst src1 src sel =>
+      (s.setXmmVex128 dst (vshufpApply .ps (s.getXmm src1) (s.getXmm src) sel)).setRip nr
+  | .vexshufps256 dst src1 src sel =>
+      (s.setYmm dst (vshufpApply .ps (s.getXmm src1) (s.getXmm src) sel)
+                    (vshufpApply .ps (s.getYmmHi src1) (s.getYmmHi src) sel)).setRip nr
+  -- ⚠️ ONE COUNT FOR BOTH LANES: the count register's low 64 bits, read from its XMM half even at
+  -- VEX.256 (`getXmm cnt`, never `getYmmHi cnt`).
+  | .vexsrax w dst src1 cnt =>
+      if !(vshiftEncodable .sra w) then
+        s.halt (.illegalOperands "there is no packed byte shift, and no psraq outside AVX-512")
+      else
+        let c := ((s.getXmm cnt).setWidth 64).toNat
+        (s.setXmmVex128 dst (vshiftApply .sra w (s.getXmm src1) c)).setRip nr
+  | .vexsrax256 w dst src1 cnt =>
+      if !(vshiftEncodable .sra w) then
+        s.halt (.illegalOperands "there is no packed byte shift, and no psraq outside AVX-512")
+      else
+        let c := ((s.getXmm cnt).setWidth 64).toNat
+        (s.setYmm dst (vshiftApply .sra w (s.getXmm src1) c)
+                      (vshiftApply .sra w (s.getYmmHi src1) c)).setRip nr
+  | .vexsrai w dst src cnt =>
+      if !(vshiftEncodable .sra w) then
+        s.halt (.illegalOperands "there is no packed byte shift, and no psraq outside AVX-512")
+      else (s.setXmmVex128 dst (vshiftApply .sra w (s.getXmm src) cnt.toNat)).setRip nr
+  | .vexsrai256 w dst src cnt =>
+      if !(vshiftEncodable .sra w) then
+        s.halt (.illegalOperands "there is no packed byte shift, and no psraq outside AVX-512")
+      else
+        (s.setYmm dst (vshiftApply .sra w (s.getXmm src) cnt.toNat)
+                      (vshiftApply .sra w (s.getYmmHi src) cnt.toNat)).setRip nr
+  -- ⚠️ THE FLAGS ARE THE OR OVER BOTH LANES at VEX.256: `withSimd` sees `plo.2 ||| phi.2`, so a flag
+  -- raised in the high lane alone is raised (D345 wrong rule (b) drops it).
+  | .vexparith op dst src1 src =>
+      if op == .div then s.halt (.unimplemented "vdivps: a VEX twin not taken (D345)") else
+      let p := vparithAll op false (mxcsrRC s.mxcsr) (s.getXmm src1) (s.getXmm src)
+      s.withSimd p.2 fun s => (s.setXmmVex128 dst p.1).setRip nr
+  | .vexparith256 op dst src1 src =>
+      if op == .div then s.halt (.unimplemented "vdivps ymm: a VEX.256 twin not taken (D345)") else
+      let rc := mxcsrRC s.mxcsr
+      let plo := vparithAll op false rc (s.getXmm src1) (s.getXmm src)
+      let phi := vparithAll op false rc (s.getYmmHi src1) (s.getYmmHi src)
+      s.withSimd (plo.2 ||| phi.2) fun s => (s.setYmm dst plo.1 phi.1).setRip nr
+  -- The legacy `vmovmsk .b` fold, per lane; the high lane's sixteen bits land at 31:16.  `.d`, as the
+  -- legacy arm: the 32-bit write zero-extends to 64 (SDM Vol. 1 §3.4.1.1).
+  | .vexmovmskb dst src =>
+      (s.setReg .d dst (pmovmskbLane (s.getXmm src))).setRip nr
+  | .vexmovmskb256 dst src =>
+      (s.setReg .d dst (pmovmskbLane (s.getXmm src) ||| (pmovmskbLane (s.getYmmHi src) <<< 16))).setRip nr
+  -- ⭐⭐ V8c (D350) — the VEX.256 memory twin and VPBROADCASTD, silicon-refereed.  The memory twin is `vexbin256`'s
+  -- per-lane rule with `readMem128` at `a` (the low lane) and at `a + 16` (the high lane); no alignment check.
+  | .vexbinm256 k dst src1 ea =>
+      if k.vexMemTaken || k.vexSilMemTaken then
+        let a := ea.addr s nr
+        (s.setYmm dst (vbinApply k (s.getXmm src1) (s.readMem128 a))
+                      (vbinApply k (s.getYmmHi src1) (s.readMem128 (a + 16)))).setRip nr
+      else s.halt (.unimplemented s!"v{k.mnemonic} m256: a VEX.256 memory twin not taken (D350)")
+  | .vexbcastd dst src =>
+      (s.setXmmVex128 dst (bcast32x4 ((s.getXmm src).setWidth 32))).setRip nr
+  | .vexbcastd256 dst src =>
+      let b := bcast32x4 ((s.getXmm src).setWidth 32)
+      (s.setYmm dst b b).setRip nr
+  | .vexbcastdm dst ea =>
+      (s.setXmmVex128 dst (bcast32x4 ((s.readMem .d (ea.addr s nr)).setWidth 32))).setRip nr
+  | .vexbcastdm256 dst ea =>
+      let b := bcast32x4 ((s.readMem .d (ea.addr s nr)).setWidth 32)
+      (s.setYmm dst b b).setRip nr
+  -- ⭐⭐⭐ V9b (D354) — THE MOVE MEMORY FORMS.  The value rule is the register twin's with memory on
+  -- one side; the alignment rule is `vload`'s at the access's own width (`alignedVex`), checked on the
+  -- linear address `Ea.addr` produces.  A VEX.256 access is two 128-bit accesses at `a` and `a + 16`,
+  -- the composition `vexbinm256` already uses.
+  | .vexddupm dst ea =>
+      let lo := (s.readMem .q (ea.addr s nr)).setWidth 128
+      (s.setXmmVex128 dst ((lo <<< 64) ||| lo)).setRip nr
+  | .vexddupm256 dst ea =>
+      let a := ea.addr s nr
+      let dup := fun (q : BitVec 64) => let lo := q.setWidth 128; (lo <<< 64) ||| lo
+      (s.setYmm dst (dup (s.readMem .q a)) (dup (s.readMem .q (a + 16)))).setRip nr
+  | .vexload k dst ea =>
+      let a := ea.addr s nr
+      if k.aligned && !alignedVex false a then
+        s.halt (.byDesign "an aligned VEX.128 move at an address that is not 16-byte aligned (#GP(0))")
+      else (s.setXmmVex128 dst (s.readMem128 a)).setRip nr
+  | .vexstore k ea src =>
+      let a := ea.addr s nr
+      if k.aligned && !alignedVex false a then
+        s.halt (.byDesign "an aligned VEX.128 move at an address that is not 16-byte aligned (#GP(0))")
+      else (s.writeMem128 a (s.getXmm src)).setRip nr
+  | .vexload256 k dst ea =>
+      let a := ea.addr s nr
+      if k.aligned && !alignedVex true a then
+        s.halt (.byDesign "an aligned VEX.256 move at an address that is not 32-byte aligned (#GP(0))")
+      else (s.setYmm dst (s.readMem128 a) (s.readMem128 (a + 16))).setRip nr
+  | .vexstore256 k ea src =>
+      let a := ea.addr s nr
+      if k.aligned && !alignedVex true a then
+        s.halt (.byDesign "an aligned VEX.256 move at an address that is not 32-byte aligned (#GP(0))")
+      else ((s.writeMem128 a (s.getXmm src)).writeMem128 (a + 16) (s.getYmmHi src)).setRip nr
+  -- ⭐⭐ V10 (D361) — the VEX memory twins of the silicon rows: each arm is its register twin's with ModRM.rm read from
+  -- memory (`readMem128` at `a`, and at `a + 16` for a VEX.256 high lane), no alignment check.  No arithmetic of its own.
+  | .vexshufbm dst src1 ea =>
+      (s.setXmmVex128 dst (vshufbApply (s.getXmm src1) (s.readMem128 (ea.addr s nr)))).setRip nr
+  | .vexalignrm dst src1 ea imm =>
+      (s.setXmmVex128 dst (valignrApply (s.getXmm src1) (s.readMem128 (ea.addr s nr)) imm)).setRip nr
+  | .vexparithm op dst src1 ea =>
+      if op == .div then s.halt (.unimplemented "vdivps m128: a VEX memory twin not taken (D361)") else
+      let p := vparithAll op false (mxcsrRC s.mxcsr) (s.getXmm src1) (s.readMem128 (ea.addr s nr))
+      s.withSimd p.2 fun s => (s.setXmmVex128 dst p.1).setRip nr
+  | .vexparithm256 op dst src1 ea =>
+      if op == .div then s.halt (.unimplemented "vdivps m256: a VEX.256 memory twin not taken (D361)") else
+      let a := ea.addr s nr
+      let rc := mxcsrRC s.mxcsr
+      let plo := vparithAll op false rc (s.getXmm src1) (s.readMem128 a)
+      let phi := vparithAll op false rc (s.getYmmHi src1) (s.readMem128 (a + 16))
+      s.withSimd (plo.2 ||| phi.2) fun s => (s.setYmm dst plo.1 phi.1).setRip nr
+  -- ⚠️ THE COUNT IS THE LOW 64 BITS OF THE m128 AT `a`, at BOTH lengths (D361 wrong rule (c) reads all 128).
+  | .vexsraxm w dst src1 ea =>
+      if !(vshiftEncodable .sra w) then
+        s.halt (.illegalOperands "there is no packed byte shift, and no psraq outside AVX-512")
+      else
+        let c := ((s.readMem128 (ea.addr s nr)).setWidth 64).toNat
+        (s.setXmmVex128 dst (vshiftApply .sra w (s.getXmm src1) c)).setRip nr
+  | .vexsraxm256 w dst src1 ea =>
+      if !(vshiftEncodable .sra w) then
+        s.halt (.illegalOperands "there is no packed byte shift, and no psraq outside AVX-512")
+      else
+        let c := ((s.readMem128 (ea.addr s nr)).setWidth 64).toNat
+        (s.setYmm dst (vshiftApply .sra w (s.getXmm src1) c)
+                      (vshiftApply .sra w (s.getYmmHi src1) c)).setRip nr
+  -- ⭐ D371 — VEX `vmovd`/`vmovq`: `vmovg`'s, `vmovgld`'s and `vmovgst`'s formulas with an XMM destination written
+  -- through `setXmmVex128` (YMM bits 255:128 ZEROED). The GPR write and the store are the legacy ones exactly.
+  | .vexmovg toXmm sz x r =>
+      if toXmm then
+        (s.setXmmVex128 x ((s.getReg sz r).setWidth 128)).setRip nr
+      else
+        (s.setReg sz r ((s.getXmm x).setWidth 64)).setRip nr
+  | .vexmovgld sz dst ea =>
+      let a := ea.addr s nr
+      (s.setXmmVex128 dst (((s.readMem sz a).setWidth sz.bits).setWidth 128)).setRip nr
+  | .vexmovgst sz ea src =>
+      let a := ea.addr s nr
+      (s.writeMem sz a ((s.getXmm src).setWidth 64)).setRip nr
+  -- ⭐⭐ D394 (wave G) — the VEX scalar floating-point forms. Each arm is its legacy twin's (`varith`, `varithm`, `vmovs`,
+  -- `vmovsld`, `vmovsst`) with `src1` in the legacy destination's place and `setXmmVex128` in place of `setXmm`, so bits
+  -- 127:sz come FROM `src1` and YMM bits 255:128 are ZEROED. No arm here has arithmetic of its own: the rounding and the
+  -- MXCSR flags are `varithLow`'s, through `withSimd`, exactly as the legacy arms reach them.
+  | .vexarith op sz dst src1 src =>
+      let p := varithLow op sz (mxcsrRC s.mxcsr) (s.getXmm src1) ((s.getXmm src).setWidth 64)
+      s.withSimd p.2 fun s => (s.setXmmVex128 dst p.1).setRip nr
+  | .vexarithm op sz dst src1 ea =>
+      let p := varithLow op sz (mxcsrRC s.mxcsr) (s.getXmm src1) (s.readMem sz (ea.addr s nr))
+      s.withSimd p.2 fun s => (s.setXmmVex128 dst p.1).setRip nr
+  | .vexmovs sz dst src1 src =>
+      let n := sz.bits
+      let keep := ((s.getXmm src1) >>> n) <<< n
+      let low  := ((s.getXmm src).setWidth n).setWidth 128
+      (s.setXmmVex128 dst (keep ||| low)).setRip nr
+  | .vexmovsld sz dst ea =>
+      let a := ea.addr s nr
+      (s.setXmmVex128 dst (((s.readMem sz a).setWidth sz.bits).setWidth 128)).setRip nr
+  | .vexmovsst sz ea src =>
+      let a := ea.addr s nr
+      (s.writeMem sz a ((s.getXmm src).setWidth 64)).setRip nr
+  -- ⭐ D375 — the VEX.256 lane insert/extract. Lane 0 is `getXmm`, lane 1 `getYmmHi`; `imm[0]` selects.
+  | .vexins128 _ dst src1 src imm =>
+      let v := s.getXmm src
+      (if imm.getLsbD 0 then s.setYmm dst (s.getXmm src1) v
+       else s.setYmm dst v (s.getYmmHi src1)).setRip nr
+  | .vexins128m _ dst src1 ea imm =>
+      let v := s.readMem128 (ea.addr s nr)
+      (if imm.getLsbD 0 then s.setYmm dst (s.getXmm src1) v
+       else s.setYmm dst v (s.getYmmHi src1)).setRip nr
+  | .vexext128 _ dst src imm =>
+      (s.setXmmVex128 dst (if imm.getLsbD 0 then s.getYmmHi src else s.getXmm src)).setRip nr
+  | .vexext128m _ ea src imm =>
+      (s.writeMem128 (ea.addr s nr) (if imm.getLsbD 0 then s.getYmmHi src else s.getXmm src)).setRip nr
+  -- ⭐ D376 — the VEX.128 half-moves: legacy `vloadq`'s merge with SRC1 where the legacy form keeps its own
+  -- destination, written through `setXmmVex128` (YMM bits 255:128 ZEROED); the store is legacy `vstoreq`'s. No
+  -- alignment branch (VEX Exception Type 5, as the legacy forms have none).
+  | .vexloadq h _ dst src1 ea =>
+      let m := (s.readMem .q (ea.addr s nr)).setWidth 128
+      match h with
+      | .hi => (s.setXmmVex128 dst ((m <<< 64) ||| ((s.getXmm src1).setWidth 64).setWidth 128)).setRip nr
+      | .lo => (s.setXmmVex128 dst (((((s.getXmm src1) >>> 64).setWidth 64).setWidth 128 <<< 64) ||| m)).setRip nr
+  | .vexstoreq h _ ea src =>
+      let a := ea.addr s nr
+      match h with
+      | .hi => (s.writeMem .q a (((s.getXmm src) >>> 64).setWidth 64)).setRip nr
+      | .lo => (s.writeMem .q a ((s.getXmm src).setWidth 64)).setRip nr
+  -- ⭐ D379 — VPABS*: VEX.128 zeroes YMM bits 255:128; VEX.256 applies the lane rule to both halves; no alignment branch.
+  | .vexabs w dst src => (s.setXmmVex128 dst (vabsApply w (s.getXmm src))).setRip nr
+  | .vexabsm w dst ea => (s.setXmmVex128 dst (vabsApply w (s.readMem128 (ea.addr s nr)))).setRip nr
+  | .vexabs256 w dst src =>
+      (s.setYmm dst (vabsApply w (s.getXmm src)) (vabsApply w (s.getYmmHi src))).setRip nr
+  | .vexabsm256 w dst ea =>
+      let a := ea.addr s nr
+      (s.setYmm dst (vabsApply w (s.readMem128 a)) (vabsApply w (s.readMem128 (a + 16)))).setRip nr
+
 /-- The small-step transition.  A stopped model does not move. -/
 def step (i : Instr) (s : Cpu) : Cpu :=
   if s.stopped then s else
@@ -964,6 +1405,19 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       if k.aligned && !aligned16 a then
         s.halt (.byDesign "an aligned 128-bit move at an address that is not 16-byte aligned (#GP(0))")
       else (s.setXmm dst (s.readMem128 a)).setRip nr
+  -- ⭐ D376 — `movntdqa`: `movdqa`'s aligned load (the non-temporal hint is not state), a LEGACY write through `setXmm`.
+  | .vloadnt dst ea =>
+      let a := ea.addr s nr
+      if !aligned16 a then
+        s.halt (.byDesign "movntdqa at an address that is not 16-byte aligned (#GP(0))")
+      else (s.setXmm dst (s.readMem128 a)).setRip nr
+  -- ⭐ D379 — PABS*: a LEGACY write through `setXmm`; the m128 form keeps `vbinm`'s 16-byte #GP.
+  | .vabs w dst src => (s.setXmm dst (vabsApply w (s.getXmm src))).setRip nr
+  | .vabsm w dst ea =>
+      let a := ea.addr s nr
+      if !aligned16 a then
+        s.halt (.byDesign "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
+      else (s.setXmm dst (vabsApply w (s.readMem128 a))).setRip nr
 
   -- ⭐⭐ MOVHPS (SDM Vol. 2B) — the HIGH quadword moves and the LOW one is UNTOUCHED.
   --
@@ -1017,6 +1471,12 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   | .vddupR dst src =>
       let lo := ((s.getXmm src).setWidth 64).setWidth 128
       (s.setXmm dst ((lo <<< 64) ||| lo)).setRip nr
+  -- V3/V4, nested by V5 (D343): the VEX.128 forms, through `stepVex`.
+  | .vex v => stepVex v s nr
+  -- ⭐⭐ V4 (D342) — legacy AES-NI.  x86isa refuses it; `hwprobe/` referees it.  It writes
+  -- through `setXmm` (bits 255:128 PRESERVED).  No flag is written.
+  | .vaes k dst src =>
+      (s.setXmm dst (aesRound k.last (s.getXmm dst) (s.getXmm src))).setRip nr
   | .vddupM dst ea =>
       let a := ea.addr s nr
       -- ⚠️ `readMem .q`, the same 64-bit path the half-moves use: a second route
@@ -1093,6 +1553,13 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       let f  := if sz == .q then SoftFloat.binary64 else SoftFloat.binary32
       let a  := (s.getXmm dst).setWidth 64
       let b  := (s.getXmm src).setWidth 64
+      s.withSimd (SoftFloat.preFlags f ordered a b) fun s =>
+        (s.setFlags (Flags.fcmpFlags (SoftFloat.fcmp f a b) s.flags)).setRip nr
+  -- ⭐ D357 — the same rule with the second operand read from memory (`vminmaxm`'s shape).
+  | .vcomism ordered sz dst ea =>
+      let f  := if sz == .q then SoftFloat.binary64 else SoftFloat.binary32
+      let a  := (s.getXmm dst).setWidth 64
+      let b  := s.readMem sz (ea.addr s nr)
       s.withSimd (SoftFloat.preFlags f ordered a b) fun s =>
         (s.setFlags (Flags.fcmpFlags (SoftFloat.fcmp f a b) s.flags)).setRip nr
 
@@ -1289,6 +1756,17 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       let a := ea.addr s nr
       (s.writeMem sz a ((s.getXmm src).setWidth 64)).setRip nr
 
+  -- ⭐ D356 — MOVD / MOVQ FROM AND TO MEMORY: `vmovsld`'s and `vmovsst`'s formulas, spelled
+  -- `movd`/`movq`. The load ZEROES bits 127:sz (SDM Vol. 2B MOVD/MOVQ; legacy SSE, so the
+  -- YMM bits above 127 are untouched, as `setXmm` leaves them). ⛔ x86isa MERGES at `66 0f 6e`
+  -- (D93, reached through memory): that is declared per vector, never modelled.
+  | .vmovgld sz dst ea =>
+      let a := ea.addr s nr
+      (s.setXmm dst (((s.readMem sz a).setWidth sz.bits).setWidth 128)).setRip nr
+  | .vmovgst sz ea src =>
+      let a := ea.addr s nr
+      (s.writeMem sz a ((s.getXmm src).setWidth 64)).setRip nr
+
   -- ⭐⭐⭐ THE PACKED SHIFTS (SDM Vol. 2B), all three count shapes.  DEST is
   -- shifted lane-wise by ONE count; "Flags Affected: None".
   --
@@ -1408,9 +1886,23 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       | .d | .q => (s.setXmm dst (vinsrApply sz (s.getXmm dst) (s.readOperand sz nr src) imm)).setRip nr
       | _ => s.halt (.illegalOperands "pinsr at an 8- or 16-bit width (pinsrb/pinsrw are other mnemonics)")
   | .vextr sz dst src imm =>
-      match sz with
-      | .d | .q => (s.setReg sz dst (vextrApply sz (s.getXmm src) imm)).setRip nr
+      if dst.isImm then s.halt (.illegalOperands "pextrd/pextrq with an immediate destination")
+      else match sz with
+      | .d | .q => (s.writeOperand sz nr dst (vextrApply sz (s.getXmm src) imm)).setRip nr
       | _ => s.halt (.illegalOperands "pextr at an 8- or 16-bit width (pextrb/pextrw are other mnemonics)")
+
+  -- ⭐ D338 (V2): SHA256MSG1, SHA256MSG2, SHA256RNDS2.  x86isa refuses all three;
+  -- `hwprobe/` referees them.  ⚠️ ALL THREE READ THE DESTINATION (SRC1), and RNDS2
+  -- reads XMM0 as well — read here BEFORE the write, so `dst = .x0` reads the old
+  -- value as the SDM's Operation does.  The m128 shape carries the Type-4 16-byte `#GP`.
+  | .vsha k dst src =>
+      (s.setXmm dst (shaApply k (s.getXmm dst) (s.getXmm src) (s.getXmm .x0))).setRip nr
+  | .vsham k dst ea =>
+      let a := ea.addr s nr
+      if !aligned16 a then
+        s.halt (.byDesign
+          "a Type-4 128-bit memory operand at an address that is not 16-byte aligned (#GP(0))")
+      else (s.setXmm dst (shaApply k (s.getXmm dst) (s.readMem128 a) (s.getXmm .x0))).setRip nr
 
   -- ⭐⭐⭐ P2 BATCH 15 — THE PACKED BINARY GROUP AT A MEMORY SOURCE.
   --
@@ -1826,6 +2318,8 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   -- "harmlessly" would still be wrong, because a read from an unmapped page is
   -- a fault in hardware and the whole point of the form is that it is inert.
   | .nop _ => s.setRip nr
+  -- ENDBR64 (D347): a NOP on every piece of state this model carries (SDM Vol. 2A p. 3-288).
+  | .endbr64 => s.setRip nr
 
   -- UD2 (SDM Vol. 2A): "Generates an invalid opcode exception."  ⭐ THIS IS THE
   -- ONE HALT THAT IS A MODELLED ANSWER RATHER THAN A DECLINED ONE, which is why
@@ -1920,24 +2414,22 @@ def step (i : Instr) (s : Cpu) : Cpu :=
 
   -- POPCNT (SDM Vol. 2B) · LZCNT/TZCNT · BSF/BSR · BLSI (SDM Vol. 2A).
   --
-  -- ⛔⛔ BSF AND BSR AT A ZERO SOURCE ARE THIS MODEL'S FIRST UNDEFINED
-  -- DESTINATION.  "If the content source operand is 0, the content of the
-  -- destination operand is undefined" — a REGISTER, not a flag.  Real silicon
-  -- leaves the destination unmodified and AMD documents that it does; Intel
-  -- does not, and this model follows its stated source rather than the folklore.
-  -- Writing the old value back would be INVENTING A FACT in exactly the sense
-  -- X86/Oracle.lean's header forbids, and it is the more tempting invention
-  -- because it happens to match the machine on the desk.
+  -- ⭐⭐ D346 (2026-10-17): BSF AND BSR AT A ZERO SOURCE LEAVE THE DESTINATION
+  -- UNMODIFIED.  SDM 253666-093US Vol. 2A, read at the source: "If the content of
+  -- the source operand is zero, the destination operand is unmodified." AMD's APM
+  -- says the same, and x86isa writes no register there.  From batch 14 until D346
+  -- this arm DREW the destination (D40), on the older SDM's "undefined"; that
+  -- reason was the source this model follows, and the source changed.  Writing
+  -- nothing is now the stated rule, not an invention.
   --
   -- ⚠️ THE ZERO SOURCE IS REACHABLE, not hypothetical: `adversarial` contains 0,
   -- so every `bsf`/`bsr` vector runs this branch at one pre-state in eleven.
   --
   -- ⚠️ THE FIVE FLAG DRAWS HAPPEN BEFORE THE BRANCH, unconditionally, so that
   -- the flags always read the same five positions of the stream whichever way
-  -- the source falls.  ⛔ THE TOTAL a `bsf` consumes IS still data-dependent —
-  -- a zero source draws `sz.bits` more for the destination — and saying
-  -- otherwise would be a comment claiming a property the code does not have.
-  -- What matters is the weaker fact, and it holds: the cursor depends on the
+  -- the source falls.  ⭐ Since D346 the total is FIVE at every source (the zero
+  -- source no longer draws a destination).  Until then it was data-dependent, and
+  -- the weaker fact below was the one that mattered: the cursor depends on the
   -- SOURCE, never on the oracle's own BITS, so the two opposite-oracle runs
   -- that derive the undefined set always take the same branch and end at the
   -- same position (`cursor_independent_of_bits`, `Tests/Nonvacuity.lean`).

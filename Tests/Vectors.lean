@@ -1438,6 +1438,10 @@ def vectors : List Vec :=
     , instr := ⟨.nop (some (M .rbx)), 3⟩ }
   , { id := "nop_m_w", mnemonic := "nop", asm := "nopw (%rbx)", bytes := "660f1f03"
     , instr := ⟨.nop (some (M .rbx)), 4⟩ }
+  -- V8a (D347): ENDBR64, `F3 0F 1E FA`.  A NOP on every field the differential compares; the claim is
+  -- that the post state is RIP+4 and nothing else, as x86isa's `x86-endbr32/endbr64` also models it.
+  , { id := "endbr64", mnemonic := "endbr64", asm := "endbr64", bytes := "f30f1efa"
+    , instr := ⟨.endbr64, 4⟩ }
   -- UD2: the first vector in the roster whose EXPECTED result is a refusal on
   -- both sides.  `bothRefused` is what makes the two models agree here.
   , { id := "ud2", mnemonic := "ud2", asm := "ud2", bytes := "0f0b"
@@ -2231,6 +2235,85 @@ def vectors : List Vec :=
   , { id := "lea_fs_abs_q", mnemonic := "lea", asm := "leaq %fs:0x28, %rax"
     , bytes := "64488d042528000000"
     , instr := ⟨.lea .q .rax { disp := 0x28, seg := some .fs }, 9⟩ }
+  -- ⭐ D355: THE STACK-CANARY CHECK AND ITS NEIGHBOURS, the scalar remainder the
+  -- census measured (sub 20,297 user-space + 9,898 kernel; cmp 240; xchg 4; test 1).
+  -- The model already adds the base; these rows make the census able to SAY so.
+  -- `%rax` reaches the intact-canary case (ZF=1) in every `diag` pre-state.
+  , { id := "sub_fs_canary_rax", mnemonic := "sub", asm := "subq %fs:0x28, %rax"
+    , bytes := "64482b042528000000"
+    , instr := ⟨.bin .sub .q (R .rax) (.mem { disp := 0x28, seg := some .fs }), 9⟩ }
+  , { id := "sub_fs_canary_rdx", mnemonic := "sub", asm := "subq %fs:0x28, %rdx"
+    , bytes := "64482b142528000000"
+    , instr := ⟨.bin .sub .q (R .rdx) (.mem { disp := 0x28, seg := some .fs }), 9⟩ }
+  , { id := "sub_gs_canary_rax", mnemonic := "sub", asm := "subq %gs:0x28, %rax"
+    , bytes := "65482b042528000000"
+    , instr := ⟨.bin .sub .q (R .rax) (.mem { disp := 0x28, seg := some .gs }), 9⟩ }
+  , { id := "sub_gs_canary_rdx", mnemonic := "sub", asm := "subq %gs:0x28, %rdx"
+    , bytes := "65482b142528000000"
+    , instr := ⟨.bin .sub .q (R .rdx) (.mem { disp := 0x28, seg := some .gs }), 9⟩ }
+  -- glibc's errno test is `cmpl $N, %fs:(%reg)`; RBX + a displacement keeps the
+  -- access on the swept operand (a swept base register would leave the window).
+  , { id := "cmp_fs_errno_d", mnemonic := "cmp", asm := "cmpl $0x4, %fs:-0x1fd8(%rbx)"
+    , bytes := "6483bb28e0ffff04"
+    , instr := ⟨.bin .cmp .d (.mem { base := some .rbx, disp := 0xFFFFFFFFFFFFE028, seg := some .fs }) (.imm 4), 8⟩ }
+  , { id := "cmp_fs_rm_d", mnemonic := "cmp", asm := "cmpl %fs:0x28, %eax"
+    , bytes := "643b042528000000"
+    , instr := ⟨.bin .cmp .d (R .rax) (.mem { disp := 0x28, seg := some .fs }), 8⟩ }
+  , { id := "cmp_fs_mi_b", mnemonic := "cmp", asm := "cmpb $0x0, %fs:0x28"
+    , bytes := "64803c252800000000"
+    , instr := ⟨.bin .cmp .b (.mem { disp := 0x28, seg := some .fs }) (.imm 0), 9⟩ }
+  , { id := "xchg_fs_d", mnemonic := "xchg", asm := "xchgl %eax, %fs:0x28"
+    , bytes := "6487042528000000"
+    , instr := ⟨.xchg .d (.mem { disp := 0x28, seg := some .fs }) (R .rax), 8⟩ }
+  , { id := "test_gs_mi_b", mnemonic := "test", asm := "testb $-0x1, %gs:0x28"
+    , bytes := "65f6042528000000ff"
+    , instr := ⟨.bin .test .b (.mem { disp := 0x28, seg := some .gs }) (.imm 0xff), 9⟩ }
+  -- ⭐ D355: THE KERNEL'S PER-CPU FORMS (`incl %gs:x(%rip)` and kin, 5,348 of its
+  -- remainder). Most are SEGMENT + RIP-RELATIVE, the one composition of `Ea.addr`
+  -- no row ran before: the displacement is chosen per instruction LENGTH so that
+  -- `0x400000 + len + disp + gsBase = 0x2010`, the second swept operand.
+  , { id := "inc_gs_rip_l", mnemonic := "inc", asm := "incl %gs:-0x3fffdf(%rip)"
+    , bytes := "65ff052100c0ff"
+    , instr := ⟨.un .inc .d (.mem { ripRel := true, disp := 0xffffffffffc00021, seg := some .gs }), 7⟩ }
+  , { id := "dec_gs_rip_l", mnemonic := "dec", asm := "decl %gs:-0x3fffdf(%rip)"
+    , bytes := "65ff0d2100c0ff"
+    , instr := ⟨.un .dec .d (.mem { ripRel := true, disp := 0xffffffffffc00021, seg := some .gs }), 7⟩ }
+  , { id := "inc_gs_base_q", mnemonic := "inc", asm := "incq %gs:-0x1fe8(%rbx)"
+    , bytes := "6548ff8318e0ffff"
+    , instr := ⟨.un .inc .q (.mem { base := some .rbx, disp := 0xffffffffffffe018, seg := some .gs }), 8⟩ }
+  , { id := "dec_gs_base_q", mnemonic := "dec", asm := "decq %gs:-0x1fe8(%rbx)"
+    , bytes := "6548ff8b18e0ffff"
+    , instr := ⟨.un .dec .q (.mem { base := some .rbx, disp := 0xffffffffffffe018, seg := some .gs }), 8⟩ }
+  , { id := "inc_gs_rip_w", mnemonic := "inc", asm := "incw %gs:-0x3fffe0(%rip)"
+    , bytes := "6566ff052000c0ff"
+    , instr := ⟨.un .inc .w (.mem { ripRel := true, disp := 0xffffffffffc00020, seg := some .gs }), 8⟩ }
+  , { id := "xadd_gs_rip_l", mnemonic := "xadd", asm := "xaddl %eax, %gs:-0x3fffe0(%rip)"
+    , bytes := "650fc1052000c0ff"
+    , instr := ⟨.xadd .d (.mem { ripRel := true, disp := 0xffffffffffc00020, seg := some .gs }) .rax, 8⟩ }
+  , { id := "xadd_gs_base_b", mnemonic := "xadd", asm := "xaddb %al, %gs:-0x1fe8(%rbx)"
+    , bytes := "650fc08318e0ffff"
+    , instr := ⟨.xadd .b (.mem { base := some .rbx, disp := 0xffffffffffffe018, seg := some .gs }) .rax, 8⟩ }
+  , { id := "and_gs_rip_l", mnemonic := "and", asm := "andl $0x7fffffff, %gs:-0x3fffe3(%rip)"
+    , bytes := "6581251d00c0ffffffff7f"
+    , instr := ⟨.bin .and .d (.mem { ripRel := true, disp := 0xffffffffffc0001d, seg := some .gs }) (.imm 0x7fffffff), 11⟩ }
+  , { id := "or_gs_rip_w", mnemonic := "or", asm := "orw %ax, %gs:-0x3fffe0(%rip)"
+    , bytes := "656609052000c0ff"
+    , instr := ⟨.bin .or .w (.mem { ripRel := true, disp := 0xffffffffffc00020, seg := some .gs }) (R .rax), 8⟩ }
+  , { id := "cmpxchg_gs_rip_l", mnemonic := "cmpxchg", asm := "cmpxchgl %edx, %gs:-0x3fffe0(%rip)"
+    , bytes := "650fb1152000c0ff"
+    , instr := ⟨.cmpxchg .d (.mem { ripRel := true, disp := 0xffffffffffc00020, seg := some .gs }) .rdx, 8⟩ }
+  , { id := "cmpxchg_gs_base_b", mnemonic := "cmpxchg", asm := "cmpxchgb %dl, %gs:-0x1fe8(%rbx)"
+    , bytes := "650fb09318e0ffff"
+    , instr := ⟨.cmpxchg .b (.mem { base := some .rbx, disp := 0xffffffffffffe018, seg := some .gs }) .rdx, 8⟩ }
+  , { id := "bt_gs_q", mnemonic := "bt", asm := "btq %rcx, %gs:-0x1fe8(%rbx)"
+    , bytes := "65480fa38b18e0ffff"
+    , instr := ⟨.bit .bt .q (.mem { base := some .rbx, disp := 0xffffffffffffe018, seg := some .gs }) (R .rcx), 9⟩ }
+  , { id := "btr_gs_q", mnemonic := "btr", asm := "btrq %rcx, %gs:-0x1fe8(%rbx)"
+    , bytes := "65480fb38b18e0ffff"
+    , instr := ⟨.bit .btr .q (.mem { base := some .rbx, disp := 0xffffffffffffe018, seg := some .gs }) (R .rcx), 9⟩ }
+  , { id := "push_gs_q", mnemonic := "push", asm := "pushq %gs:0x28"
+    , bytes := "65ff342528000000"
+    , instr := ⟨.push .q (.mem { disp := 0x28, seg := some .gs }), 8⟩ }
   -- ⭐⭐⭐ P2 ITEM 2 (BATCH 23): THE LOCK VOCABULARY.  Two things at once, and
   -- they are worth separating because only one of them is a new instruction.
   --
@@ -2529,6 +2612,9 @@ def vectors : List Vec :=
     , bytes := "660f1203", instr := ⟨.vloadq .lo .pd .x0 { base := some .rbx }, 4⟩ }
   , { id := "movlpd_store_m", mnemonic := "movlpd", asm := "movlpd %xmm0, (%rbx)"
     , bytes := "660f1303", instr := ⟨.vstoreq .lo .pd { base := some .rbx } .x0, 4⟩ }
+  -- ⭐ D358: the %xmm9 twin (see `movss_store_x9`).
+  , { id := "movlpd_store_x9", mnemonic := "movlpd", asm := "movlpd %xmm9, (%rbx)"
+    , bytes := "66440f130b", instr := ⟨.vstoreq .lo .pd { base := some .rbx } .x9, 5⟩ }
   , { id := "movhpd_load_m", mnemonic := "movhpd", asm := "movhpd (%rbx), %xmm0"
     , bytes := "660f1603", instr := ⟨.vloadq .hi .pd .x0 { base := some .rbx }, 4⟩ }
   , { id := "movhpd_store_m", mnemonic := "movhpd", asm := "movhpd %xmm0, (%rbx)"
@@ -2640,6 +2726,24 @@ def vectors : List Vec :=
     , bytes := "660f2edd", instr := ⟨.vcomis false .q .x3 .x5, 4⟩ }
   , { id := "ucomiss_x3_x5", mnemonic := "ucomiss", asm := "ucomiss %xmm3, %xmm5"
     , bytes := "0f2eeb", instr := ⟨.vcomis false .d .x5 .x3, 3⟩ }
+  -- ⭐ D357: THE MEMORY SOURCE. ⛔ Not %xmm0: its low quadword IS the quadword at 0x2000 in every
+  -- pre-state (D356), so the comparison would read EQUAL in all 88 cases.
+  , { id := "comiss_m_x1", mnemonic := "comiss", asm := "comiss (%rbx), %xmm1"
+    , bytes := "0f2f0b", instr := ⟨.vcomism true .d .x1 { base := some .rbx }, 3⟩ }
+  , { id := "comiss_m_x9", mnemonic := "comiss", asm := "comiss (%rbx), %xmm9"
+    , bytes := "440f2f0b", instr := ⟨.vcomism true .d .x9 { base := some .rbx }, 4⟩ }
+  , { id := "comisd_m_x1", mnemonic := "comisd", asm := "comisd (%rbx), %xmm1"
+    , bytes := "660f2f0b", instr := ⟨.vcomism true .q .x1 { base := some .rbx }, 4⟩ }
+  , { id := "comisd_m_x9", mnemonic := "comisd", asm := "comisd (%rbx), %xmm9"
+    , bytes := "66440f2f0b", instr := ⟨.vcomism true .q .x9 { base := some .rbx }, 5⟩ }
+  , { id := "ucomiss_m_x1", mnemonic := "ucomiss", asm := "ucomiss (%rbx), %xmm1"
+    , bytes := "0f2e0b", instr := ⟨.vcomism false .d .x1 { base := some .rbx }, 3⟩ }
+  , { id := "ucomiss_m_x9", mnemonic := "ucomiss", asm := "ucomiss (%rbx), %xmm9"
+    , bytes := "440f2e0b", instr := ⟨.vcomism false .d .x9 { base := some .rbx }, 4⟩ }
+  , { id := "ucomisd_m_x1", mnemonic := "ucomisd", asm := "ucomisd (%rbx), %xmm1"
+    , bytes := "660f2e0b", instr := ⟨.vcomism false .q .x1 { base := some .rbx }, 4⟩ }
+  , { id := "ucomisd_m_x9", mnemonic := "ucomisd", asm := "ucomisd (%rbx), %xmm9"
+    , bytes := "66440f2e0b", instr := ⟨.vcomism false .q .x9 { base := some .rbx }, 5⟩ }
 
   -- ⭐⭐⭐ P2 BATCH 38 — MIN / MAX (D253).  WHAT EACH VECTOR REACHES WAS COMPUTED
   -- FROM THE 88 PRE-STATES BEFORE ANY WAS WRITTEN, and the table is shaped by it.
@@ -3163,6 +3267,25 @@ def vectors : List Vec :=
     , bytes := "66480f7ec0", instr := ⟨.vmovg false .q .x0 .rax, 5⟩ }
   , { id := "movq_xx", mnemonic := "movq", asm := "movq %xmm1, %xmm0"
     , bytes := "f30f7ec1", instr := ⟨.vmovq .x0 .x1, 4⟩ }
+  -- ⭐ D356: THE MEMORY FORMS, the census's largest unmodelled memory remainder (`movq` 33,591,
+  -- `movd` 7,752). Each width, each direction, at a low and a high register. ⛔ The two `movd`
+  -- loads go through x86isa's `66 0f 6e`, which MERGES (D93): their xmm field is declared.
+  , { id := "movd_ld_x0", mnemonic := "movd", asm := "movd (%rbx), %xmm0"
+    , bytes := "660f6e03", instr := ⟨.vmovgld .d .x0 { base := some .rbx }, 4⟩ }
+  , { id := "movd_ld_x9", mnemonic := "movd", asm := "movd (%rbx), %xmm9"
+    , bytes := "66440f6e0b", instr := ⟨.vmovgld .d .x9 { base := some .rbx }, 5⟩ }
+  , { id := "movd_st_x0", mnemonic := "movd", asm := "movd %xmm0, (%rbx)"
+    , bytes := "660f7e03", instr := ⟨.vmovgst .d { base := some .rbx } .x0, 4⟩ }
+  , { id := "movd_st_x9", mnemonic := "movd", asm := "movd %xmm9, (%rbx)"
+    , bytes := "66440f7e0b", instr := ⟨.vmovgst .d { base := some .rbx } .x9, 5⟩ }
+  , { id := "movq_ld_x0", mnemonic := "movq", asm := "movq (%rbx), %xmm0"
+    , bytes := "f30f7e03", instr := ⟨.vmovgld .q .x0 { base := some .rbx }, 4⟩ }
+  , { id := "movq_ld_x9", mnemonic := "movq", asm := "movq (%rbx), %xmm9"
+    , bytes := "f3440f7e0b", instr := ⟨.vmovgld .q .x9 { base := some .rbx }, 5⟩ }
+  , { id := "movq_st_x0", mnemonic := "movq", asm := "movq %xmm0, (%rbx)"
+    , bytes := "660fd603", instr := ⟨.vmovgst .q { base := some .rbx } .x0, 4⟩ }
+  , { id := "movq_st_x9", mnemonic := "movq", asm := "movq %xmm9, (%rbx)"
+    , bytes := "66440fd60b", instr := ⟨.vmovgst .q { base := some .rbx } .x9, 5⟩ }
 
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 7 — THE UNPACK (INTERLEAVE) GROUP.  The first
   -- vector operations here that are a PERMUTATION rather than lane-wise
@@ -3264,6 +3387,10 @@ def vectors : List Vec :=
     , bytes := "f30f1003", instr := ⟨.vmovsld .d .x0 { base := some .rbx }, 4⟩ }
   , { id := "movss_store_m", mnemonic := "movss", asm := "movss %xmm0, (%rbx)"
     , bytes := "f30f1103", instr := ⟨.vmovsst .d { base := some .rbx } .x0, 4⟩ }
+  -- ⭐ D358: the %xmm9 twin. xmm0's low lane IS the value at 0x2000 in every pre-state, so the row above
+  -- cannot see a dropped store; this one differs in all 88.
+  , { id := "movss_store_x9", mnemonic := "movss", asm := "movss %xmm9, (%rbx)"
+    , bytes := "f3440f110b", instr := ⟨.vmovsst .d { base := some .rbx } .x9, 5⟩ }
   , { id := "movsd_xx", mnemonic := "movsd", asm := "movsd %xmm1, %xmm0"
     , bytes := "f20f10c1", instr := ⟨.vmovs .q .x0 .x1, 4⟩ }
   , { id := "movsd_x4x5", mnemonic := "movsd", asm := "movsd %xmm5, %xmm4"
@@ -3272,6 +3399,9 @@ def vectors : List Vec :=
     , bytes := "f20f1003", instr := ⟨.vmovsld .q .x0 { base := some .rbx }, 4⟩ }
   , { id := "movsd_store_m", mnemonic := "movsd", asm := "movsd %xmm0, (%rbx)"
     , bytes := "f20f1103", instr := ⟨.vmovsst .q { base := some .rbx } .x0, 4⟩ }
+  -- ⭐ D358: the %xmm9 twin (see `movss_store_x9`).
+  , { id := "movsd_store_x9", mnemonic := "movsd", asm := "movsd %xmm9, (%rbx)"
+    , bytes := "f2440f110b", instr := ⟨.vmovsst .q { base := some .rbx } .x9, 5⟩ }
 
   , { id := "punpcklbw_xx", mnemonic := "punpcklbw", asm := "punpcklbw %xmm1, %xmm0"
     , bytes := "660f60c1", instr := ⟨.vbin .unpcklb .x0 .x1, 4⟩ }
@@ -4035,6 +4165,595 @@ def vectors : List Vec :=
     , instr := ⟨.bit .bts .d (.mem { base := some .rbx, disp := 0x10, lock := true }) (R .rdx), 5⟩ }
   ]
 
+
+/-- ⭐⭐⭐ V3 (D341): THE VEX.128 REGISTER TWINS' VECTORS — the differential vectors of
+`X86.vexTable`, kept apart from `vectors` exactly as that table is kept apart from `tableP0`
+(its doc says why). The differential runs `allVectors`, so these are emitted, run on the oracle
+and compared like every other vector; `check_encodings.py` re-assembles their `asm` too. -/
+def vexVectors : List Vec :=
+  -- ⭐⭐⭐ V3 (D341): THE 33 VEX.128 REGISTER TWINS. Bytes are clang's (`scripts/check_encodings.py`
+  -- re-assembles each `asm`). The six trailing rows move the operands off xmm0/1/2: the C4 form
+  -- (VEX.B / VEX.R̄ for xmm8-15) and the store-form opcode clang picks for a high source register.
+  -- ⛔ Every pre-state seeds bits 255:128 NON-ZERO (`ymmHiPattern`), so a twin that forgot to
+  -- zero them, or a legacy write that zeroed them, disagrees with the oracle on every case.
+  [ { id := "vmovdqa_xx", mnemonic := "vmovdqa", asm := "vmovdqa %xmm1, %xmm0"
+    , bytes := "c5f96fc1", instr := ⟨.vex (.vexmov .dqa .x0 .x1), 4⟩ }
+  , { id := "vmovdqu_xx", mnemonic := "vmovdqu", asm := "vmovdqu %xmm1, %xmm0"
+    , bytes := "c5fa6fc1", instr := ⟨.vex (.vexmov .dqu .x0 .x1), 4⟩ }
+  , { id := "vmovaps_xx", mnemonic := "vmovaps", asm := "vmovaps %xmm1, %xmm0"
+    , bytes := "c5f828c1", instr := ⟨.vex (.vexmov .aps .x0 .x1), 4⟩ }
+  , { id := "vmovups_xx", mnemonic := "vmovups", asm := "vmovups %xmm1, %xmm0"
+    , bytes := "c5f810c1", instr := ⟨.vex (.vexmov .ups .x0 .x1), 4⟩ }
+  , { id := "vmovapd_xx", mnemonic := "vmovapd", asm := "vmovapd %xmm1, %xmm0"
+    , bytes := "c5f928c1", instr := ⟨.vex (.vexmov .apd .x0 .x1), 4⟩ }
+  , { id := "vmovupd_xx", mnemonic := "vmovupd", asm := "vmovupd %xmm1, %xmm0"
+    , bytes := "c5f910c1", instr := ⟨.vex (.vexmov .upd .x0 .x1), 4⟩ }
+  , { id := "vmovddup_xx", mnemonic := "vmovddup", asm := "vmovddup %xmm1, %xmm0"
+    , bytes := "c5fb12c1", instr := ⟨.vex (.vexddup .x0 .x1), 4⟩ }
+  , { id := "vpaddb_xxx", mnemonic := "vpaddb", asm := "vpaddb %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9fcc1", instr := ⟨.vex (.vexbin .addb .x0 .x2 .x1), 4⟩ }
+  , { id := "vpaddw_xxx", mnemonic := "vpaddw", asm := "vpaddw %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9fdc1", instr := ⟨.vex (.vexbin .addw .x0 .x2 .x1), 4⟩ }
+  , { id := "vpaddd_xxx", mnemonic := "vpaddd", asm := "vpaddd %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9fec1", instr := ⟨.vex (.vexbin .addd .x0 .x2 .x1), 4⟩ }
+  , { id := "vpaddq_xxx", mnemonic := "vpaddq", asm := "vpaddq %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9d4c1", instr := ⟨.vex (.vexbin .addq .x0 .x2 .x1), 4⟩ }
+  , { id := "vpsubb_xxx", mnemonic := "vpsubb", asm := "vpsubb %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9f8c1", instr := ⟨.vex (.vexbin .subb .x0 .x2 .x1), 4⟩ }
+  , { id := "vpsubw_xxx", mnemonic := "vpsubw", asm := "vpsubw %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9f9c1", instr := ⟨.vex (.vexbin .subw .x0 .x2 .x1), 4⟩ }
+  , { id := "vpsubd_xxx", mnemonic := "vpsubd", asm := "vpsubd %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9fac1", instr := ⟨.vex (.vexbin .subd .x0 .x2 .x1), 4⟩ }
+  , { id := "vpsubq_xxx", mnemonic := "vpsubq", asm := "vpsubq %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9fbc1", instr := ⟨.vex (.vexbin .subq .x0 .x2 .x1), 4⟩ }
+  , { id := "vpand_xxx", mnemonic := "vpand", asm := "vpand %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9dbc1", instr := ⟨.vex (.vexbin .and .x0 .x2 .x1), 4⟩ }
+  , { id := "vpandn_xxx", mnemonic := "vpandn", asm := "vpandn %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9dfc1", instr := ⟨.vex (.vexbin .andn .x0 .x2 .x1), 4⟩ }
+  , { id := "vpor_xxx", mnemonic := "vpor", asm := "vpor %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9ebc1", instr := ⟨.vex (.vexbin .or .x0 .x2 .x1), 4⟩ }
+  , { id := "vpxor_xxx", mnemonic := "vpxor", asm := "vpxor %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e9efc1", instr := ⟨.vex (.vexbin .xor .x0 .x2 .x1), 4⟩ }
+  , { id := "vandps_xxx", mnemonic := "vandps", asm := "vandps %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e854c1", instr := ⟨.vex (.vexbin .andps .x0 .x2 .x1), 4⟩ }
+  , { id := "vandpd_xxx", mnemonic := "vandpd", asm := "vandpd %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e954c1", instr := ⟨.vex (.vexbin .andpd .x0 .x2 .x1), 4⟩ }
+  , { id := "vandnps_xxx", mnemonic := "vandnps", asm := "vandnps %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e855c1", instr := ⟨.vex (.vexbin .andnps .x0 .x2 .x1), 4⟩ }
+  , { id := "vandnpd_xxx", mnemonic := "vandnpd", asm := "vandnpd %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e955c1", instr := ⟨.vex (.vexbin .andnpd .x0 .x2 .x1), 4⟩ }
+  , { id := "vorps_xxx", mnemonic := "vorps", asm := "vorps %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e856c1", instr := ⟨.vex (.vexbin .orps .x0 .x2 .x1), 4⟩ }
+  , { id := "vorpd_xxx", mnemonic := "vorpd", asm := "vorpd %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e956c1", instr := ⟨.vex (.vexbin .orpd .x0 .x2 .x1), 4⟩ }
+  , { id := "vxorps_xxx", mnemonic := "vxorps", asm := "vxorps %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e857c1", instr := ⟨.vex (.vexbin .xorps .x0 .x2 .x1), 4⟩ }
+  , { id := "vxorpd_xxx", mnemonic := "vxorpd", asm := "vxorpd %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e957c1", instr := ⟨.vex (.vexbin .xorpd .x0 .x2 .x1), 4⟩ }
+  , { id := "vpcmpeqb_xxx", mnemonic := "vpcmpeqb", asm := "vpcmpeqb %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e974c1", instr := ⟨.vex (.vexbin .cmpeqb .x0 .x2 .x1), 4⟩ }
+  , { id := "vpcmpeqw_xxx", mnemonic := "vpcmpeqw", asm := "vpcmpeqw %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e975c1", instr := ⟨.vex (.vexbin .cmpeqw .x0 .x2 .x1), 4⟩ }
+  , { id := "vpcmpeqd_xxx", mnemonic := "vpcmpeqd", asm := "vpcmpeqd %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e976c1", instr := ⟨.vex (.vexbin .cmpeqd .x0 .x2 .x1), 4⟩ }
+  , { id := "vpcmpgtb_xxx", mnemonic := "vpcmpgtb", asm := "vpcmpgtb %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e964c1", instr := ⟨.vex (.vexbin .cmpgtb .x0 .x2 .x1), 4⟩ }
+  , { id := "vpcmpgtw_xxx", mnemonic := "vpcmpgtw", asm := "vpcmpgtw %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e965c1", instr := ⟨.vex (.vexbin .cmpgtw .x0 .x2 .x1), 4⟩ }
+  , { id := "vpcmpgtd_xxx", mnemonic := "vpcmpgtd", asm := "vpcmpgtd %xmm1, %xmm2, %xmm0"
+    , bytes := "c5e966c1", instr := ⟨.vex (.vexbin .cmpgtd .x0 .x2 .x1), 4⟩ }
+  , { id := "vmovdqa_x4x9", mnemonic := "vmovdqa", asm := "vmovdqa %xmm9, %xmm4"
+    , bytes := "c5797fcc", instr := ⟨.vex (.vexmov .dqa .x4 .x9), 4⟩ }
+  , { id := "vmovdqu_x12x5", mnemonic := "vmovdqu", asm := "vmovdqu %xmm5, %xmm12"
+    , bytes := "c57a6fe5", instr := ⟨.vex (.vexmov .dqu .x12 .x5), 4⟩ }
+  , { id := "vmovddup_x3x11", mnemonic := "vmovddup", asm := "vmovddup %xmm11, %xmm3"
+    , bytes := "c4c17b12db", instr := ⟨.vex (.vexddup .x3 .x11), 5⟩ }
+  -- ⭐ D359: the memory source.
+  , { id := "vmovddup_x3m", mnemonic := "vmovddup", asm := "vmovddup (%rbx), %xmm3"
+    , bytes := "c5fb121b", instr := ⟨.vex (.vexddupm .x3 { base := some .rbx }), 4⟩ }
+  , { id := "vmovddup_x11m", mnemonic := "vmovddup", asm := "vmovddup (%rbx), %xmm11"
+    , bytes := "c57b121b", instr := ⟨.vex (.vexddupm .x11 { base := some .rbx }), 4⟩ }
+  , { id := "vpsubd_x7x10x13", mnemonic := "vpsubd", asm := "vpsubd %xmm13, %xmm10, %xmm7"
+    , bytes := "c4c129fafd", instr := ⟨.vex (.vexbin .subd .x7 .x10 .x13), 5⟩ }
+  , { id := "vpandn_x9x14x3", mnemonic := "vpandn", asm := "vpandn %xmm3, %xmm14, %xmm9"
+    , bytes := "c509dfcb", instr := ⟨.vex (.vexbin .andn .x9 .x14 .x3), 4⟩ }
+  , { id := "vpcmpgtb_x15x5x8", mnemonic := "vpcmpgtb", asm := "vpcmpgtb %xmm8, %xmm5, %xmm15"
+    , bytes := "c4415164f8", instr := ⟨.vex (.vexbin .cmpgtb .x15 .x5 .x8), 5⟩ }
+  -- ⭐⭐ V4 (D342, part (b)): `vpxor m,xmm,xmm`, which the oracle EXECUTES (88 of 88). The first row
+  -- takes the legacy `pxor_m` shape (`(%rbx)`, the swept eight bytes at 0x2000). The second is the
+  -- one rule where the VEX memory form DEPARTS from the legacy one: a misaligned m128 (0x2001, inside
+  -- the data window) does not fault under VEX, where `pxor_m` at that address is #GP(0) — and it
+  -- moves the operands to xmm9/xmm13 (VEX.R̄ and VEX.vvvv's high bit).
+  , { id := "vpxor_xxm", mnemonic := "vpxor", asm := "vpxor (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e9ef03", instr := ⟨.vex (.vexbinm .xor .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpxor_x9x13m_u", mnemonic := "vpxor", asm := "vpxor 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c511ef4b01", instr := ⟨.vex (.vexbinm .xor .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  -- ⭐⭐ D369: vzeroupper, the VEX-only row; every pre-state's sixteen upper halves are non-zero, so it is not vacuous.
+  , { id := "vzeroupper", mnemonic := "vzeroupper", asm := "vzeroupper"
+    , bytes := "c5f877", instr := ⟨.vex .vexzeroupper, 3⟩ }
+  ]
+
+/-- ⭐⭐⭐ V6 (D344): THE 39 VEX.256 (VEX.L = 1) REGISTER TWINS — V3's 39 register rows, operand for operand,
+with every `%xmm` an `%ymm`. Bytes are clang's (`scripts/check_encodings.py` re-assembles each `asm`); each
+differs from its V3 row only in VEX.L. ⛔ Every pre-state seeds bits 255:128 NON-ZERO and distinct per register
+(`ymmHiPattern`), so a rule that zeroed or preserved the destination's upper half, or computed it from the low
+lane, disagrees with the oracle. -/
+def vex256Vectors : List Vec :=
+  [ { id := "vmovdqa_yy", mnemonic := "vmovdqa", asm := "vmovdqa %ymm1, %ymm0"
+    , bytes := "c5fd6fc1", instr := ⟨.vex (.vexmov256 .dqa .x0 .x1), 4⟩ }
+  , { id := "vmovdqu_yy", mnemonic := "vmovdqu", asm := "vmovdqu %ymm1, %ymm0"
+    , bytes := "c5fe6fc1", instr := ⟨.vex (.vexmov256 .dqu .x0 .x1), 4⟩ }
+  , { id := "vmovaps_yy", mnemonic := "vmovaps", asm := "vmovaps %ymm1, %ymm0"
+    , bytes := "c5fc28c1", instr := ⟨.vex (.vexmov256 .aps .x0 .x1), 4⟩ }
+  , { id := "vmovups_yy", mnemonic := "vmovups", asm := "vmovups %ymm1, %ymm0"
+    , bytes := "c5fc10c1", instr := ⟨.vex (.vexmov256 .ups .x0 .x1), 4⟩ }
+  , { id := "vmovapd_yy", mnemonic := "vmovapd", asm := "vmovapd %ymm1, %ymm0"
+    , bytes := "c5fd28c1", instr := ⟨.vex (.vexmov256 .apd .x0 .x1), 4⟩ }
+  , { id := "vmovupd_yy", mnemonic := "vmovupd", asm := "vmovupd %ymm1, %ymm0"
+    , bytes := "c5fd10c1", instr := ⟨.vex (.vexmov256 .upd .x0 .x1), 4⟩ }
+  , { id := "vmovddup_yy", mnemonic := "vmovddup", asm := "vmovddup %ymm1, %ymm0"
+    , bytes := "c5ff12c1", instr := ⟨.vex (.vexddup256 .x0 .x1), 4⟩ }
+  , { id := "vpaddb_yyy", mnemonic := "vpaddb", asm := "vpaddb %ymm1, %ymm2, %ymm0"
+    , bytes := "c5edfcc1", instr := ⟨.vex (.vexbin256 .addb .x0 .x2 .x1), 4⟩ }
+  , { id := "vpaddw_yyy", mnemonic := "vpaddw", asm := "vpaddw %ymm1, %ymm2, %ymm0"
+    , bytes := "c5edfdc1", instr := ⟨.vex (.vexbin256 .addw .x0 .x2 .x1), 4⟩ }
+  , { id := "vpaddd_yyy", mnemonic := "vpaddd", asm := "vpaddd %ymm1, %ymm2, %ymm0"
+    , bytes := "c5edfec1", instr := ⟨.vex (.vexbin256 .addd .x0 .x2 .x1), 4⟩ }
+  , { id := "vpaddq_yyy", mnemonic := "vpaddq", asm := "vpaddq %ymm1, %ymm2, %ymm0"
+    , bytes := "c5edd4c1", instr := ⟨.vex (.vexbin256 .addq .x0 .x2 .x1), 4⟩ }
+  , { id := "vpsubb_yyy", mnemonic := "vpsubb", asm := "vpsubb %ymm1, %ymm2, %ymm0"
+    , bytes := "c5edf8c1", instr := ⟨.vex (.vexbin256 .subb .x0 .x2 .x1), 4⟩ }
+  , { id := "vpsubw_yyy", mnemonic := "vpsubw", asm := "vpsubw %ymm1, %ymm2, %ymm0"
+    , bytes := "c5edf9c1", instr := ⟨.vex (.vexbin256 .subw .x0 .x2 .x1), 4⟩ }
+  , { id := "vpsubd_yyy", mnemonic := "vpsubd", asm := "vpsubd %ymm1, %ymm2, %ymm0"
+    , bytes := "c5edfac1", instr := ⟨.vex (.vexbin256 .subd .x0 .x2 .x1), 4⟩ }
+  , { id := "vpsubq_yyy", mnemonic := "vpsubq", asm := "vpsubq %ymm1, %ymm2, %ymm0"
+    , bytes := "c5edfbc1", instr := ⟨.vex (.vexbin256 .subq .x0 .x2 .x1), 4⟩ }
+  , { id := "vpand_yyy", mnemonic := "vpand", asm := "vpand %ymm1, %ymm2, %ymm0"
+    , bytes := "c5eddbc1", instr := ⟨.vex (.vexbin256 .and .x0 .x2 .x1), 4⟩ }
+  , { id := "vpandn_yyy", mnemonic := "vpandn", asm := "vpandn %ymm1, %ymm2, %ymm0"
+    , bytes := "c5eddfc1", instr := ⟨.vex (.vexbin256 .andn .x0 .x2 .x1), 4⟩ }
+  , { id := "vpor_yyy", mnemonic := "vpor", asm := "vpor %ymm1, %ymm2, %ymm0"
+    , bytes := "c5edebc1", instr := ⟨.vex (.vexbin256 .or .x0 .x2 .x1), 4⟩ }
+  , { id := "vpxor_yyy", mnemonic := "vpxor", asm := "vpxor %ymm1, %ymm2, %ymm0"
+    , bytes := "c5edefc1", instr := ⟨.vex (.vexbin256 .xor .x0 .x2 .x1), 4⟩ }
+  , { id := "vandps_yyy", mnemonic := "vandps", asm := "vandps %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ec54c1", instr := ⟨.vex (.vexbin256 .andps .x0 .x2 .x1), 4⟩ }
+  , { id := "vandpd_yyy", mnemonic := "vandpd", asm := "vandpd %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ed54c1", instr := ⟨.vex (.vexbin256 .andpd .x0 .x2 .x1), 4⟩ }
+  , { id := "vandnps_yyy", mnemonic := "vandnps", asm := "vandnps %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ec55c1", instr := ⟨.vex (.vexbin256 .andnps .x0 .x2 .x1), 4⟩ }
+  , { id := "vandnpd_yyy", mnemonic := "vandnpd", asm := "vandnpd %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ed55c1", instr := ⟨.vex (.vexbin256 .andnpd .x0 .x2 .x1), 4⟩ }
+  , { id := "vorps_yyy", mnemonic := "vorps", asm := "vorps %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ec56c1", instr := ⟨.vex (.vexbin256 .orps .x0 .x2 .x1), 4⟩ }
+  , { id := "vorpd_yyy", mnemonic := "vorpd", asm := "vorpd %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ed56c1", instr := ⟨.vex (.vexbin256 .orpd .x0 .x2 .x1), 4⟩ }
+  , { id := "vxorps_yyy", mnemonic := "vxorps", asm := "vxorps %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ec57c1", instr := ⟨.vex (.vexbin256 .xorps .x0 .x2 .x1), 4⟩ }
+  , { id := "vxorpd_yyy", mnemonic := "vxorpd", asm := "vxorpd %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ed57c1", instr := ⟨.vex (.vexbin256 .xorpd .x0 .x2 .x1), 4⟩ }
+  , { id := "vpcmpeqb_yyy", mnemonic := "vpcmpeqb", asm := "vpcmpeqb %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ed74c1", instr := ⟨.vex (.vexbin256 .cmpeqb .x0 .x2 .x1), 4⟩ }
+  , { id := "vpcmpeqw_yyy", mnemonic := "vpcmpeqw", asm := "vpcmpeqw %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ed75c1", instr := ⟨.vex (.vexbin256 .cmpeqw .x0 .x2 .x1), 4⟩ }
+  , { id := "vpcmpeqd_yyy", mnemonic := "vpcmpeqd", asm := "vpcmpeqd %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ed76c1", instr := ⟨.vex (.vexbin256 .cmpeqd .x0 .x2 .x1), 4⟩ }
+  , { id := "vpcmpgtb_yyy", mnemonic := "vpcmpgtb", asm := "vpcmpgtb %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ed64c1", instr := ⟨.vex (.vexbin256 .cmpgtb .x0 .x2 .x1), 4⟩ }
+  , { id := "vpcmpgtw_yyy", mnemonic := "vpcmpgtw", asm := "vpcmpgtw %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ed65c1", instr := ⟨.vex (.vexbin256 .cmpgtw .x0 .x2 .x1), 4⟩ }
+  , { id := "vpcmpgtd_yyy", mnemonic := "vpcmpgtd", asm := "vpcmpgtd %ymm1, %ymm2, %ymm0"
+    , bytes := "c5ed66c1", instr := ⟨.vex (.vexbin256 .cmpgtd .x0 .x2 .x1), 4⟩ }
+  , { id := "vmovdqa_y4y9", mnemonic := "vmovdqa", asm := "vmovdqa %ymm9, %ymm4"
+    , bytes := "c57d7fcc", instr := ⟨.vex (.vexmov256 .dqa .x4 .x9), 4⟩ }
+  , { id := "vmovdqu_y12y5", mnemonic := "vmovdqu", asm := "vmovdqu %ymm5, %ymm12"
+    , bytes := "c57e6fe5", instr := ⟨.vex (.vexmov256 .dqu .x12 .x5), 4⟩ }
+  , { id := "vmovddup_y3y11", mnemonic := "vmovddup", asm := "vmovddup %ymm11, %ymm3"
+    , bytes := "c4c17f12db", instr := ⟨.vex (.vexddup256 .x3 .x11), 5⟩ }
+  -- ⭐ D359: the memory source; the high lane is the quadword at +16.
+  , { id := "vmovddup_y3m", mnemonic := "vmovddup", asm := "vmovddup (%rbx), %ymm3"
+    , bytes := "c5ff121b", instr := ⟨.vex (.vexddupm256 .x3 { base := some .rbx }), 4⟩ }
+  , { id := "vmovddup_y11m", mnemonic := "vmovddup", asm := "vmovddup (%rbx), %ymm11"
+    , bytes := "c57f121b", instr := ⟨.vex (.vexddupm256 .x11 { base := some .rbx }), 4⟩ }
+  , { id := "vpsubd_y7y10y13", mnemonic := "vpsubd", asm := "vpsubd %ymm13, %ymm10, %ymm7"
+    , bytes := "c4c12dfafd", instr := ⟨.vex (.vexbin256 .subd .x7 .x10 .x13), 5⟩ }
+  , { id := "vpandn_y9y14y3", mnemonic := "vpandn", asm := "vpandn %ymm3, %ymm14, %ymm9"
+    , bytes := "c50ddfcb", instr := ⟨.vex (.vexbin256 .andn .x9 .x14 .x3), 4⟩ }
+  , { id := "vpcmpgtb_y15y5y8", mnemonic := "vpcmpgtb", asm := "vpcmpgtb %ymm8, %ymm5, %ymm15"
+    , bytes := "c4415564f8", instr := ⟨.vex (.vexbin256 .cmpgtb .x15 .x5 .x8), 5⟩ }
+  ]
+
+
+/-- ⭐⭐ V9a (D353) — the VEX MEMORY twins of the 26 differentially tested packed binary kinds
+(`VBinKind.vexMemTaken`), a FOURTH list beside `vexVectors` and `vex256Vectors`, so that their checks
+(`Tests/CoverageVexMem.lean`) are a NEW kernel unit and the two existing VEX coverage units do not move.
+Appending these 104 rows to the two lists cost `Tests.CoverageVex256` 791 → 3,050 ms on katmai (K1), past
+a per-unit budget that is a fraction of the unit's own size; D341 put the VEX table in its own module for
+the same reason.  The oracle EXECUTES all 52 encodings (88 of 88).  `vpxor`'s two VEX.128 memory rows
+(D342) stay in `vexVectors`.
+
+  * VEX.128 (`vexbinm`), the other 25 kinds in `vpxor`'s two shapes: `(%rbx)`, and a misaligned m128 at 0x2001
+    with xmm9/xmm13.
+  * VEX.256 (`vexbinm256`), all 26: `(%rbx)`, and `-0x11(%rbx)`, misaligned with all 32 bytes inside the
+    watched data window (32 bytes at 0x2001 would end one byte past it, where both models read 0 and agree
+    by construction), with the operands moved to ymm9/ymm13.
+  * `vpcmpeqw_yym_hi` and `vpcmpeqd_yym_hi`, found by V9a's own red-backwards mutant: in the two rows above an
+    equality compare's HIGH lane is all-zero whether it reads bytes 31:16 or 15:0. At -0x14(%rbx) bytes 31:16
+    carry a zero dword where ymm2's high lane has one, and bytes 15:0 do not. -/
+def vexMemVectors : List Vec :=
+  [ { id := "vpaddb_xxm", mnemonic := "vpaddb", asm := "vpaddb (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e9fc03", instr := ⟨.vex (.vexbinm .addb .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpaddb_x9x13m_u", mnemonic := "vpaddb", asm := "vpaddb 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c511fc4b01", instr := ⟨.vex (.vexbinm .addb .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vpaddw_xxm", mnemonic := "vpaddw", asm := "vpaddw (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e9fd03", instr := ⟨.vex (.vexbinm .addw .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpaddw_x9x13m_u", mnemonic := "vpaddw", asm := "vpaddw 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c511fd4b01", instr := ⟨.vex (.vexbinm .addw .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vpaddd_xxm", mnemonic := "vpaddd", asm := "vpaddd (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e9fe03", instr := ⟨.vex (.vexbinm .addd .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpaddd_x9x13m_u", mnemonic := "vpaddd", asm := "vpaddd 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c511fe4b01", instr := ⟨.vex (.vexbinm .addd .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vpaddq_xxm", mnemonic := "vpaddq", asm := "vpaddq (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e9d403", instr := ⟨.vex (.vexbinm .addq .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpaddq_x9x13m_u", mnemonic := "vpaddq", asm := "vpaddq 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c511d44b01", instr := ⟨.vex (.vexbinm .addq .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vpsubb_xxm", mnemonic := "vpsubb", asm := "vpsubb (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e9f803", instr := ⟨.vex (.vexbinm .subb .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpsubb_x9x13m_u", mnemonic := "vpsubb", asm := "vpsubb 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c511f84b01", instr := ⟨.vex (.vexbinm .subb .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vpsubw_xxm", mnemonic := "vpsubw", asm := "vpsubw (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e9f903", instr := ⟨.vex (.vexbinm .subw .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpsubw_x9x13m_u", mnemonic := "vpsubw", asm := "vpsubw 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c511f94b01", instr := ⟨.vex (.vexbinm .subw .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vpsubd_xxm", mnemonic := "vpsubd", asm := "vpsubd (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e9fa03", instr := ⟨.vex (.vexbinm .subd .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpsubd_x9x13m_u", mnemonic := "vpsubd", asm := "vpsubd 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c511fa4b01", instr := ⟨.vex (.vexbinm .subd .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vpsubq_xxm", mnemonic := "vpsubq", asm := "vpsubq (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e9fb03", instr := ⟨.vex (.vexbinm .subq .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpsubq_x9x13m_u", mnemonic := "vpsubq", asm := "vpsubq 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c511fb4b01", instr := ⟨.vex (.vexbinm .subq .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vpand_xxm", mnemonic := "vpand", asm := "vpand (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e9db03", instr := ⟨.vex (.vexbinm .and .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpand_x9x13m_u", mnemonic := "vpand", asm := "vpand 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c511db4b01", instr := ⟨.vex (.vexbinm .and .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vpor_xxm", mnemonic := "vpor", asm := "vpor (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e9eb03", instr := ⟨.vex (.vexbinm .or .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpor_x9x13m_u", mnemonic := "vpor", asm := "vpor 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c511eb4b01", instr := ⟨.vex (.vexbinm .or .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vpandn_xxm", mnemonic := "vpandn", asm := "vpandn (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e9df03", instr := ⟨.vex (.vexbinm .andn .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpandn_x9x13m_u", mnemonic := "vpandn", asm := "vpandn 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c511df4b01", instr := ⟨.vex (.vexbinm .andn .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vandnps_xxm", mnemonic := "vandnps", asm := "vandnps (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e85503", instr := ⟨.vex (.vexbinm .andnps .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vandnps_x9x13m_u", mnemonic := "vandnps", asm := "vandnps 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c510554b01", instr := ⟨.vex (.vexbinm .andnps .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vandnpd_xxm", mnemonic := "vandnpd", asm := "vandnpd (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e95503", instr := ⟨.vex (.vexbinm .andnpd .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vandnpd_x9x13m_u", mnemonic := "vandnpd", asm := "vandnpd 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c511554b01", instr := ⟨.vex (.vexbinm .andnpd .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vandps_xxm", mnemonic := "vandps", asm := "vandps (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e85403", instr := ⟨.vex (.vexbinm .andps .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vandps_x9x13m_u", mnemonic := "vandps", asm := "vandps 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c510544b01", instr := ⟨.vex (.vexbinm .andps .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vandpd_xxm", mnemonic := "vandpd", asm := "vandpd (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e95403", instr := ⟨.vex (.vexbinm .andpd .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vandpd_x9x13m_u", mnemonic := "vandpd", asm := "vandpd 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c511544b01", instr := ⟨.vex (.vexbinm .andpd .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vorps_xxm", mnemonic := "vorps", asm := "vorps (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e85603", instr := ⟨.vex (.vexbinm .orps .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vorps_x9x13m_u", mnemonic := "vorps", asm := "vorps 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c510564b01", instr := ⟨.vex (.vexbinm .orps .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vorpd_xxm", mnemonic := "vorpd", asm := "vorpd (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e95603", instr := ⟨.vex (.vexbinm .orpd .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vorpd_x9x13m_u", mnemonic := "vorpd", asm := "vorpd 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c511564b01", instr := ⟨.vex (.vexbinm .orpd .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vxorps_xxm", mnemonic := "vxorps", asm := "vxorps (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e85703", instr := ⟨.vex (.vexbinm .xorps .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vxorps_x9x13m_u", mnemonic := "vxorps", asm := "vxorps 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c510574b01", instr := ⟨.vex (.vexbinm .xorps .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vxorpd_xxm", mnemonic := "vxorpd", asm := "vxorpd (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e95703", instr := ⟨.vex (.vexbinm .xorpd .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vxorpd_x9x13m_u", mnemonic := "vxorpd", asm := "vxorpd 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c511574b01", instr := ⟨.vex (.vexbinm .xorpd .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vpcmpeqb_xxm", mnemonic := "vpcmpeqb", asm := "vpcmpeqb (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e97403", instr := ⟨.vex (.vexbinm .cmpeqb .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpcmpeqb_x9x13m_u", mnemonic := "vpcmpeqb", asm := "vpcmpeqb 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c511744b01", instr := ⟨.vex (.vexbinm .cmpeqb .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vpcmpeqw_xxm", mnemonic := "vpcmpeqw", asm := "vpcmpeqw (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e97503", instr := ⟨.vex (.vexbinm .cmpeqw .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpcmpeqw_x9x13m_u", mnemonic := "vpcmpeqw", asm := "vpcmpeqw 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c511754b01", instr := ⟨.vex (.vexbinm .cmpeqw .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vpcmpeqd_xxm", mnemonic := "vpcmpeqd", asm := "vpcmpeqd (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e97603", instr := ⟨.vex (.vexbinm .cmpeqd .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpcmpeqd_x9x13m_u", mnemonic := "vpcmpeqd", asm := "vpcmpeqd 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c511764b01", instr := ⟨.vex (.vexbinm .cmpeqd .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vpcmpgtb_xxm", mnemonic := "vpcmpgtb", asm := "vpcmpgtb (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e96403", instr := ⟨.vex (.vexbinm .cmpgtb .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpcmpgtb_x9x13m_u", mnemonic := "vpcmpgtb", asm := "vpcmpgtb 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c511644b01", instr := ⟨.vex (.vexbinm .cmpgtb .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vpcmpgtw_xxm", mnemonic := "vpcmpgtw", asm := "vpcmpgtw (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e96503", instr := ⟨.vex (.vexbinm .cmpgtw .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpcmpgtw_x9x13m_u", mnemonic := "vpcmpgtw", asm := "vpcmpgtw 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c511654b01", instr := ⟨.vex (.vexbinm .cmpgtw .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vpcmpgtd_xxm", mnemonic := "vpcmpgtd", asm := "vpcmpgtd (%rbx), %xmm2, %xmm0"
+    , bytes := "c5e96603", instr := ⟨.vex (.vexbinm .cmpgtd .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpcmpgtd_x9x13m_u", mnemonic := "vpcmpgtd", asm := "vpcmpgtd 0x1(%rbx), %xmm13, %xmm9"
+    , bytes := "c511664b01", instr := ⟨.vex (.vexbinm .cmpgtd .x9 .x13 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vpaddb_yym", mnemonic := "vpaddb", asm := "vpaddb (%rbx), %ymm2, %ymm0"
+    , bytes := "c5edfc03", instr := ⟨.vex (.vexbinm256 .addb .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpaddb_y9y13m_u", mnemonic := "vpaddb", asm := "vpaddb -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c515fc4bef", instr := ⟨.vex (.vexbinm256 .addb .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vpaddw_yym", mnemonic := "vpaddw", asm := "vpaddw (%rbx), %ymm2, %ymm0"
+    , bytes := "c5edfd03", instr := ⟨.vex (.vexbinm256 .addw .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpaddw_y9y13m_u", mnemonic := "vpaddw", asm := "vpaddw -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c515fd4bef", instr := ⟨.vex (.vexbinm256 .addw .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vpaddd_yym", mnemonic := "vpaddd", asm := "vpaddd (%rbx), %ymm2, %ymm0"
+    , bytes := "c5edfe03", instr := ⟨.vex (.vexbinm256 .addd .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpaddd_y9y13m_u", mnemonic := "vpaddd", asm := "vpaddd -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c515fe4bef", instr := ⟨.vex (.vexbinm256 .addd .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vpaddq_yym", mnemonic := "vpaddq", asm := "vpaddq (%rbx), %ymm2, %ymm0"
+    , bytes := "c5edd403", instr := ⟨.vex (.vexbinm256 .addq .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpaddq_y9y13m_u", mnemonic := "vpaddq", asm := "vpaddq -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c515d44bef", instr := ⟨.vex (.vexbinm256 .addq .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vpsubb_yym", mnemonic := "vpsubb", asm := "vpsubb (%rbx), %ymm2, %ymm0"
+    , bytes := "c5edf803", instr := ⟨.vex (.vexbinm256 .subb .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpsubb_y9y13m_u", mnemonic := "vpsubb", asm := "vpsubb -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c515f84bef", instr := ⟨.vex (.vexbinm256 .subb .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vpsubw_yym", mnemonic := "vpsubw", asm := "vpsubw (%rbx), %ymm2, %ymm0"
+    , bytes := "c5edf903", instr := ⟨.vex (.vexbinm256 .subw .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpsubw_y9y13m_u", mnemonic := "vpsubw", asm := "vpsubw -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c515f94bef", instr := ⟨.vex (.vexbinm256 .subw .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vpsubd_yym", mnemonic := "vpsubd", asm := "vpsubd (%rbx), %ymm2, %ymm0"
+    , bytes := "c5edfa03", instr := ⟨.vex (.vexbinm256 .subd .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpsubd_y9y13m_u", mnemonic := "vpsubd", asm := "vpsubd -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c515fa4bef", instr := ⟨.vex (.vexbinm256 .subd .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vpsubq_yym", mnemonic := "vpsubq", asm := "vpsubq (%rbx), %ymm2, %ymm0"
+    , bytes := "c5edfb03", instr := ⟨.vex (.vexbinm256 .subq .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpsubq_y9y13m_u", mnemonic := "vpsubq", asm := "vpsubq -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c515fb4bef", instr := ⟨.vex (.vexbinm256 .subq .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vpxor_yym", mnemonic := "vpxor", asm := "vpxor (%rbx), %ymm2, %ymm0"
+    , bytes := "c5edef03", instr := ⟨.vex (.vexbinm256 .xor .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpxor_y9y13m_u", mnemonic := "vpxor", asm := "vpxor -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c515ef4bef", instr := ⟨.vex (.vexbinm256 .xor .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vpand_yym", mnemonic := "vpand", asm := "vpand (%rbx), %ymm2, %ymm0"
+    , bytes := "c5eddb03", instr := ⟨.vex (.vexbinm256 .and .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpand_y9y13m_u", mnemonic := "vpand", asm := "vpand -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c515db4bef", instr := ⟨.vex (.vexbinm256 .and .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vpor_yym", mnemonic := "vpor", asm := "vpor (%rbx), %ymm2, %ymm0"
+    , bytes := "c5edeb03", instr := ⟨.vex (.vexbinm256 .or .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpor_y9y13m_u", mnemonic := "vpor", asm := "vpor -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c515eb4bef", instr := ⟨.vex (.vexbinm256 .or .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vpandn_yym", mnemonic := "vpandn", asm := "vpandn (%rbx), %ymm2, %ymm0"
+    , bytes := "c5eddf03", instr := ⟨.vex (.vexbinm256 .andn .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpandn_y9y13m_u", mnemonic := "vpandn", asm := "vpandn -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c515df4bef", instr := ⟨.vex (.vexbinm256 .andn .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vandnps_yym", mnemonic := "vandnps", asm := "vandnps (%rbx), %ymm2, %ymm0"
+    , bytes := "c5ec5503", instr := ⟨.vex (.vexbinm256 .andnps .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vandnps_y9y13m_u", mnemonic := "vandnps", asm := "vandnps -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c514554bef", instr := ⟨.vex (.vexbinm256 .andnps .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vandnpd_yym", mnemonic := "vandnpd", asm := "vandnpd (%rbx), %ymm2, %ymm0"
+    , bytes := "c5ed5503", instr := ⟨.vex (.vexbinm256 .andnpd .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vandnpd_y9y13m_u", mnemonic := "vandnpd", asm := "vandnpd -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c515554bef", instr := ⟨.vex (.vexbinm256 .andnpd .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vandps_yym", mnemonic := "vandps", asm := "vandps (%rbx), %ymm2, %ymm0"
+    , bytes := "c5ec5403", instr := ⟨.vex (.vexbinm256 .andps .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vandps_y9y13m_u", mnemonic := "vandps", asm := "vandps -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c514544bef", instr := ⟨.vex (.vexbinm256 .andps .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vandpd_yym", mnemonic := "vandpd", asm := "vandpd (%rbx), %ymm2, %ymm0"
+    , bytes := "c5ed5403", instr := ⟨.vex (.vexbinm256 .andpd .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vandpd_y9y13m_u", mnemonic := "vandpd", asm := "vandpd -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c515544bef", instr := ⟨.vex (.vexbinm256 .andpd .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vorps_yym", mnemonic := "vorps", asm := "vorps (%rbx), %ymm2, %ymm0"
+    , bytes := "c5ec5603", instr := ⟨.vex (.vexbinm256 .orps .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vorps_y9y13m_u", mnemonic := "vorps", asm := "vorps -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c514564bef", instr := ⟨.vex (.vexbinm256 .orps .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vorpd_yym", mnemonic := "vorpd", asm := "vorpd (%rbx), %ymm2, %ymm0"
+    , bytes := "c5ed5603", instr := ⟨.vex (.vexbinm256 .orpd .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vorpd_y9y13m_u", mnemonic := "vorpd", asm := "vorpd -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c515564bef", instr := ⟨.vex (.vexbinm256 .orpd .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vxorps_yym", mnemonic := "vxorps", asm := "vxorps (%rbx), %ymm2, %ymm0"
+    , bytes := "c5ec5703", instr := ⟨.vex (.vexbinm256 .xorps .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vxorps_y9y13m_u", mnemonic := "vxorps", asm := "vxorps -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c514574bef", instr := ⟨.vex (.vexbinm256 .xorps .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vxorpd_yym", mnemonic := "vxorpd", asm := "vxorpd (%rbx), %ymm2, %ymm0"
+    , bytes := "c5ed5703", instr := ⟨.vex (.vexbinm256 .xorpd .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vxorpd_y9y13m_u", mnemonic := "vxorpd", asm := "vxorpd -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c515574bef", instr := ⟨.vex (.vexbinm256 .xorpd .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vpcmpeqb_yym", mnemonic := "vpcmpeqb", asm := "vpcmpeqb (%rbx), %ymm2, %ymm0"
+    , bytes := "c5ed7403", instr := ⟨.vex (.vexbinm256 .cmpeqb .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpcmpeqb_y9y13m_u", mnemonic := "vpcmpeqb", asm := "vpcmpeqb -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c515744bef", instr := ⟨.vex (.vexbinm256 .cmpeqb .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vpcmpeqw_yym", mnemonic := "vpcmpeqw", asm := "vpcmpeqw (%rbx), %ymm2, %ymm0"
+    , bytes := "c5ed7503", instr := ⟨.vex (.vexbinm256 .cmpeqw .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpcmpeqw_y9y13m_u", mnemonic := "vpcmpeqw", asm := "vpcmpeqw -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c515754bef", instr := ⟨.vex (.vexbinm256 .cmpeqw .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vpcmpeqd_yym", mnemonic := "vpcmpeqd", asm := "vpcmpeqd (%rbx), %ymm2, %ymm0"
+    , bytes := "c5ed7603", instr := ⟨.vex (.vexbinm256 .cmpeqd .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpcmpeqd_y9y13m_u", mnemonic := "vpcmpeqd", asm := "vpcmpeqd -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c515764bef", instr := ⟨.vex (.vexbinm256 .cmpeqd .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vpcmpgtb_yym", mnemonic := "vpcmpgtb", asm := "vpcmpgtb (%rbx), %ymm2, %ymm0"
+    , bytes := "c5ed6403", instr := ⟨.vex (.vexbinm256 .cmpgtb .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpcmpgtb_y9y13m_u", mnemonic := "vpcmpgtb", asm := "vpcmpgtb -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c515644bef", instr := ⟨.vex (.vexbinm256 .cmpgtb .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vpcmpgtw_yym", mnemonic := "vpcmpgtw", asm := "vpcmpgtw (%rbx), %ymm2, %ymm0"
+    , bytes := "c5ed6503", instr := ⟨.vex (.vexbinm256 .cmpgtw .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpcmpgtw_y9y13m_u", mnemonic := "vpcmpgtw", asm := "vpcmpgtw -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c515654bef", instr := ⟨.vex (.vexbinm256 .cmpgtw .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vpcmpgtd_yym", mnemonic := "vpcmpgtd", asm := "vpcmpgtd (%rbx), %ymm2, %ymm0"
+    , bytes := "c5ed6603", instr := ⟨.vex (.vexbinm256 .cmpgtd .x0 .x2 { base := some .rbx }), 4⟩ }
+  , { id := "vpcmpgtd_y9y13m_u", mnemonic := "vpcmpgtd", asm := "vpcmpgtd -0x11(%rbx), %ymm13, %ymm9"
+    , bytes := "c515664bef", instr := ⟨.vex (.vexbinm256 .cmpgtd .x9 .x13 { base := some .rbx, disp := -0x11 }), 5⟩ }
+  , { id := "vpcmpeqw_yym_hi", mnemonic := "vpcmpeqw", asm := "vpcmpeqw -0x14(%rbx), %ymm2, %ymm0"
+    , bytes := "c5ed7543ec", instr := ⟨.vex (.vexbinm256 .cmpeqw .x0 .x2 { base := some .rbx, disp := -0x14 }), 5⟩ }
+  , { id := "vpcmpeqd_yym_hi", mnemonic := "vpcmpeqd", asm := "vpcmpeqd -0x14(%rbx), %ymm2, %ymm0"
+    , bytes := "c5ed7643ec", instr := ⟨.vex (.vexbinm256 .cmpeqd .x0 .x2 { base := some .rbx, disp := -0x14 }), 5⟩ }
+  ]
+
+/-- ⭐⭐ V9b (D354) — the VEX MEMORY forms of the six packed moves (`vexload` `vexstore` `vexload256` `vexstore256`),
+a FIFTH list, declared a NEW kernel unit up front (`Tests/CoverageVexMov.lean`) rather than found by a refusal as
+V9a's was.  The oracle executes all 24 encodings aligned (P1, 88 of 88).
+
+  * Every (kind, width, direction) at `(%rbx)` = 0x2000, which is 32-byte aligned in every pre-state, with xmm0/ymm0
+    as the load's destination or xmm2/ymm2 as the store's source; and again with xmm9 / xmm13 (VEX.R̄).
+  * The three UNALIGNED kinds (`dqu` `ups` `upd`) also at misaligned addresses inside the watched data window:
+    VEX.128 at 0x1(%rbx) and -0x7(%rbx); VEX.256 at -0xf(%rbx) (0x1ff1..0x2010) and -0x10(%rbx) (16- but not
+    32-aligned).  32 bytes at 0x2001 would end one byte past the window, where a byte nobody watches reports agreement.
+  * ⛔ NO misaligned row for an ALIGNED kind: the model faults (#GP) and x86isa executes it (D91, re-read at P1), a
+    one-sided refusal that would read as a wrong model.  That rule is carried by theorem (`Tests/CoverageVexMov.lean`). -/
+def vexMovVectors : List Vec :=
+  [ { id := "vmovdqa_xm", mnemonic := "vmovdqa", asm := "vmovdqa (%rbx), %xmm0"
+    , bytes := "c5f96f03", instr := ⟨.vex (.vexload .dqa .x0 { base := some .rbx }), 4⟩ }
+  , { id := "vmovdqa_mx", mnemonic := "vmovdqa", asm := "vmovdqa %xmm2, (%rbx)"
+    , bytes := "c5f97f13", instr := ⟨.vex (.vexstore .dqa { base := some .rbx } .x2), 4⟩ }
+  , { id := "vmovdqa_xm_9", mnemonic := "vmovdqa", asm := "vmovdqa (%rbx), %xmm9"
+    , bytes := "c5796f0b", instr := ⟨.vex (.vexload .dqa .x9 { base := some .rbx }), 4⟩ }
+  , { id := "vmovdqa_mx_9", mnemonic := "vmovdqa", asm := "vmovdqa %xmm13, (%rbx)"
+    , bytes := "c5797f2b", instr := ⟨.vex (.vexstore .dqa { base := some .rbx } .x13), 4⟩ }
+  , { id := "vmovdqa_ym", mnemonic := "vmovdqa", asm := "vmovdqa (%rbx), %ymm0"
+    , bytes := "c5fd6f03", instr := ⟨.vex (.vexload256 .dqa .x0 { base := some .rbx }), 4⟩ }
+  , { id := "vmovdqa_my", mnemonic := "vmovdqa", asm := "vmovdqa %ymm2, (%rbx)"
+    , bytes := "c5fd7f13", instr := ⟨.vex (.vexstore256 .dqa { base := some .rbx } .x2), 4⟩ }
+  , { id := "vmovdqa_ym_9", mnemonic := "vmovdqa", asm := "vmovdqa (%rbx), %ymm9"
+    , bytes := "c57d6f0b", instr := ⟨.vex (.vexload256 .dqa .x9 { base := some .rbx }), 4⟩ }
+  , { id := "vmovdqa_my_9", mnemonic := "vmovdqa", asm := "vmovdqa %ymm13, (%rbx)"
+    , bytes := "c57d7f2b", instr := ⟨.vex (.vexstore256 .dqa { base := some .rbx } .x13), 4⟩ }
+  , { id := "vmovdqu_xm", mnemonic := "vmovdqu", asm := "vmovdqu (%rbx), %xmm0"
+    , bytes := "c5fa6f03", instr := ⟨.vex (.vexload .dqu .x0 { base := some .rbx }), 4⟩ }
+  , { id := "vmovdqu_mx", mnemonic := "vmovdqu", asm := "vmovdqu %xmm2, (%rbx)"
+    , bytes := "c5fa7f13", instr := ⟨.vex (.vexstore .dqu { base := some .rbx } .x2), 4⟩ }
+  , { id := "vmovdqu_xm_9", mnemonic := "vmovdqu", asm := "vmovdqu (%rbx), %xmm9"
+    , bytes := "c57a6f0b", instr := ⟨.vex (.vexload .dqu .x9 { base := some .rbx }), 4⟩ }
+  , { id := "vmovdqu_mx_9", mnemonic := "vmovdqu", asm := "vmovdqu %xmm13, (%rbx)"
+    , bytes := "c57a7f2b", instr := ⟨.vex (.vexstore .dqu { base := some .rbx } .x13), 4⟩ }
+  , { id := "vmovdqu_xm_u1", mnemonic := "vmovdqu", asm := "vmovdqu 0x1(%rbx), %xmm0"
+    , bytes := "c5fa6f4301", instr := ⟨.vex (.vexload .dqu .x0 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vmovdqu_mx_u1", mnemonic := "vmovdqu", asm := "vmovdqu %xmm2, 0x1(%rbx)"
+    , bytes := "c5fa7f5301", instr := ⟨.vex (.vexstore .dqu { base := some .rbx, disp := 0x1 } .x2), 5⟩ }
+  , { id := "vmovdqu_xm_u2", mnemonic := "vmovdqu", asm := "vmovdqu -0x7(%rbx), %xmm9"
+    , bytes := "c57a6f4bf9", instr := ⟨.vex (.vexload .dqu .x9 { base := some .rbx, disp := -0x7 }), 5⟩ }
+  , { id := "vmovdqu_mx_u2", mnemonic := "vmovdqu", asm := "vmovdqu %xmm13, -0x7(%rbx)"
+    , bytes := "c57a7f6bf9", instr := ⟨.vex (.vexstore .dqu { base := some .rbx, disp := -0x7 } .x13), 5⟩ }
+  , { id := "vmovdqu_ym", mnemonic := "vmovdqu", asm := "vmovdqu (%rbx), %ymm0"
+    , bytes := "c5fe6f03", instr := ⟨.vex (.vexload256 .dqu .x0 { base := some .rbx }), 4⟩ }
+  , { id := "vmovdqu_my", mnemonic := "vmovdqu", asm := "vmovdqu %ymm2, (%rbx)"
+    , bytes := "c5fe7f13", instr := ⟨.vex (.vexstore256 .dqu { base := some .rbx } .x2), 4⟩ }
+  , { id := "vmovdqu_ym_9", mnemonic := "vmovdqu", asm := "vmovdqu (%rbx), %ymm9"
+    , bytes := "c57e6f0b", instr := ⟨.vex (.vexload256 .dqu .x9 { base := some .rbx }), 4⟩ }
+  , { id := "vmovdqu_my_9", mnemonic := "vmovdqu", asm := "vmovdqu %ymm13, (%rbx)"
+    , bytes := "c57e7f2b", instr := ⟨.vex (.vexstore256 .dqu { base := some .rbx } .x13), 4⟩ }
+  , { id := "vmovdqu_ym_u1", mnemonic := "vmovdqu", asm := "vmovdqu -0xf(%rbx), %ymm0"
+    , bytes := "c5fe6f43f1", instr := ⟨.vex (.vexload256 .dqu .x0 { base := some .rbx, disp := -0xf }), 5⟩ }
+  , { id := "vmovdqu_my_u1", mnemonic := "vmovdqu", asm := "vmovdqu %ymm2, -0xf(%rbx)"
+    , bytes := "c5fe7f53f1", instr := ⟨.vex (.vexstore256 .dqu { base := some .rbx, disp := -0xf } .x2), 5⟩ }
+  , { id := "vmovdqu_ym_u2", mnemonic := "vmovdqu", asm := "vmovdqu -0x10(%rbx), %ymm9"
+    , bytes := "c57e6f4bf0", instr := ⟨.vex (.vexload256 .dqu .x9 { base := some .rbx, disp := -0x10 }), 5⟩ }
+  , { id := "vmovdqu_my_u2", mnemonic := "vmovdqu", asm := "vmovdqu %ymm13, -0x10(%rbx)"
+    , bytes := "c57e7f6bf0", instr := ⟨.vex (.vexstore256 .dqu { base := some .rbx, disp := -0x10 } .x13), 5⟩ }
+  , { id := "vmovaps_xm", mnemonic := "vmovaps", asm := "vmovaps (%rbx), %xmm0"
+    , bytes := "c5f82803", instr := ⟨.vex (.vexload .aps .x0 { base := some .rbx }), 4⟩ }
+  , { id := "vmovaps_mx", mnemonic := "vmovaps", asm := "vmovaps %xmm2, (%rbx)"
+    , bytes := "c5f82913", instr := ⟨.vex (.vexstore .aps { base := some .rbx } .x2), 4⟩ }
+  , { id := "vmovaps_xm_9", mnemonic := "vmovaps", asm := "vmovaps (%rbx), %xmm9"
+    , bytes := "c578280b", instr := ⟨.vex (.vexload .aps .x9 { base := some .rbx }), 4⟩ }
+  , { id := "vmovaps_mx_9", mnemonic := "vmovaps", asm := "vmovaps %xmm13, (%rbx)"
+    , bytes := "c578292b", instr := ⟨.vex (.vexstore .aps { base := some .rbx } .x13), 4⟩ }
+  , { id := "vmovaps_ym", mnemonic := "vmovaps", asm := "vmovaps (%rbx), %ymm0"
+    , bytes := "c5fc2803", instr := ⟨.vex (.vexload256 .aps .x0 { base := some .rbx }), 4⟩ }
+  , { id := "vmovaps_my", mnemonic := "vmovaps", asm := "vmovaps %ymm2, (%rbx)"
+    , bytes := "c5fc2913", instr := ⟨.vex (.vexstore256 .aps { base := some .rbx } .x2), 4⟩ }
+  , { id := "vmovaps_ym_9", mnemonic := "vmovaps", asm := "vmovaps (%rbx), %ymm9"
+    , bytes := "c57c280b", instr := ⟨.vex (.vexload256 .aps .x9 { base := some .rbx }), 4⟩ }
+  , { id := "vmovaps_my_9", mnemonic := "vmovaps", asm := "vmovaps %ymm13, (%rbx)"
+    , bytes := "c57c292b", instr := ⟨.vex (.vexstore256 .aps { base := some .rbx } .x13), 4⟩ }
+  , { id := "vmovups_xm", mnemonic := "vmovups", asm := "vmovups (%rbx), %xmm0"
+    , bytes := "c5f81003", instr := ⟨.vex (.vexload .ups .x0 { base := some .rbx }), 4⟩ }
+  , { id := "vmovups_mx", mnemonic := "vmovups", asm := "vmovups %xmm2, (%rbx)"
+    , bytes := "c5f81113", instr := ⟨.vex (.vexstore .ups { base := some .rbx } .x2), 4⟩ }
+  , { id := "vmovups_xm_9", mnemonic := "vmovups", asm := "vmovups (%rbx), %xmm9"
+    , bytes := "c578100b", instr := ⟨.vex (.vexload .ups .x9 { base := some .rbx }), 4⟩ }
+  , { id := "vmovups_mx_9", mnemonic := "vmovups", asm := "vmovups %xmm13, (%rbx)"
+    , bytes := "c578112b", instr := ⟨.vex (.vexstore .ups { base := some .rbx } .x13), 4⟩ }
+  , { id := "vmovups_xm_u1", mnemonic := "vmovups", asm := "vmovups 0x1(%rbx), %xmm0"
+    , bytes := "c5f8104301", instr := ⟨.vex (.vexload .ups .x0 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vmovups_mx_u1", mnemonic := "vmovups", asm := "vmovups %xmm2, 0x1(%rbx)"
+    , bytes := "c5f8115301", instr := ⟨.vex (.vexstore .ups { base := some .rbx, disp := 0x1 } .x2), 5⟩ }
+  , { id := "vmovups_xm_u2", mnemonic := "vmovups", asm := "vmovups -0x7(%rbx), %xmm9"
+    , bytes := "c578104bf9", instr := ⟨.vex (.vexload .ups .x9 { base := some .rbx, disp := -0x7 }), 5⟩ }
+  , { id := "vmovups_mx_u2", mnemonic := "vmovups", asm := "vmovups %xmm13, -0x7(%rbx)"
+    , bytes := "c578116bf9", instr := ⟨.vex (.vexstore .ups { base := some .rbx, disp := -0x7 } .x13), 5⟩ }
+  , { id := "vmovups_ym", mnemonic := "vmovups", asm := "vmovups (%rbx), %ymm0"
+    , bytes := "c5fc1003", instr := ⟨.vex (.vexload256 .ups .x0 { base := some .rbx }), 4⟩ }
+  , { id := "vmovups_my", mnemonic := "vmovups", asm := "vmovups %ymm2, (%rbx)"
+    , bytes := "c5fc1113", instr := ⟨.vex (.vexstore256 .ups { base := some .rbx } .x2), 4⟩ }
+  , { id := "vmovups_ym_9", mnemonic := "vmovups", asm := "vmovups (%rbx), %ymm9"
+    , bytes := "c57c100b", instr := ⟨.vex (.vexload256 .ups .x9 { base := some .rbx }), 4⟩ }
+  , { id := "vmovups_my_9", mnemonic := "vmovups", asm := "vmovups %ymm13, (%rbx)"
+    , bytes := "c57c112b", instr := ⟨.vex (.vexstore256 .ups { base := some .rbx } .x13), 4⟩ }
+  , { id := "vmovups_ym_u1", mnemonic := "vmovups", asm := "vmovups -0xf(%rbx), %ymm0"
+    , bytes := "c5fc1043f1", instr := ⟨.vex (.vexload256 .ups .x0 { base := some .rbx, disp := -0xf }), 5⟩ }
+  , { id := "vmovups_my_u1", mnemonic := "vmovups", asm := "vmovups %ymm2, -0xf(%rbx)"
+    , bytes := "c5fc1153f1", instr := ⟨.vex (.vexstore256 .ups { base := some .rbx, disp := -0xf } .x2), 5⟩ }
+  , { id := "vmovups_ym_u2", mnemonic := "vmovups", asm := "vmovups -0x10(%rbx), %ymm9"
+    , bytes := "c57c104bf0", instr := ⟨.vex (.vexload256 .ups .x9 { base := some .rbx, disp := -0x10 }), 5⟩ }
+  , { id := "vmovups_my_u2", mnemonic := "vmovups", asm := "vmovups %ymm13, -0x10(%rbx)"
+    , bytes := "c57c116bf0", instr := ⟨.vex (.vexstore256 .ups { base := some .rbx, disp := -0x10 } .x13), 5⟩ }
+  , { id := "vmovapd_xm", mnemonic := "vmovapd", asm := "vmovapd (%rbx), %xmm0"
+    , bytes := "c5f92803", instr := ⟨.vex (.vexload .apd .x0 { base := some .rbx }), 4⟩ }
+  , { id := "vmovapd_mx", mnemonic := "vmovapd", asm := "vmovapd %xmm2, (%rbx)"
+    , bytes := "c5f92913", instr := ⟨.vex (.vexstore .apd { base := some .rbx } .x2), 4⟩ }
+  , { id := "vmovapd_xm_9", mnemonic := "vmovapd", asm := "vmovapd (%rbx), %xmm9"
+    , bytes := "c579280b", instr := ⟨.vex (.vexload .apd .x9 { base := some .rbx }), 4⟩ }
+  , { id := "vmovapd_mx_9", mnemonic := "vmovapd", asm := "vmovapd %xmm13, (%rbx)"
+    , bytes := "c579292b", instr := ⟨.vex (.vexstore .apd { base := some .rbx } .x13), 4⟩ }
+  , { id := "vmovapd_ym", mnemonic := "vmovapd", asm := "vmovapd (%rbx), %ymm0"
+    , bytes := "c5fd2803", instr := ⟨.vex (.vexload256 .apd .x0 { base := some .rbx }), 4⟩ }
+  , { id := "vmovapd_my", mnemonic := "vmovapd", asm := "vmovapd %ymm2, (%rbx)"
+    , bytes := "c5fd2913", instr := ⟨.vex (.vexstore256 .apd { base := some .rbx } .x2), 4⟩ }
+  , { id := "vmovapd_ym_9", mnemonic := "vmovapd", asm := "vmovapd (%rbx), %ymm9"
+    , bytes := "c57d280b", instr := ⟨.vex (.vexload256 .apd .x9 { base := some .rbx }), 4⟩ }
+  , { id := "vmovapd_my_9", mnemonic := "vmovapd", asm := "vmovapd %ymm13, (%rbx)"
+    , bytes := "c57d292b", instr := ⟨.vex (.vexstore256 .apd { base := some .rbx } .x13), 4⟩ }
+  , { id := "vmovupd_xm", mnemonic := "vmovupd", asm := "vmovupd (%rbx), %xmm0"
+    , bytes := "c5f91003", instr := ⟨.vex (.vexload .upd .x0 { base := some .rbx }), 4⟩ }
+  , { id := "vmovupd_mx", mnemonic := "vmovupd", asm := "vmovupd %xmm2, (%rbx)"
+    , bytes := "c5f91113", instr := ⟨.vex (.vexstore .upd { base := some .rbx } .x2), 4⟩ }
+  , { id := "vmovupd_xm_9", mnemonic := "vmovupd", asm := "vmovupd (%rbx), %xmm9"
+    , bytes := "c579100b", instr := ⟨.vex (.vexload .upd .x9 { base := some .rbx }), 4⟩ }
+  , { id := "vmovupd_mx_9", mnemonic := "vmovupd", asm := "vmovupd %xmm13, (%rbx)"
+    , bytes := "c579112b", instr := ⟨.vex (.vexstore .upd { base := some .rbx } .x13), 4⟩ }
+  , { id := "vmovupd_xm_u1", mnemonic := "vmovupd", asm := "vmovupd 0x1(%rbx), %xmm0"
+    , bytes := "c5f9104301", instr := ⟨.vex (.vexload .upd .x0 { base := some .rbx, disp := 0x1 }), 5⟩ }
+  , { id := "vmovupd_mx_u1", mnemonic := "vmovupd", asm := "vmovupd %xmm2, 0x1(%rbx)"
+    , bytes := "c5f9115301", instr := ⟨.vex (.vexstore .upd { base := some .rbx, disp := 0x1 } .x2), 5⟩ }
+  , { id := "vmovupd_xm_u2", mnemonic := "vmovupd", asm := "vmovupd -0x7(%rbx), %xmm9"
+    , bytes := "c579104bf9", instr := ⟨.vex (.vexload .upd .x9 { base := some .rbx, disp := -0x7 }), 5⟩ }
+  , { id := "vmovupd_mx_u2", mnemonic := "vmovupd", asm := "vmovupd %xmm13, -0x7(%rbx)"
+    , bytes := "c579116bf9", instr := ⟨.vex (.vexstore .upd { base := some .rbx, disp := -0x7 } .x13), 5⟩ }
+  , { id := "vmovupd_ym", mnemonic := "vmovupd", asm := "vmovupd (%rbx), %ymm0"
+    , bytes := "c5fd1003", instr := ⟨.vex (.vexload256 .upd .x0 { base := some .rbx }), 4⟩ }
+  , { id := "vmovupd_my", mnemonic := "vmovupd", asm := "vmovupd %ymm2, (%rbx)"
+    , bytes := "c5fd1113", instr := ⟨.vex (.vexstore256 .upd { base := some .rbx } .x2), 4⟩ }
+  , { id := "vmovupd_ym_9", mnemonic := "vmovupd", asm := "vmovupd (%rbx), %ymm9"
+    , bytes := "c57d100b", instr := ⟨.vex (.vexload256 .upd .x9 { base := some .rbx }), 4⟩ }
+  , { id := "vmovupd_my_9", mnemonic := "vmovupd", asm := "vmovupd %ymm13, (%rbx)"
+    , bytes := "c57d112b", instr := ⟨.vex (.vexstore256 .upd { base := some .rbx } .x13), 4⟩ }
+  , { id := "vmovupd_ym_u1", mnemonic := "vmovupd", asm := "vmovupd -0xf(%rbx), %ymm0"
+    , bytes := "c5fd1043f1", instr := ⟨.vex (.vexload256 .upd .x0 { base := some .rbx, disp := -0xf }), 5⟩ }
+  , { id := "vmovupd_my_u1", mnemonic := "vmovupd", asm := "vmovupd %ymm2, -0xf(%rbx)"
+    , bytes := "c5fd1153f1", instr := ⟨.vex (.vexstore256 .upd { base := some .rbx, disp := -0xf } .x2), 5⟩ }
+  , { id := "vmovupd_ym_u2", mnemonic := "vmovupd", asm := "vmovupd -0x10(%rbx), %ymm9"
+    , bytes := "c57d104bf0", instr := ⟨.vex (.vexload256 .upd .x9 { base := some .rbx, disp := -0x10 }), 5⟩ }
+  , { id := "vmovupd_my_u2", mnemonic := "vmovupd", asm := "vmovupd %ymm13, -0x10(%rbx)"
+    , bytes := "c57d116bf0", instr := ⟨.vex (.vexstore256 .upd { base := some .rbx, disp := -0x10 } .x13), 5⟩ }
+  ]
+
+/-- Every differential vector: the main table's, then the VEX twins', then their VEX.256 twins', then the VEX memory twins' (V9a), then the VEX move memory forms' (V9b). What `emit`, `emit-acl2`
+and the encoding checks walk. -/
+def allVectors : List Vec := vectors ++ vexVectors ++ vex256Vectors ++ vexMemVectors ++ vexMovVectors
+
 /-! ## Pre-states: adversarial first, then pseudo-random
 
 The adversarial list is not "interesting numbers" — every entry is a boundary
@@ -4537,6 +5256,28 @@ def mxcsrFor (i : Nat) : BitVec 32 :=
   0x1F80 ||| (BitVec.ofNat 32 (i % 4) <<< 13)
     ||| (if i / 4 % 2 == 1 then BitVec.ofNat 32 (i * 37 % 64) &&& 0x37 else 0)
 
+/-- ⭐⭐⭐ V3 (D341): THE YMM UPPER HALVES, SEEDED NON-ZERO, DISTINCT PER REGISTER AND
+PER PRE-STATE, derived from the low halves (which `xmmPattern` derives from the
+swept values `a`, `c`) and from the pre-state's index `n`.
+
+⛔ ZERO WOULD BE THE D27 TRAP IN ITS PUREST FORM: a VEX.128 write zeroes bits
+255:128, so with zero upper halves a model that FORGOT to zero agrees with the
+oracle in every case, and so does a legacy write that wrongly zeroes.  Here:
+  * the top byte of every upper half is `0xA5`, so none is ever zero;
+  * bits 119:112 carry the register's index and 111:96 the pre-state's, so no two
+    registers and no two pre-states (below 65536) carry the same value;
+  * the rest is taken from the register's own low half (complemented in the low
+    quadword), so the upper half also sweeps with the case's values. -/
+def ymmHiPattern (xs : Xmms) (n : Nat) : Xmms :=
+  { xs with hi := XmmReg.all.foldl (fun ys r =>
+      let lo := xs.get r
+      let k : BitVec 64 := BitVec.ofNat 64 r.index.val
+      let m : BitVec 64 := BitVec.ofNat 64 (n % 65536)
+      let w1 : BitVec 64 := 0xA500000000000000 ||| (k <<< 48) ||| (m <<< 32)
+        ||| ((lo >>> 96).setWidth 64)
+      let w0 : BitVec 64 := ~~~(lo.setWidth 64)
+      ys.set r ((w1.setWidth 128 <<< 64) ||| w0.setWidth 128)) xs.hi }
+
 /-- The pre-states for one vector: every adversarial pair on the diagonal and
 its neighbours, the carry boundary, the two DF states, the two `addr32`
 counter states, the two stack frames, the two string-pointer boundaries, the
@@ -4552,6 +5293,7 @@ def preStates (seed : UInt64) (nRandom : Nat) : List Cpu :=
     (fun ((a, c), i) => mkPre a c i)
   (diag ++ pairs ++ pairs2 ++ carryBoundary ++ dfStates ++ loopCounterStates
     ++ frameStates ++ stringBoundaryStates ++ cmpxchg8bStates ++ shiftCountStates
-    ++ rnd).zipIdx.map (fun (s, i) => { s with mxcsr := mxcsrFor i })
+    ++ rnd).zipIdx.map (fun (s, i) =>
+      { s with mxcsr := mxcsrFor i, xmm := ymmHiPattern s.xmm i })
 
 end X86.Tests

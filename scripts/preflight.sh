@@ -55,12 +55,64 @@ else printf "  ⛔ FAIL hwprobe/mk_anchors --check\n"; rc=1; fi
 # D330: the MULX pins, from hwprobe's integer rows.
 if python3 hwprobe/mk_int_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_int_anchors --check\n"
 else printf "  ⛔ FAIL hwprobe/mk_int_anchors --check\n"; rc=1; fi
+# D340: the fast-path rule (merge on required checks when the selftest digest matches a green master).
+if python3 scripts/fast_path.py --selftest >/dev/null 2>&1; then printf "  ok   fast_path --selftest\n"
+else printf "  ⛔ FAIL fast_path --selftest\n"; rc=1; fi
 # D336: the V1b pins, from hwprobe's shuffle rows.
 if python3 hwprobe/mk_shuf_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_shuf_anchors --check\n"
 else printf "  ⛔ FAIL hwprobe/mk_shuf_anchors --check\n"; rc=1; fi
 # D335: the packed-integer arithmetic pins, from hwprobe's SIMD rows.
 if python3 hwprobe/mk_simda_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_simda_anchors --check\n"
 else printf "  ⛔ FAIL hwprobe/mk_simda_anchors --check\n"; rc=1; fi
+# D373: set B's pins (Tests/AnchorsSimdB.lean).
+if python3 hwprobe/mk_simda_anchors.py --set-b --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_simda_anchors --set-b --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_simda_anchors --set-b --check\n"; rc=1; fi
+# D338: the SHA-NI pins, from hwprobe's SHA rows.
+if python3 hwprobe/mk_sha_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_sha_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_sha_anchors --check\n"; rc=1; fi
+# D342: the AES-NI / VPCLMULQDQ / VEX-shuffle pins, from hwprobe's AES rows.
+if python3 hwprobe/mk_aes_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_aes_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_aes_anchors --check\n"; rc=1; fi
+# D345: the VEX-silicon pins, from hwprobe's VEX-silicon rows.
+if python3 hwprobe/mk_vexsil_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsil_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsil_anchors --check\n"; rc=1; fi
+# D348: the second VEX-silicon path's pins, from hwprobe's vexsilb rows.
+if python3 hwprobe/mk_vexsilb_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsilb_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsilb_anchors --check\n"; rc=1; fi
+# D350: the VEX memory-operand pins, from hwprobe's vexsilc rows.
+if python3 hwprobe/mk_vexsilc_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsilc_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsilc_anchors --check\n"; rc=1; fi
+if python3 hwprobe/mk_vexsild_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsild_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsild_anchors --check\n"; rc=1; fi
+# D361: the VEX memory pins of the silicon rows, from hwprobe's vexsile rows.
+if python3 hwprobe/mk_vexsile_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsile_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsile_anchors --check\n"; rc=1; fi
+# D371: the VEX movd/movq pins, from hwprobe's vexsilf rows.
+if python3 hwprobe/mk_vexsilf_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsilf_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsilf_anchors --check\n"; rc=1; fi
+# D374: the VEX twins' pins.
+if python3 hwprobe/mk_vexsilg_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsilg_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsilg_anchors --check\n"; rc=1; fi
+# D375: the lane insert/extract pins.
+if python3 hwprobe/mk_vexsilh_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsilh_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsilh_anchors --check\n"; rc=1; fi
+# D376: movntdqa and the VEX half-move pins.
+if python3 hwprobe/mk_vexsili_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsili_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsili_anchors --check\n"; rc=1; fi
+# D379: the pabs / pmulld pins.
+if python3 hwprobe/mk_vexsilj_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsilj_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsilj_anchors --check\n"; rc=1; fi
+# D384: wave E's pins (set C and its VEX twins, one unit).
+if python3 hwprobe/mk_simda_anchors.py --set-c --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_simda_anchors --set-c --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_simda_anchors --set-c --check\n"; rc=1; fi
+if python3 hwprobe/mk_vexsilk_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsilk_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsilk_anchors --check\n"; rc=1; fi
+# D393: wave F's pins (the five VEX unpacks, one unit).
+if python3 hwprobe/mk_vexsill_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsill_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsill_anchors --check\n"; rc=1; fi
+# D394: wave G's pins (the VEX scalar floating-point forms, one unit).
+if python3 hwprobe/mk_vexsilm_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsilm_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_vexsilm_anchors --check\n"; rc=1; fi
 # ⛔⛔ ADDED 2026-09-20 (paris): `mk_anchors --check` proves Tests/Anchors.lean matches the
 #   GENERATOR byte for byte. It proves NOTHING about whether the generator's PINNED set is still
 #   CORRECT -- PINNED is DECLARED, and its reach half is measured by a command nothing ran.
@@ -82,6 +134,39 @@ else printf "  ⛔ FAIL hwprobe/mk_simda_anchors --check\n"; rc=1; fi
 #   verdict, and RED-BACKWARDS in that same condition still reds it. ~1 s, no Lean, no heavy slot.
 if python3 hwprobe/reach_table.py --selftest-static >/dev/null 2>&1; then printf "  ok   hwprobe/reach_table --selftest-static\n"
 else printf "  ⛔ FAIL hwprobe/reach_table --selftest-static\n"; rc=1; fi
+# ⛔⛔ ADDED 2026-10-18 (paris, D345's red on #108): every `python3 <script>.py … --check…` command in
+#   ci.yml, READ FROM ci.yml rather than listed here. The hand list above is a subset of CI and
+#   rots: on #108 CI reddened on `p2_roster.py --check` (a derived doc V7 never regenerated) while
+#   this script had never run it, nor k_roster --check, oracle_availability --check-encodings or
+#   delta_band_calibration --check. A command the lines above already ran is skipped by name; the
+#   count of commands read is printed, so a parse that finds nothing reads as a refusal, not as ok.
+#   All of them ran on yukon in ≤ 32 s each (2026-10-18). None takes the heavy slot.
+ci_checks=$(python3 - <<'PYEOF'
+import re
+seen = []
+for line in open(".github/workflows/ci.yml", encoding="utf-8"):
+    m = re.match(r"\s*(?:run:\s*)?(python3\s+\S+\.py\b.*\s--check[\w-]*)\s*$", line)
+    if m and m.group(1) not in seen:
+        seen.append(m.group(1))
+print("\n".join(seen))
+PYEOF
+)
+n_ci=$(printf "%s\n" "$ci_checks" | grep -c 'python3' || true)
+if [ "$n_ci" -lt 1 ]; then printf "  ⛔ FAIL ci.yml --check census: 0 commands read (the parse found nothing)\n"; rc=1; fi
+[ -x .lake/build/bin/x86lean-diff ] || printf "  ⚠️  no .lake/build/bin/x86lean-diff in this checkout: CI builds it before these steps, so the ones\n      that run it (p2_roster, p2_residue, claimed_forms) FAIL here until \`python3 scripts/lean_route.py build\`\n"
+n_ran=0
+while IFS= read -r cmd; do
+  [ -n "$cmd" ] || continue
+  name=${cmd#python3 }
+  case "$name" in
+    hwprobe/mk_anchors.py\ --check|hwprobe/mk_int_anchors.py\ --check|hwprobe/mk_shuf_anchors.py\ --check|\
+    hwprobe/mk_simda_anchors.py\ --check|hwprobe/mk_sha_anchors.py\ --check|hwprobe/mk_aes_anchors.py\ --check) continue ;;
+  esac
+  n_ran=$((n_ran+1))
+  if $cmd >/dev/null 2>&1; then printf "  ok   %s   (from ci.yml)\n" "$name"
+  else printf "  ⛔ FAIL %s   (from ci.yml)\n" "$name"; rc=1; fi
+done <<< "$ci_checks"
+printf "  ci.yml --check census: %s command(s) read, %s run here, the rest ran above by name\n" "$n_ci" "$n_ran"
 # ⛔ ADDED 2026-09-12 (D215): the drift gate's selftest reads the REAL window, so a new
 #   top-level directory with no exemption rule reds CI's kernel-delta job. It was not on
 #   this list, and `d7dbd58` met the refusal in CI after the push. ~17 s together.

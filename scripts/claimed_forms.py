@@ -552,6 +552,28 @@ CLAIMS_NO_ROW = {
     "movsd_x4x5": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "movsd_load_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "movsd_store_m": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    # ⭐ D358: the %xmm9 store twins, under the SIMD rule above.
+    "movss_store_x9": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movsd_store_x9": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movlpd_store_x9": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    # ⭐ D357: the memory forms of `comis*`/`ucomis*`, under the SIMD rule above.
+    "comiss_m_x1": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "comiss_m_x9": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "comisd_m_x1": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "comisd_m_x9": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "ucomiss_m_x1": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "ucomiss_m_x9": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "ucomisd_m_x1": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "ucomisd_m_x9": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    # ⭐ D356: the memory forms of `movd`/`movq`, under the SIMD rule above.
+    "movd_ld_x0": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movd_ld_x9": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movd_st_x0": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movd_st_x9": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movq_ld_x0": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movq_ld_x9": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movq_st_x0": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
+    "movq_st_x9": "SIMD: the P1 roster excludes xmm operands by derivation; counted in the P2 roster",
     "push_m_rsp":     "base %rsp forces a SIB byte; claims no row",
     "pop_m_rsp":      "base %rsp forces a SIB byte; claims no row",
     "mov_fs_abs_q":   "a segment override is a prefix on a row already claimed",
@@ -562,6 +584,31 @@ CLAIMS_NO_ROW = {
     "mov_fs_store_b": "a segment override is a prefix on a row already claimed",
     "add_fs_rmw_q":   "a segment override is a prefix on a row already claimed",
     "lea_fs_abs_q":   "a segment override is a prefix on a row already claimed",
+    # ⭐ D355: the same rule for the census's segment remainder (the canary check, the kernel's per-CPU
+    # forms); every row is claimed by its unsegmented sibling, and CLAIMED reads 504 before and after.
+    "sub_fs_canary_rax": "a segment override is a prefix on a row already claimed",
+    "sub_fs_canary_rdx": "a segment override is a prefix on a row already claimed",
+    "sub_gs_canary_rax": "a segment override is a prefix on a row already claimed",
+    "sub_gs_canary_rdx": "a segment override is a prefix on a row already claimed",
+    "cmp_fs_errno_d":    "a segment override is a prefix on a row already claimed",
+    "cmp_fs_rm_d":       "a segment override is a prefix on a row already claimed",
+    "cmp_fs_mi_b":       "a segment override is a prefix on a row already claimed",
+    "xchg_fs_d":         "a segment override is a prefix on a row already claimed",
+    "test_gs_mi_b":      "a segment override is a prefix on a row already claimed",
+    "inc_gs_rip_l":      "a segment override is a prefix on a row already claimed",
+    "dec_gs_rip_l":      "a segment override is a prefix on a row already claimed",
+    "inc_gs_base_q":     "a segment override is a prefix on a row already claimed",
+    "dec_gs_base_q":     "a segment override is a prefix on a row already claimed",
+    "inc_gs_rip_w":      "a segment override is a prefix on a row already claimed",
+    "xadd_gs_rip_l":     "a segment override is a prefix on a row already claimed",
+    "xadd_gs_base_b":    "a segment override is a prefix on a row already claimed",
+    "and_gs_rip_l":      "a segment override is a prefix on a row already claimed",
+    "or_gs_rip_w":       "a segment override is a prefix on a row already claimed",
+    "cmpxchg_gs_rip_l":  "a segment override is a prefix on a row already claimed",
+    "cmpxchg_gs_base_b": "a segment override is a prefix on a row already claimed",
+    "bt_gs_q":           "a segment override is a prefix on a row already claimed",
+    "btr_gs_q":          "a segment override is a prefix on a row already claimed",
+    "push_gs_q":         "a segment override is a prefix on a row already claimed",
     # ⭐ P2 ITEM 2.  Same rule as the segment overrides one line up, for the same
     # reason: `f0` is a PREFIX, and the rows the eleven locked vectors sit on —
     # `inc m`, `add m,r`, `xadd m,r`, `cmpxchg8b m`, `mov m,r` — are all claimed
@@ -591,6 +638,11 @@ CLAIMS_NO_ROW = {
     "movabs_q":           "movabs is a distinct ENCODING of a row already claimed",
     "movabs_lo32_ones":   "movabs is a distinct ENCODING of a row already claimed",
     "movabs_hi32_ones":   "movabs is a distinct ENCODING of a row already claimed",
+    # ⭐ D347 (V8a): ENDBR64.  The same reason as ADX, measured the same way: K's tree at the
+    # commit `p1/roster.tsv` is generated from has NO endbr rule — `find semantics -iname
+    # '*endbr*'` and `grep -rl -i endbr semantics` both return nothing, against `mulx`'s four
+    # files (2026-10-19) — so the roster has no row to claim, by derivation.  Two-way, as ADX.
+    "endbr64": "CET: K's tree has no endbr rule, so the P1 roster derived from it has no row",
     # ⭐ D330 (W1b): ADCX and ADOX.  A FOURTH reason, stated per member and true of
     # each: K's tree (the commit `p1/roster.tsv` is generated from) carries NO
     # adcx or adox rule at all — `find semantics -iname '*adcx*' -o -iname

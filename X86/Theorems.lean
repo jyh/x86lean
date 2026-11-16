@@ -121,6 +121,51 @@ theorem step_cmp_reg_reg (sz : Size) (r r' : GPR) (h : Live s) :
         rip := s.rip + BitVec.ofNat 64 len } := by
   simp [step, h]
 
+/-! ### The immediate and memory forms of SUB and CMP (row 48)
+
+The pack carried SUB/CMP for reg,reg only.  The four equations below are the
+reg,imm and mem,imm forms (`cmpq $24,%rsi`, `subl $1,(%rdx)`), in the same
+`{ s with … }` shape.  The immediate is truncated to the operand size, as the
+decoder hands it over sign-extended.  CMP's equations name no `regs` and no
+`mem`: the discarded result is visible as an absence. -/
+
+theorem step_sub_reg_imm (sz : Size) (r : GPR) (v : Val) (h : Live s) :
+    step ⟨.bin .sub sz (.reg r) (.imm v), len⟩ s =
+      { s with
+        regs := s.regs.set r (Value.writeView sz (s.regs.get r)
+          (Flags.subResult sz (s.getReg sz r) (Value.trunc sz v))),
+        flags := Flags.sub sz (s.getReg sz r) (Value.trunc sz v) s.flags,
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.getReg]
+
+theorem step_cmp_reg_imm (sz : Size) (r : GPR) (v : Val) (h : Live s) :
+    step ⟨.bin .cmp sz (.reg r) (.imm v), len⟩ s =
+      { s with
+        flags := Flags.sub sz (s.getReg sz r) (Value.trunc sz v) s.flags,
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h]
+
+theorem step_sub_mem_imm (sz : Size) (ea : Ea) (v : Val) (h : Live s)
+    (hl : ea.lock = false) :
+    step ⟨.bin .sub sz (.mem ea) (.imm v), len⟩ s =
+      { s with
+        mem := s.mem.writeSize sz (ea.addr s (s.rip + BitVec.ofNat 64 len))
+          (Flags.subResult sz (s.mem.readSize sz (ea.addr s (s.rip + BitVec.ofNat 64 len)))
+            (Value.trunc sz v)),
+        flags := Flags.sub sz (s.mem.readSize sz (ea.addr s (s.rip + BitVec.ofNat 64 len)))
+          (Value.trunc sz v) s.flags,
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, hl] <;> rfl
+
+theorem step_cmp_mem_imm (sz : Size) (ea : Ea) (v : Val) (h : Live s)
+    (hl : ea.lock = false) :
+    step ⟨.bin .cmp sz (.mem ea) (.imm v), len⟩ s =
+      { s with
+        flags := Flags.sub sz (s.mem.readSize sz (ea.addr s (s.rip + BitVec.ofNat 64 len)))
+          (Value.trunc sz v) s.flags,
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, hl]
+
 /-! ## The logic group — SDM Vol. 2A: OF and CF cleared, SF/ZF/PF from the
 result, and **the AF flag is undefined**.  Each of these four equations spends
 exactly ONE oracle bit, and the `oracle` component says so. -/
@@ -754,6 +799,43 @@ theorem vmovsld_zeroes_upper (sz : Size) (d : XmmReg) (ea : Ea) (h : Live s)
   simp [step, h, hl, Cpu.setXmm, Cpu.setRip, Cpu.getXmm, Op.lockIllegal, Op.anyLocked,
         Op.lockable]
 
+/-- ⭐ D356 — `movd`/`movq` FROM MEMORY CLEAR bits 127:sz (SDM Vol. 2B MOVD/MOVQ), at both
+widths. ⛔ x86isa MERGES at `66 0f 6e` (D93's defect through memory); this theorem is the
+model's side of that declared divergence, stated so it cannot drift by a refactor. -/
+theorem vmovgld_zeroes_upper (sz : Size) (d : XmmReg) (ea : Ea) (h : Live s)
+    (hl : ea.lock = false) :
+    (step ⟨.vmovgld sz d ea, len⟩ s).getXmm d =
+      ((s.readMem sz (ea.addr s (s.rip + BitVec.ofNat 64 len))).setWidth sz.bits).setWidth 128 := by
+  simp [step, h, hl, Cpu.setXmm, Cpu.setRip, Cpu.getXmm, Op.lockIllegal, Op.anyLocked,
+        Op.lockable]
+
+/-- ⭐ D356 — A `movd`/`movq` STORE WRITES NO GENERAL REGISTER and NO FLAG. -/
+@[simp] theorem step_vmovgst_regs (sz : Size) (ea : Ea) (x : XmmReg) (h : Live s)
+    (hl : ea.lock = false) :
+    (step ⟨.vmovgst sz ea x, len⟩ s).regs = s.regs := by
+  simp [step, h, hl, Cpu.setRip, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+@[simp] theorem step_vmovgst_flags (sz : Size) (ea : Ea) (x : XmmReg) (h : Live s)
+    (hl : ea.lock = false) :
+    (step ⟨.vmovgst sz ea x, len⟩ s).flags = s.flags := by
+  simp [step, h, hl, Cpu.setRip, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+/-- ⭐ D357 — `withSimd` leaves the general registers alone whenever its continuation does, on both of
+its branches (the #XM halt and the continuation). -/
+theorem withSimd_regs (s : Cpu) (fl : BitVec 32) (k : Cpu → Cpu) (hk : ∀ t, (k t).regs = t.regs) :
+    (s.withSimd fl k).regs = s.regs := by
+  unfold Cpu.withSimd
+  split
+  · unfold Cpu.halt; split <;> rfl
+  · exact hk _
+
+/-- ⭐ D357 — A COMIS/UCOMIS WITH A MEMORY SOURCE WRITES NO GENERAL REGISTER. -/
+@[simp] theorem step_vcomism_regs (o : Bool) (sz : Size) (d : XmmReg) (ea : Ea) (h : Live s)
+    (hl : ea.lock = false) :
+    (step ⟨.vcomism o sz d ea, len⟩ s).regs = s.regs := by
+  simp [step, h, hl, Op.lockIllegal, Op.anyLocked, Op.lockable]
+  exact withSimd_regs _ _ _ (fun _ => rfl)
+
 /-- ⭐ NO SCALAR MOVE TOUCHES A FLAG (SDM Vol. 2B, MOVSS/MOVSD: "Flags Affected:
 None"), stated for the same reason `step_vbin_flags` is. -/
 @[simp] theorem step_vmovs_flags (sz : Size) (d s' : XmmReg) (h : Live s) :
@@ -1232,6 +1314,16 @@ theorem step_leave_rip (h : Live s) :
   cases o with
   | none => simp [step, h, Cpu.setRip]
   | some x => cases x <;> simp_all [step, h, Cpu.setRip]
+
+/-- V8a (D347): ENDBR64 is a NOP on this model's state — the SDM's "This opcode is a NOP when CET indirect
+branch tracking is not enabled" applied to a model that carries no CET state.  Only RIP moves. -/
+theorem step_endbr64 (h : Live s) :
+    step ⟨.endbr64, len⟩ s = { s with rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, Cpu.setRip]
+
+@[simp] theorem step_endbr64_flags (h : Live s) :
+    (step ⟨.endbr64, len⟩ s).flags = s.flags := by
+  simp [step, h, Cpu.setRip]
 
 /-! ## P1 BATCH 14 — the bit-counting group
 
@@ -2294,22 +2386,33 @@ theorem vlaneSel_q (imm : BitVec 8) : vlaneSel .q imm = imm.toNat % 2 := rfl
 `.d` it zero-extends, by `setReg`), nothing else written. -/
 theorem step_vextr (h : Live s) (r : GPR) (x : XmmReg) (imm : BitVec 8)
     (hsz : sz = .d ∨ sz = .q) :
-    step ⟨.vextr sz r x imm, len⟩ s =
+    step ⟨.vextr sz (.reg r) x imm, len⟩ s =
       (s.setReg sz r (vextrApply sz (s.getXmm x) imm)).setRip (s.rip + BitVec.ofNat 64 len) := by
-  rcases hsz with rfl | rfl <;> simp [step, h, Op.lockIllegal, Op.anyLocked, Op.lockable]
+  rcases hsz with rfl | rfl <;>
+    simp [step, h, Op.lockIllegal, Op.anyLocked, Op.lockable, Operand.isImm, Cpu.writeOperand]
+
+/-- D362: PEXTRD/PEXTRQ to memory, an unlocked operand: the selected lane is
+written at the operand's address at width `sz`, and nothing else is written. -/
+theorem step_vextr_mem (h : Live s) (ea : Ea) (x : XmmReg) (imm : BitVec 8)
+    (hl : ea.lock = false) (hsz : sz = .d ∨ sz = .q) :
+    step ⟨.vextr sz (.mem ea) x imm, len⟩ s =
+      (s.writeMem sz (ea.addr s (s.rip + BitVec.ofNat 64 len)) (vextrApply sz (s.getXmm x) imm)).setRip
+        (s.rip + BitVec.ofNat 64 len) := by
+  rcases hsz with rfl | rfl <;>
+    simp [step, h, hl, Op.lockIllegal, Op.anyLocked, Op.lockable, Operand.isImm, Cpu.writeOperand]
 
 /-- ⛔ NO FLAG: PSHUFB, PALIGNR, PINSR* and PEXTR* leave RFLAGS as they found it. -/
 theorem step_vextr_flags (h : Live s) (r : GPR) (x : XmmReg) (imm : BitVec 8)
     (hsz : sz = .d ∨ sz = .q) :
-    (step ⟨.vextr sz r x imm, len⟩ s).flags = s.flags := by
+    (step ⟨.vextr sz (.reg r) x imm, len⟩ s).flags = s.flags := by
   rw [step_vextr h r x imm hsz]; simp
 
 /-- ⛔ PINSR*/PEXTR* AT 8 OR 16 BITS ARE OTHER MNEMONICS, and `step` refuses them. -/
 theorem step_vextr_narrow_refuses (r : GPR) (x : XmmReg) (imm : BitVec 8) (h : Live s)
     (hsz : sz = .b ∨ sz = .w) :
-    (step ⟨.vextr sz r x imm, len⟩ s).stopped = true := by
+    (step ⟨.vextr sz (.reg r) x imm, len⟩ s).stopped = true := by
   rcases hsz with rfl | rfl <;> simp [step, h, Cpu.halt, Cpu.stopped, Op.lockIllegal,
-    Op.anyLocked, Op.lockable]
+    Op.anyLocked, Op.lockable, Operand.isImm]
 
 end V1b
 
@@ -2357,5 +2460,153 @@ largest sum, eight differences of 255, is 7F8H. -/
 theorem sad_max : vsadLane 0xFFFFFFFFFFFFFFFF 0 = 0x7F8 := by decide
 
 end V1a
+
+/-! ⭐ D373 — `pminsw`, `pmulhw`, `pmulhuw`, `pavgb`: four more kinds with no
+differential partner (x86isa refuses all four), checked on silicon by
+`hwprobe/mk_simda_rows.py --set-b` and pinned in `Tests/AnchorsSimdB.lean`.  The frame
+theorems above apply for the same reason as D335's: none is min/max. -/
+section D373
+
+theorem d373_kinds_not_minmax :
+    [VBinKind.minsw, .mulhw, .mulhuw, .avgb].all (fun k => !k.isMinMax) = true := by decide
+
+/-- ⛔ PMINSW IS SIGNED: 8000H (−32768) is below 7FFFH, where an unsigned minimum
+would keep 7FFFH. -/
+theorem minsw_signed :
+    vbinApply .minsw 0x80008000800080008000800080008000 0x7FFF7FFF7FFF7FFF7FFF7FFF7FFF7FFF
+      = 0x80008000800080008000800080008000 := by decide
+
+/-- ⭐ THE TWO HIGH HALVES DIFFER ONLY IN SIGNEDNESS: FFFFH × FFFFH is 1 signed
+(high word 0) and FFFE0001H unsigned (high word FFFEH). -/
+theorem mulhw_mulhuw_ones :
+    vbinApply .mulhw 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF = 0 ∧
+    vbinApply .mulhuw 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+      = 0xFFFEFFFEFFFEFFFEFFFEFFFEFFFEFFFE := by decide
+
+/-- ⭐ PAVGB ROUNDS UP AND DOES NOT WRAP: FFH and FFH average to FFH, 0 and 1 to 1. -/
+theorem avgb_rounds_up :
+    vbinApply .avgb 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+      = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF ∧
+    vbinApply .avgb 0 0x01010101010101010101010101010101
+      = 0x01010101010101010101010101010101 := by decide
+
+end D373
+
+/-! ## D338 (V2) — SHA256MSG1, SHA256MSG2, SHA256RNDS2 (SHA-NI, legacy SSE)
+
+⚠️ NONE OF THESE HAS A DIFFERENTIAL PARTNER: ACL2 x86isa refuses all three
+(`scripts/oracle_availability.py`, D338 prediction 1).  Their numbers are checked
+against a PROCESSOR by `hwprobe/` (`mk_sha_rows.py`, whose known-answer rows come from a
+textbook FIPS 180-4 SHA-256) and pinned in `Tests/AnchorsSha.lean`.  The theorems
+below state the frame, the Type-4 fault, WHICH DWORDS EACH RULE READS (the SDM's
+Operation in words, here as equations), the σ boundaries, and FIPS 180-4's "abc"
+block through the message and round rules. -/
+section V2
+variable {len : Nat} {s : Cpu}
+
+/-- SHA256MSG1/MSG2/RNDS2 between registers: SRC1 is the destination's ORIGINAL value
+and XMM0 is read before the write; no flag, no oracle bit, no GPR written. -/
+theorem step_vsha (h : Live s) (k : ShaKind) (d x : XmmReg) :
+    step ⟨.vsha k d x, len⟩ s =
+      (s.setXmm d (shaApply k (s.getXmm d) (s.getXmm x) (s.getXmm .x0))).setRip
+        (s.rip + BitVec.ofNat 64 len) := by
+  simp [step, h, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+/-- ⛔ NO FLAG: "Flags Affected: None" for all three. -/
+theorem step_vsha_flags (h : Live s) (k : ShaKind) (d x : XmmReg) :
+    (step ⟨.vsha k d x, len⟩ s).flags = s.flags := by
+  rw [step_vsha h k d x]; simp
+
+/-- ⛔⭐ AN UNALIGNED SHA m128 FAULTS (Exception Type 4, D110). -/
+theorem vsham_unaligned_faults (k : ShaKind) (d : XmmReg) (ea : Ea) (h : Live s) (hl : ea.lock = false)
+    (hU : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = false) :
+    (step ⟨.vsham k d ea, len⟩ s).stopped = true := by
+  simp [step, h, hl, hU, Cpu.halt, Cpu.stopped, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+/-- And an ALIGNED one is the register rule with SRC2 read from memory. -/
+theorem step_vsham_aligned (k : ShaKind) (d : XmmReg) (ea : Ea) (h : Live s) (hl : ea.lock = false)
+    (hA : aligned16 (ea.addr s (s.rip + BitVec.ofNat 64 len)) = true) :
+    step ⟨.vsham k d ea, len⟩ s =
+      (s.setXmm d (shaApply k (s.getXmm d) (s.readMem128 (ea.addr s (s.rip + BitVec.ofNat 64 len)))
+        (s.getXmm .x0))).setRip (s.rip + BitVec.ofNat 64 len) := by
+  simp [step, h, hl, hA, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+/-- ⭐ SHA256MSG1 READS ONLY SRC2's LOW DWORD (W4): two SRC2s that agree there give the
+same result, whatever their other 96 bits. -/
+theorem sha256msg1_reads_src2_low (a b b' x : BitVec 128) (h : shaD b 0 = shaD b' 0) :
+    shaApply .msg1 a b x = shaApply .msg1 a b' x := by
+  simp [shaApply, h]
+
+/-- ⭐ SHA256MSG2 READS ONLY SRC2's HIGH TWO DWORDS (W14, W15). -/
+theorem sha256msg2_reads_src2_high (a b b' x : BitVec 128) (h2 : shaD b 2 = shaD b' 2)
+    (h3 : shaD b 3 = shaD b' 3) :
+    shaApply .msg2 a b x = shaApply .msg2 a b' x := by
+  simp [shaApply, h2, h3]
+
+/-- ⭐ SHA256RNDS2 READS ONLY XMM0's LOW QUADWORD (WK0, WK1). -/
+theorem sha256rnds2_reads_xmm0_low (a b x x' : BitVec 128) (h0 : shaD x 0 = shaD x' 0)
+    (h1 : shaD x 1 = shaD x' 1) :
+    shaApply .rnds2 a b x = shaApply .rnds2 a b x' := by
+  simp [shaApply, h0, h1]
+
+/-- ⭐ THE TWO MESSAGE KINDS DO NOT READ XMM0 AT ALL. -/
+theorem sha_msg_ignores_xmm0 (k : ShaKind) (hk : k ≠ .rnds2) (a b x x' : BitVec 128) :
+    shaApply k a b x = shaApply k a b x' := by
+  cases k <;> simp_all [shaApply]
+
+/-- σ0 and σ1 at bit 0 — the rotates wrap it to bits 25 and 14 (σ0) and 15 and 13 (σ1);
+the shifts drop it — and σ0 at bit 3, the first bit `SHR 3` keeps. -/
+theorem shaSig0_bit0 : shaSig0 1 = 0x02004000 := by decide
+theorem shaSig1_bit0 : shaSig1 1 = 0x0000A000 := by decide
+theorem shaSig0_bit3 : shaSig0 8 = 0x10020001 := by decide
+
+/-- ⭐ FIPS 180-4's "abc" block through SHA256MSG2: SRC1 = W[i] + σ0(W[i+1]) + W[i+9]
+(here W0 alone, every other of W1..W12 is zero), SRC2 = W12..W15 (W15 = 18H, the bit
+length), gives W16..W19 = 61626380H, 000F0000H, 7DA86405H, 600003C6H — the values of the
+textbook schedule (`hwprobe/mk_sha_rows.py`'s KAT, checked against the FIPS digest). -/
+theorem sha256msg2_abc :
+    shaApply .msg2 0x00000000000000000000000061626380 0x00000018000000000000000000000000 0 =
+      0x600003c67da86405000f000061626380 := by decide
+
+/-- ⭐ AND ROUNDS 0–1 FROM H0 THROUGH SHA256RNDS2: ABEF = 6A09E667 BB67AE85 510E527F
+9B05688C, CDGH = 3C6EF372 A54FF53A 1F83D9AB 5BE0CD19, WK = K0+W0, K1+W1 — and the
+result is the textbook's (a, b, e, f) after round 1. -/
+theorem sha256rnds2_abc_r01 :
+    shaApply .rnds2 0x3c6ef372a54ff53a1f83d9ab5be0cd19 0x6a09e667bb67ae85510e527f9b05688c
+      0x000000000000000071374491a3ec9318 = 0x5a6ad9ad5d6aebcd78ce7989fa2a4622 := by decide
+
+end V2
+
+/-! ## BT on a bit string — SDM Vol. 2A §3.1.1.9, Table 3-2 (row 48)
+
+A MEMORY base with a REGISTER offset addresses ONE BYTE, `bitStringByte` (the
+offset is signed, `EA + (offset SAR 3)`), and BT copies bit `offset AND 7` of it
+into CF.  PF, AF, SF and OF are undefined: four oracle bits, drawn in that order.
+BT writes nothing, so `regs` and `mem` are absent from the update.  The byte
+address is checked for canonicity; the second equation is the other case.
+A LOCK prefix on BT is #UD (BT does not write), so both carry `ea.lock = false`. -/
+
+theorem step_bt_mem_reg (sz : Size) (ea : Ea) (r : GPR) (h8 : Bool) (h : Live s)
+    (hl : ea.lock = false)
+    (hc : canonical (bitStringByte s sz ea r h8 (s.rip + BitVec.ofNat 64 len)) = true) :
+    step ⟨.bit .bt sz (.mem ea) (.reg r h8), len⟩ s =
+      { s with
+        flags := { s.flags with
+          cf := (s.mem.readSize .b (bitStringByte s sz ea r h8 (s.rip + BitVec.ofNat 64 len))).getLsbD
+            ((s.getReg sz r h8).toNat % 8),
+          pf := s.oracle.bits s.oracle.cursor,
+          af := s.oracle.bits (s.oracle.cursor + 1),
+          sf := s.oracle.bits (s.oracle.cursor + 2),
+          of := s.oracle.bits (s.oracle.cursor + 3) },
+        oracle := { s.oracle with cursor := s.oracle.cursor + 4 },
+        rip := s.rip + BitVec.ofNat 64 len } := by
+  simp [step, h, hl, hc]
+
+theorem step_bt_mem_reg_noncanonical (sz : Size) (ea : Ea) (r : GPR) (h8 : Bool) (h : Live s)
+    (hl : ea.lock = false)
+    (hc : canonical (bitStringByte s sz ea r h8 (s.rip + BitVec.ofNat 64 len)) = false) :
+    step ⟨.bit .bt sz (.mem ea) (.reg r h8), len⟩ s =
+      s.halt (.unimplemented "non-canonical bit-string byte address (#GP(0) in hardware)") := by
+  simp [step, h, hl, hc]
 
 end X86

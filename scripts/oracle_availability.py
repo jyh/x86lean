@@ -115,6 +115,217 @@ FORMS = [
     ("pinsrq",  "pinsrq $1, %rcx, %xmm0",   "66480f3a22c101",     "refuses"),
     ("pextrd",  "pextrd $1, %xmm1, %eax",   "660f3a16c801",       "refuses"),
     ("pextrq",  "pextrq $1, %xmm1, %rax",   "66480f3a16c801",     "refuses"),
+    # ⭐ D338 (V2): the three SHA-NI mnemonics vale-sha256 needs, DECLARED `refuses` from x86isa's
+    # catalogue and MEASURED here before any referee is fixed (D330's lesson).  sha256rnds2's third
+    # operand is the IMPLICIT %xmm0, so its destination here is %xmm2.
+    ("sha256msg1",  "sha256msg1 %xmm1, %xmm0",   "0f38ccc1",     "refuses"),
+    ("sha256msg2",  "sha256msg2 %xmm1, %xmm0",   "0f38cdc1",     "refuses"),
+    ("sha256rnds2", "sha256rnds2 %xmm1, %xmm2",  "0f38cbd1",     "refuses"),
+    # ⭐ D339 (V3, scoping): the forms the primitive census's ladder step 5 needs for vale-aesgcm.
+    # DECLARED from x86isa's inst-listing (a semantic function named ⇒ `executes`; 'NIL or none
+    # found ⇒ `refuses`) and MEASURED here before any design is fixed: whether the oracle runs
+    # VEX at all decides whether V3 is a differential wave (and its record needs YMM's upper
+    # half) or a silicon one.
+    ("aesenc",      "aesenc %xmm1, %xmm0",                    "660f38dcc1",     "refuses"),
+    ("aesenclast",  "aesenclast %xmm1, %xmm0",                "660f38ddc1",     "refuses"),
+    ("pclmulqdq",   "pclmulqdq $0, %xmm1, %xmm0",             "660f3a44c100",   "refuses"),
+    ("vpaddd",      "vpaddd %xmm1, %xmm2, %xmm0",             "c5e9fec1",       "executes"),
+    ("vpxor",       "vpxor %xmm1, %xmm2, %xmm0",              "c5e9efc1",       "executes"),
+    ("vpshufb",     "vpshufb %xmm1, %xmm2, %xmm0",            "c4e26900c1",     "refuses"),
+    ("vpalignr",    "vpalignr $3, %xmm1, %xmm2, %xmm0",       "c4e3690fc103",   "refuses"),
+    ("vpslldq",     "vpslldq $3, %xmm1, %xmm0",               "c5f973f903",     "refuses"),
+    ("vpsrldq",     "vpsrldq $3, %xmm1, %xmm0",               "c5f973d903",     "refuses"),
+    ("vaesenc",     "vaesenc %xmm1, %xmm2, %xmm0",            "c4e269dcc1",     "refuses"),
+    ("vaesenclast", "vaesenclast %xmm1, %xmm2, %xmm0",        "c4e269ddc1",     "refuses"),
+    ("vpclmulqdq",  "vpclmulqdq $0, %xmm1, %xmm2, %xmm0",     "c4e36944c100",   "refuses"),
+    # ⭐ D342 (V4, part (b)): the VEX memory form vale-aesgcm needs, DECLARED `executes` (x86isa's VPXOR
+    # semantic function takes the memory shape the register form already runs) and MEASURED here before
+    # its referee is fixed. Executing sends it to the differential beside `vpxor xmm,xmm,xmm`; the nine
+    # vale-aesgcm refusers above (all but legacy `pclmulqdq`) are re-read by the same run (D342 prediction 1).
+    ("vpxor m,xmm", "vpxor (%rbx), %xmm2, %xmm0",             "c5e9ef03",       "executes"),
+    # ⭐ V3 (D341) P6, MEASURED 2026-10-14: x86isa EXECUTES VEX.256 (VEX.L = 1) of `vpaddd` and `vmovdqa` at 88/88, so
+    # D341's prediction of #UD was wrong. Those two were `NOTTAKEN:` rows until V6.
+    # ⭐ V6 (D344) P1, MEASURED 2026-10-16 before any model work: VEX.256 of all 33 V3 twins plus V3's six
+    # off-xmm0/1/2 register rows, clang's bytes, each EXECUTES at 88/88. V6 takes them as differential vectors.
+    ("V6:vmovdqa256", "vmovdqa %ymm1, %ymm0", "c5fd6fc1", "executes"),
+    ("V6:vmovdqu256", "vmovdqu %ymm1, %ymm0", "c5fe6fc1", "executes"),
+    ("V6:vmovaps256", "vmovaps %ymm1, %ymm0", "c5fc28c1", "executes"),
+    ("V6:vmovups256", "vmovups %ymm1, %ymm0", "c5fc10c1", "executes"),
+    ("V6:vmovapd256", "vmovapd %ymm1, %ymm0", "c5fd28c1", "executes"),
+    ("V6:vmovupd256", "vmovupd %ymm1, %ymm0", "c5fd10c1", "executes"),
+    ("V6:vmovddup256", "vmovddup %ymm1, %ymm0", "c5ff12c1", "executes"),
+    ("V6:vpaddb256", "vpaddb %ymm1, %ymm2, %ymm0", "c5edfcc1", "executes"),
+    ("V6:vpaddw256", "vpaddw %ymm1, %ymm2, %ymm0", "c5edfdc1", "executes"),
+    ("V6:vpaddd256", "vpaddd %ymm1, %ymm2, %ymm0", "c5edfec1", "executes"),
+    ("V6:vpaddq256", "vpaddq %ymm1, %ymm2, %ymm0", "c5edd4c1", "executes"),
+    ("V6:vpsubb256", "vpsubb %ymm1, %ymm2, %ymm0", "c5edf8c1", "executes"),
+    ("V6:vpsubw256", "vpsubw %ymm1, %ymm2, %ymm0", "c5edf9c1", "executes"),
+    ("V6:vpsubd256", "vpsubd %ymm1, %ymm2, %ymm0", "c5edfac1", "executes"),
+    ("V6:vpsubq256", "vpsubq %ymm1, %ymm2, %ymm0", "c5edfbc1", "executes"),
+    ("V6:vpand256", "vpand %ymm1, %ymm2, %ymm0", "c5eddbc1", "executes"),
+    ("V6:vpandn256", "vpandn %ymm1, %ymm2, %ymm0", "c5eddfc1", "executes"),
+    ("V6:vpor256", "vpor %ymm1, %ymm2, %ymm0", "c5edebc1", "executes"),
+    ("V6:vpxor256", "vpxor %ymm1, %ymm2, %ymm0", "c5edefc1", "executes"),
+    ("V6:vandps256", "vandps %ymm1, %ymm2, %ymm0", "c5ec54c1", "executes"),
+    ("V6:vandpd256", "vandpd %ymm1, %ymm2, %ymm0", "c5ed54c1", "executes"),
+    ("V6:vandnps256", "vandnps %ymm1, %ymm2, %ymm0", "c5ec55c1", "executes"),
+    ("V6:vandnpd256", "vandnpd %ymm1, %ymm2, %ymm0", "c5ed55c1", "executes"),
+    ("V6:vorps256", "vorps %ymm1, %ymm2, %ymm0", "c5ec56c1", "executes"),
+    ("V6:vorpd256", "vorpd %ymm1, %ymm2, %ymm0", "c5ed56c1", "executes"),
+    ("V6:vxorps256", "vxorps %ymm1, %ymm2, %ymm0", "c5ec57c1", "executes"),
+    ("V6:vxorpd256", "vxorpd %ymm1, %ymm2, %ymm0", "c5ed57c1", "executes"),
+    ("V6:vpcmpeqb256", "vpcmpeqb %ymm1, %ymm2, %ymm0", "c5ed74c1", "executes"),
+    ("V6:vpcmpeqw256", "vpcmpeqw %ymm1, %ymm2, %ymm0", "c5ed75c1", "executes"),
+    ("V6:vpcmpeqd256", "vpcmpeqd %ymm1, %ymm2, %ymm0", "c5ed76c1", "executes"),
+    ("V6:vpcmpgtb256", "vpcmpgtb %ymm1, %ymm2, %ymm0", "c5ed64c1", "executes"),
+    ("V6:vpcmpgtw256", "vpcmpgtw %ymm1, %ymm2, %ymm0", "c5ed65c1", "executes"),
+    ("V6:vpcmpgtd256", "vpcmpgtd %ymm1, %ymm2, %ymm0", "c5ed66c1", "executes"),
+    ("V6:vmovdqa256_hi", "vmovdqa %ymm9, %ymm4", "c57d7fcc", "executes"),
+    ("V6:vmovdqu256_hi", "vmovdqu %ymm5, %ymm12", "c57e6fe5", "executes"),
+    ("V6:vmovddup256_hi", "vmovddup %ymm11, %ymm3", "c4c17f12db", "executes"),
+    ("V6:vpsubd256_hi", "vpsubd %ymm13, %ymm10, %ymm7", "c4c12dfafd", "executes"),
+    ("V6:vpandn256_hi", "vpandn %ymm3, %ymm14, %ymm9", "c50ddfcb", "executes"),
+    ("V6:vpcmpgtb256_hi", "vpcmpgtb %ymm8, %ymm5, %ymm15", "c4415564f8", "executes"),
+    # ⭐ D345 (V7) P1, MEASURED 2026-10-16 before any design: the VEX.128 and VEX.256 twins of eleven main-table forms
+    # each REFUSE at 88/88 (the V6 rows and both controls executed in the same run), so V7 is refereed by silicon.
+    ("V7:vshufps128i", "vshufps $0x1b, %xmm1, %xmm2, %xmm0", "c5e8c6c11b", "refuses"),
+    ("V7:vshufps256i", "vshufps $0x1b, %ymm1, %ymm2, %ymm0", "c5ecc6c11b", "refuses"),
+    ("V7:vpsrad128", "vpsrad %xmm1, %xmm2, %xmm0", "c5e9e2c1", "refuses"),
+    ("V7:vpsrad256", "vpsrad %xmm1, %ymm2, %ymm0", "c5ede2c1", "refuses"),
+    ("V7:vpsrad128i", "vpsrad $0x3, %xmm1, %xmm0", "c5f972e103", "refuses"),
+    ("V7:vpsrad256i", "vpsrad $0x3, %ymm1, %ymm0", "c5fd72e103", "refuses"),
+    ("V7:vaddps128", "vaddps %xmm1, %xmm2, %xmm0", "c5e858c1", "refuses"),
+    ("V7:vaddps256", "vaddps %ymm1, %ymm2, %ymm0", "c5ec58c1", "refuses"),
+    ("V7:vsubps128", "vsubps %xmm1, %xmm2, %xmm0", "c5e85cc1", "refuses"),
+    ("V7:vsubps256", "vsubps %ymm1, %ymm2, %ymm0", "c5ec5cc1", "refuses"),
+    ("V7:vmulps128", "vmulps %xmm1, %xmm2, %xmm0", "c5e859c1", "refuses"),
+    ("V7:vmulps256", "vmulps %ymm1, %ymm2, %ymm0", "c5ec59c1", "refuses"),
+    ("V7:vpunpcklwd128", "vpunpcklwd %xmm1, %xmm2, %xmm0", "c5e961c1", "refuses"),
+    ("V7:vpunpcklwd256", "vpunpcklwd %ymm1, %ymm2, %ymm0", "c5ed61c1", "refuses"),
+    ("V7:vpunpckhwd128", "vpunpckhwd %xmm1, %xmm2, %xmm0", "c5e969c1", "refuses"),
+    ("V7:vpunpckhwd256", "vpunpckhwd %ymm1, %ymm2, %ymm0", "c5ed69c1", "refuses"),
+    ("V7:vpunpcklbw128", "vpunpcklbw %xmm1, %xmm2, %xmm0", "c5e960c1", "refuses"),
+    ("V7:vpunpcklbw256", "vpunpcklbw %ymm1, %ymm2, %ymm0", "c5ed60c1", "refuses"),
+    ("V7:vpackuswb128", "vpackuswb %xmm1, %xmm2, %xmm0", "c5e967c1", "refuses"),
+    ("V7:vpackuswb256", "vpackuswb %ymm1, %ymm2, %ymm0", "c5ed67c1", "refuses"),
+    ("V7:vpsraw128", "vpsraw %xmm1, %xmm2, %xmm0", "c5e9e1c1", "refuses"),
+    ("V7:vpsraw256", "vpsraw %xmm1, %ymm2, %ymm0", "c5ede1c1", "refuses"),
+    ("V7:vpsraw128i", "vpsraw $0x3, %xmm1, %xmm0", "c5f971e103", "refuses"),
+    ("V7:vpsraw256i", "vpsraw $0x3, %ymm1, %ymm0", "c5fd71e103", "refuses"),
+    ("V7:vpmovmskb128", "vpmovmskb %xmm1, %eax", "c5f9d7c1", "refuses"),
+    ("V7:vpmovmskb256", "vpmovmskb %ymm1, %eax", "c5fdd7c1", "refuses"),
+    # ⭐ D348 (V8b) P1, MEASURED 2026-10-19 before any design: the VEX.128 and VEX.256 register twins of four D335 kinds
+    # each REFUSE at 88/88 (CONTROL:mov and V6:vpaddw256 executed, V7:vpackuswb256 and movnti refused, in the same run),
+    # so V8b is refereed by silicon. `vpmaddwd` at VEX.128 had never been asked; the other seven agree with batch 21/24/25.
+    ("V8b:vpmaddwd128", "vpmaddwd %xmm1, %xmm2, %xmm0", "c5e9f5c1", "refuses"),
+    ("V8b:vpmaddwd256", "vpmaddwd %ymm1, %ymm2, %ymm0", "c5edf5c1", "refuses"),
+    ("V8b:vpmulhrsw128", "vpmulhrsw %xmm1, %xmm2, %xmm0", "c4e2690bc1", "refuses"),
+    ("V8b:vpmulhrsw256", "vpmulhrsw %ymm1, %ymm2, %ymm0", "c4e26d0bc1", "refuses"),
+    ("V8b:vpmaddubsw128", "vpmaddubsw %xmm1, %xmm2, %xmm0", "c4e26904c1", "refuses"),
+    ("V8b:vpmaddubsw256", "vpmaddubsw %ymm1, %ymm2, %ymm0", "c4e26d04c1", "refuses"),
+    ("V8b:vpackssdw128", "vpackssdw %xmm1, %xmm2, %xmm0", "c5e96bc1", "refuses"),
+    ("V8b:vpackssdw256", "vpackssdw %ymm1, %ymm2, %ymm0", "c5ed6bc1", "refuses"),
+    # ⭐ D350 (V8c) P1, MEASURED 2026-10-20 before any design: vpbroadcastd (reg and m32) and the four V8b twins' memory
+    # forms each REFUSE at 88/88, while V4's VEX memory form `vpxor m,xmm` EXECUTES in the same run (so the refusal is on
+    # the opcode, not the VEX memory access); CONTROL:mov and V6:vpaddw256 executed, movnti and V7:vpackuswb256 refused.
+    ("V8c:vpbroadcastd128r", "vpbroadcastd %xmm1, %xmm0", "c4e27958c1", "refuses"),
+    ("V8c:vpbroadcastd256r", "vpbroadcastd %xmm1, %ymm0", "c4e27d58c1", "refuses"),
+    ("V8c:vpbroadcastd128m", "vpbroadcastd (%rbx), %xmm0", "c4e2795803", "refuses"),
+    ("V8c:vpbroadcastd256m", "vpbroadcastd (%rbx), %ymm0", "c4e27d5803", "refuses"),
+    ("V8c:vpmaddwd128m", "vpmaddwd (%rbx), %xmm2, %xmm0", "c5e9f503", "refuses"),
+    ("V8c:vpmaddwd256m", "vpmaddwd (%rbx), %ymm2, %ymm0", "c5edf503", "refuses"),
+    ("V8c:vpmulhrsw128m", "vpmulhrsw (%rbx), %xmm2, %xmm0", "c4e2690b03", "refuses"),
+    ("V8c:vpmulhrsw256m", "vpmulhrsw (%rbx), %ymm2, %ymm0", "c4e26d0b03", "refuses"),
+    ("V8c:vpmaddubsw128m", "vpmaddubsw (%rbx), %xmm2, %xmm0", "c4e2690403", "refuses"),
+    ("V8c:vpmaddubsw256m", "vpmaddubsw (%rbx), %ymm2, %ymm0", "c4e26d0403", "refuses"),
+    # ⭐ D353 (V9a) P1, MEASURED 2026-10-22 before any design: the VEX.128 and VEX.256 memory twins of the 26
+    # differentially tested packed binary kinds, and (for V9b, not yet taken) the six VEX moves' loads and stores,
+    # all EXECUTE at 88/88; CONTROL:mov and `vpxor m,xmm` executed and movnti refused 88/88 in the same run.
+    ("V9:vpaddb128_m", "vpaddb (%rbx), %xmm2, %xmm0", "c5e9fc03", "executes"),
+    ("V9:vpaddb256_m", "vpaddb (%rbx), %ymm2, %ymm0", "c5edfc03", "executes"),
+    ("V9:vpaddw128_m", "vpaddw (%rbx), %xmm2, %xmm0", "c5e9fd03", "executes"),
+    ("V9:vpaddw256_m", "vpaddw (%rbx), %ymm2, %ymm0", "c5edfd03", "executes"),
+    ("V9:vpaddd128_m", "vpaddd (%rbx), %xmm2, %xmm0", "c5e9fe03", "executes"),
+    ("V9:vpaddd256_m", "vpaddd (%rbx), %ymm2, %ymm0", "c5edfe03", "executes"),
+    ("V9:vpaddq128_m", "vpaddq (%rbx), %xmm2, %xmm0", "c5e9d403", "executes"),
+    ("V9:vpaddq256_m", "vpaddq (%rbx), %ymm2, %ymm0", "c5edd403", "executes"),
+    ("V9:vpsubb128_m", "vpsubb (%rbx), %xmm2, %xmm0", "c5e9f803", "executes"),
+    ("V9:vpsubb256_m", "vpsubb (%rbx), %ymm2, %ymm0", "c5edf803", "executes"),
+    ("V9:vpsubw128_m", "vpsubw (%rbx), %xmm2, %xmm0", "c5e9f903", "executes"),
+    ("V9:vpsubw256_m", "vpsubw (%rbx), %ymm2, %ymm0", "c5edf903", "executes"),
+    ("V9:vpsubd128_m", "vpsubd (%rbx), %xmm2, %xmm0", "c5e9fa03", "executes"),
+    ("V9:vpsubd256_m", "vpsubd (%rbx), %ymm2, %ymm0", "c5edfa03", "executes"),
+    ("V9:vpsubq128_m", "vpsubq (%rbx), %xmm2, %xmm0", "c5e9fb03", "executes"),
+    ("V9:vpsubq256_m", "vpsubq (%rbx), %ymm2, %ymm0", "c5edfb03", "executes"),
+    ("V9:vpxor128_m", "vpxor (%rbx), %xmm2, %xmm0", "c5e9ef03", "executes"),
+    ("V9:vpxor256_m", "vpxor (%rbx), %ymm2, %ymm0", "c5edef03", "executes"),
+    ("V9:vpand128_m", "vpand (%rbx), %xmm2, %xmm0", "c5e9db03", "executes"),
+    ("V9:vpand256_m", "vpand (%rbx), %ymm2, %ymm0", "c5eddb03", "executes"),
+    ("V9:vpor128_m", "vpor (%rbx), %xmm2, %xmm0", "c5e9eb03", "executes"),
+    ("V9:vpor256_m", "vpor (%rbx), %ymm2, %ymm0", "c5edeb03", "executes"),
+    ("V9:vpandn128_m", "vpandn (%rbx), %xmm2, %xmm0", "c5e9df03", "executes"),
+    ("V9:vpandn256_m", "vpandn (%rbx), %ymm2, %ymm0", "c5eddf03", "executes"),
+    ("V9:vandnps128_m", "vandnps (%rbx), %xmm2, %xmm0", "c5e85503", "executes"),
+    ("V9:vandnps256_m", "vandnps (%rbx), %ymm2, %ymm0", "c5ec5503", "executes"),
+    ("V9:vandnpd128_m", "vandnpd (%rbx), %xmm2, %xmm0", "c5e95503", "executes"),
+    ("V9:vandnpd256_m", "vandnpd (%rbx), %ymm2, %ymm0", "c5ed5503", "executes"),
+    ("V9:vandps128_m", "vandps (%rbx), %xmm2, %xmm0", "c5e85403", "executes"),
+    ("V9:vandps256_m", "vandps (%rbx), %ymm2, %ymm0", "c5ec5403", "executes"),
+    ("V9:vandpd128_m", "vandpd (%rbx), %xmm2, %xmm0", "c5e95403", "executes"),
+    ("V9:vandpd256_m", "vandpd (%rbx), %ymm2, %ymm0", "c5ed5403", "executes"),
+    ("V9:vorps128_m", "vorps (%rbx), %xmm2, %xmm0", "c5e85603", "executes"),
+    ("V9:vorps256_m", "vorps (%rbx), %ymm2, %ymm0", "c5ec5603", "executes"),
+    ("V9:vorpd128_m", "vorpd (%rbx), %xmm2, %xmm0", "c5e95603", "executes"),
+    ("V9:vorpd256_m", "vorpd (%rbx), %ymm2, %ymm0", "c5ed5603", "executes"),
+    ("V9:vxorps128_m", "vxorps (%rbx), %xmm2, %xmm0", "c5e85703", "executes"),
+    ("V9:vxorps256_m", "vxorps (%rbx), %ymm2, %ymm0", "c5ec5703", "executes"),
+    ("V9:vxorpd128_m", "vxorpd (%rbx), %xmm2, %xmm0", "c5e95703", "executes"),
+    ("V9:vxorpd256_m", "vxorpd (%rbx), %ymm2, %ymm0", "c5ed5703", "executes"),
+    ("V9:vpcmpeqb128_m", "vpcmpeqb (%rbx), %xmm2, %xmm0", "c5e97403", "executes"),
+    ("V9:vpcmpeqb256_m", "vpcmpeqb (%rbx), %ymm2, %ymm0", "c5ed7403", "executes"),
+    ("V9:vpcmpeqw128_m", "vpcmpeqw (%rbx), %xmm2, %xmm0", "c5e97503", "executes"),
+    ("V9:vpcmpeqw256_m", "vpcmpeqw (%rbx), %ymm2, %ymm0", "c5ed7503", "executes"),
+    ("V9:vpcmpeqd128_m", "vpcmpeqd (%rbx), %xmm2, %xmm0", "c5e97603", "executes"),
+    ("V9:vpcmpeqd256_m", "vpcmpeqd (%rbx), %ymm2, %ymm0", "c5ed7603", "executes"),
+    ("V9:vpcmpgtb128_m", "vpcmpgtb (%rbx), %xmm2, %xmm0", "c5e96403", "executes"),
+    ("V9:vpcmpgtb256_m", "vpcmpgtb (%rbx), %ymm2, %ymm0", "c5ed6403", "executes"),
+    ("V9:vpcmpgtw128_m", "vpcmpgtw (%rbx), %xmm2, %xmm0", "c5e96503", "executes"),
+    ("V9:vpcmpgtw256_m", "vpcmpgtw (%rbx), %ymm2, %ymm0", "c5ed6503", "executes"),
+    ("V9:vpcmpgtd128_m", "vpcmpgtd (%rbx), %xmm2, %xmm0", "c5e96603", "executes"),
+    ("V9:vpcmpgtd256_m", "vpcmpgtd (%rbx), %ymm2, %ymm0", "c5ed6603", "executes"),
+    ("V9:vmovdqa128_ld", "vmovdqa (%rbx), %xmm0", "c5f96f03", "executes"),
+    ("V9:vmovdqa128_st", "vmovdqa %xmm1, (%rbx)", "c5f97f0b", "executes"),
+    ("V9:vmovdqa256_ld", "vmovdqa (%rbx), %ymm0", "c5fd6f03", "executes"),
+    ("V9:vmovdqa256_st", "vmovdqa %ymm1, (%rbx)", "c5fd7f0b", "executes"),
+    ("V9:vmovdqu128_ld", "vmovdqu (%rbx), %xmm0", "c5fa6f03", "executes"),
+    ("V9:vmovdqu128_st", "vmovdqu %xmm1, (%rbx)", "c5fa7f0b", "executes"),
+    ("V9:vmovdqu256_ld", "vmovdqu (%rbx), %ymm0", "c5fe6f03", "executes"),
+    ("V9:vmovdqu256_st", "vmovdqu %ymm1, (%rbx)", "c5fe7f0b", "executes"),
+    ("V9:vmovups128_ld", "vmovups (%rbx), %xmm0", "c5f81003", "executes"),
+    ("V9:vmovups128_st", "vmovups %xmm1, (%rbx)", "c5f8110b", "executes"),
+    ("V9:vmovups256_ld", "vmovups (%rbx), %ymm0", "c5fc1003", "executes"),
+    ("V9:vmovups256_st", "vmovups %ymm1, (%rbx)", "c5fc110b", "executes"),
+    ("V9:vmovaps128_ld", "vmovaps (%rbx), %xmm0", "c5f82803", "executes"),
+    ("V9:vmovaps128_st", "vmovaps %xmm1, (%rbx)", "c5f8290b", "executes"),
+    ("V9:vmovaps256_ld", "vmovaps (%rbx), %ymm0", "c5fc2803", "executes"),
+    ("V9:vmovaps256_st", "vmovaps %ymm1, (%rbx)", "c5fc290b", "executes"),
+    ("V9:vmovupd128_ld", "vmovupd (%rbx), %xmm0", "c5f91003", "executes"),
+    ("V9:vmovupd128_st", "vmovupd %xmm1, (%rbx)", "c5f9110b", "executes"),
+    ("V9:vmovupd256_ld", "vmovupd (%rbx), %ymm0", "c5fd1003", "executes"),
+    ("V9:vmovupd256_st", "vmovupd %ymm1, (%rbx)", "c5fd110b", "executes"),
+    ("V9:vmovapd128_ld", "vmovapd (%rbx), %xmm0", "c5f92803", "executes"),
+    ("V9:vmovapd128_st", "vmovapd %xmm1, (%rbx)", "c5f9290b", "executes"),
+    ("V9:vmovapd256_ld", "vmovapd (%rbx), %ymm0", "c5fd2803", "executes"),
+    ("V9:vmovapd256_st", "vmovapd %ymm1, (%rbx)", "c5fd290b", "executes"),
+    ("V8c:vpackssdw128m", "vpackssdw (%rbx), %xmm2, %xmm0", "c5e96b03", "refuses"),
+    ("V8c:vpackssdw256m", "vpackssdw (%rbx), %ymm2, %ymm0", "c5ed6b03", "refuses"),
+    # The #UD encodings: a two-operand form with VEX.vvvv != 1111b (clang's c5f96fc1 / c5fb12c1 with vvvv rewritten
+    # to 0010b — no assembler emits them), and a legacy 66 / REX prefix before VEX (clang's c5e9fec1 with the byte
+    # prepended). x86isa REFUSES all four at 88/88, agreeing with SDM Vol. 2A §2.3.2 / §2.3.6.
+    ("UD:vmovdqa_vvvv",     ".byte 0xc5,0xe9,0x6f,0xc1",      "c5e96fc1",       "refuses"),
+    ("UD:vmovddup_vvvv",    ".byte 0xc5,0xeb,0x12,0xc1",      "c5eb12c1",       "refuses"),
+    ("UD:66_vpaddd",        ".byte 0x66,0xc5,0xe9,0xfe,0xc1", "66c5e9fec1",     "refuses"),
+    ("UD:rex_vpaddd",       ".byte 0x40,0xc5,0xe9,0xfe,0xc1", "40c5e9fec1",     "refuses"),
     # ⛔ D61's row, and the reason this file exists.
     ("movnti",  "movntil %ecx, (%rbx)",     "0fc30b",             "refuses"),
     # ⛔⛔ P2 BATCH 37 (D170) — MOVMSKPS IS NOT AVAILABLE WORK, and it is the
@@ -1585,6 +1796,11 @@ def encode_forms(asms, objdump="objdump"):
     return out
 
 
+def _forms5(rows):
+    """`FORMS` rows (label, asm, hx, expect) in `P2_FORMS`'s 5-tuple shape, so one comparison reads both (D389)."""
+    return [(r[0], r[1], r[2], r[3], r[3]) for r in rows]
+
+
 def _disagreements(forms, objdump):
     enc = encode_forms([a for _l, a, _h, _e0, _e1 in forms], objdump=objdump)
     return [(l, h, enc[a]) for l, a, h, _e0, _e1 in forms if enc[a] != h]
@@ -1693,16 +1909,21 @@ def encoding_check():
     else:
         print("  ⚠️ GNU objdump is not on this box; the wrapped-column format is "
               "NOT exercised here. It is exercised on the x86-64 runner.")
+    # ⭐ D389: BOTH TABLES, NOT ONLY P2_FORMS.  `FORMS` (the P0/P1 probe table) also carries an `hx` that RUNS, and
+    # until D389 this gate read only `P2_FORMS`: a wrong byte planted in a `FORMS` row left it rc 0, printing
+    # "CLEAN — 270 forms", a count that names its scope and never says the other table is outside it.
+    tables = [("P2_FORMS", list(P2_FORMS)), ("FORMS", _forms5(FORMS))]
     for name, tool in tools:
-        bad = _disagreements(P2_FORMS, tool)
-        if bad:
-            print("⛔ oracle-encoding gate: FAIL under %s — the `asm` column and "
-                  "the `hx` that RUNS are different instructions:" % name)
-            for l, h, g in bad:
-                print("    %s: declared=%s  assembler=%s" % (l, h, g))
-            return 1
-        print("  ✔ %-14s %d forms: every `hx` is the assembly of its own `asm`"
-              % (name + ":", len(P2_FORMS)))
+        for tname, rows in tables:
+            bad = _disagreements(rows, tool)
+            if bad:
+                print("⛔ oracle-encoding gate: FAIL under %s in %s — the `asm` column and "
+                      "the `hx` that RUNS are different instructions:" % (name, tname))
+                for l, h, g in bad:
+                    print("    %s: declared=%s  assembler=%s" % (l, h, g))
+                return 1
+            print("  ✔ %-14s %-8s %d forms: every `hx` is the assembly of its own `asm`"
+                  % (name + ":", tname, len(rows)))
 
     # ⭐ RED FIRST, AND THE THIRD ARM IS THE ONE THAT MATTERS. A control drawn
     # from the same half of the space is silent: arms 1 and 3 are ordinary short
@@ -1728,8 +1949,17 @@ def encoding_check():
                   "so this gate is not watching what it claims to." % why)
             return 1
         print("  ✔ red arm caught: %s" % why)
-    print("oracle-encoding gate: CLEAN — %d forms, %d disassembler(s), 3 red arms"
-          % (len(P2_FORMS), len(tools)))
+    # ⭐ D389's arm, on the table the three above never touch: one byte flipped in a `FORMS` row.  Red first: on the
+    # shipped gate (P2_FORMS only) this plant left `--check-encodings` rc 0.
+    # It reads the rows through `tables`, the list the gate loop above reads, so a gate that drops FORMS reds it too.
+    rows = next((r for t, r in tables if t == "FORMS"), [])
+    planted = [(l, a, ("c4e268f2c2" if l == "andn" else h), e0, e1) for l, a, h, e0, e1 in rows]
+    if not rows or not _disagreements(planted, "objdump"):
+        print("⛔ oracle-encoding gate: RED ARM SILENT — a byte flipped in FORMS (`andn`) was NOT caught.")
+        return 1
+    print("  ✔ red arm caught: one byte flipped in a FORMS row (`andn`), the table D389 adds")
+    print("oracle-encoding gate: CLEAN — %d P2_FORMS + %d FORMS forms, %d disassembler(s), 4 red arms"
+          % (len(P2_FORMS), len(FORMS), len(tools)))
     return 0
 
 

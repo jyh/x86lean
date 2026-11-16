@@ -47,8 +47,8 @@ theorem roster_covered_by_table :
 
 /-- The table has exactly one row per implemented mnemonic, and no duplicates.
 The count is `rosterSize` rather than a literal, so this theorem and
-`roster_size_matches` below cannot drift apart — twenty-two today, because P1
-batch 2 added `adc` and `sbb`. -/
+`roster_size_matches` below cannot drift apart (twenty-two when P1 batch 2
+added `adc` and `sbb`; `rosterSize` is the count now). -/
 theorem table_row_count : tableP0.length = rosterSize := by decide
 
 theorem table_rows_distinct :
@@ -76,14 +76,75 @@ theorem silicon_rows_name_ast_mnemonics :
       -- D336 (V1b): PSHUFB, PALIGNR, and PINSR/PEXTR at each width (one row per mnemonic).
       (Op.vshufb .x0 .x1).mnemonic, (Op.valignr .x0 .x1 0).mnemonic,
       (Op.vinsr .d .x0 (.reg .rcx) 0).mnemonic, (Op.vinsr .q .x0 (.reg .rcx) 0).mnemonic,
-      (Op.vextr .d .rax .x1 0).mnemonic, (Op.vextr .q .rax .x1 0).mnemonic,
+      (Op.vextr .d (.reg .rax) .x1 0).mnemonic, (Op.vextr .q (.reg .rax) .x1 0).mnemonic,
       -- D335 (V1a): one `VBinKind` kind per row, on `Op.vbin`.
       (Op.vbin .maddwd .x0 .x1).mnemonic, (Op.vbin .maddubsw .x0 .x1).mnemonic,
       (Op.vbin .mullw .x0 .x1).mnemonic, (Op.vbin .mulhrsw .x0 .x1).mnemonic,
       (Op.vbin .muludq .x0 .x1).mnemonic, (Op.vbin .addsw .x0 .x1).mnemonic,
       (Op.vbin .subusw .x0 .x1).mnemonic, (Op.vbin .subusb .x0 .x1).mnemonic,
       (Op.vbin .maxsw .x0 .x1).mnemonic, (Op.vbin .sadbw .x0 .x1).mnemonic,
-      (Op.vbin .packssdw .x0 .x1).mnemonic] := by decide
+      (Op.vbin .packssdw .x0 .x1).mnemonic,
+      -- D373: four more `VBinKind` kinds.
+      (Op.vbin .minsw .x0 .x1).mnemonic, (Op.vbin .mulhw .x0 .x1).mnemonic,
+      (Op.vbin .mulhuw .x0 .x1).mnemonic, (Op.vbin .avgb .x0 .x1).mnemonic,
+      -- D338 (V2): one `ShaKind` kind per row, on `Op.vsha`.
+      (Op.vsha .msg1 .x1 .x2).mnemonic, (Op.vsha .msg2 .x1 .x2).mnemonic,
+      (Op.vsha .rnds2 .x1 .x2).mnemonic,
+      -- D342 (V4): AES-NI (legacy and VEX), VPCLMULQDQ and the VEX shuffles.
+      (Op.vaes .enc .x1 .x2).mnemonic, (Op.vaes .enclast .x1 .x2).mnemonic,
+      (Op.vex (.vexaes .enc .x3 .x1 .x2)).mnemonic, (Op.vex (.vexaes .enclast .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexclmul .x3 .x1 .x2 0)).mnemonic, (Op.vex (.vexshufb .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexalignr .x3 .x1 .x2 0)).mnemonic, (Op.vex (.vexshiftdq true .x3 .x1 0)).mnemonic,
+      (Op.vex (.vexshiftdq false .x3 .x1 0)).mnemonic,
+      -- D345 (V7): the silicon-refereed VEX twins, one row per mnemonic.
+      (Op.vex (.vexshufps .x3 .x1 .x2 0)).mnemonic, (Op.vex (.vexsrax .w32 .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexsrax .w16 .x3 .x1 .x2)).mnemonic, (Op.vex (.vexparith .add .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexparith .sub .x3 .x1 .x2)).mnemonic, (Op.vex (.vexparith .mul .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .unpcklw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .unpckhw .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .unpcklb .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .packuswb .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexmovmskb .rax .x1)).mnemonic,
+      -- D371: VEX vmovd/vmovq, one row per mnemonic (the table's order).
+      (Op.vex (.vexmovg true .d .x3 .rax)).mnemonic, (Op.vex (.vexmovg true .q .x3 .rax)).mnemonic,
+      -- D348 (V8b): four D335 kinds' VEX twins, one row per mnemonic.
+      (Op.vex (.vexbin .maddwd .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .mulhrsw .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .maddubsw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .packssdw .x3 .x1 .x2)).mnemonic,
+      -- D350 (V8c): VPBROADCASTD.
+      (Op.vex (.vexbcastd .x3 .x2)).mnemonic,
+      -- D374: the VEX twins of eleven modelled kinds.
+      (Op.vex (.vexbin .addsw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .maxsw .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .minsw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .subusb .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .sadbw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .mullw .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .avgb .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .subusw .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .mulhw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .mulhuw .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .muludq .x3 .x1 .x2)).mnemonic,
+      -- D375: the lane insert and extract, one row per mnemonic.
+      (Op.vex (.vexins128 false .x3 .x1 .x2 0)).mnemonic, (Op.vex (.vexins128 true .x3 .x1 .x2 0)).mnemonic,
+      (Op.vex (.vexext128 false .x3 .x1 0)).mnemonic, (Op.vex (.vexext128 true .x3 .x1 0)).mnemonic,
+      -- D376: movntdqa and the VEX half-moves, one row per mnemonic.
+      (Op.vloadnt .x3 { base := some .rbx }).mnemonic,
+      (Op.vex (.vexloadq .hi .ps .x3 .x1 { base := some .rbx })).mnemonic,
+      (Op.vex (.vexloadq .hi .pd .x3 .x1 { base := some .rbx })).mnemonic,
+      (Op.vex (.vexloadq .lo .ps .x3 .x1 { base := some .rbx })).mnemonic,
+      (Op.vex (.vexloadq .lo .pd .x3 .x1 { base := some .rbx })).mnemonic,
+      -- D379: pabs and pmulld, legacy then VEX, one row per mnemonic.
+      (Op.vabs .b .x3 .x1).mnemonic, (Op.vabs .w .x3 .x1).mnemonic, (Op.vabs .d .x3 .x1).mnemonic,
+      (Op.vbin .mulld .x3 .x1).mnemonic,
+      (Op.vex (.vexabs .b .x3 .x1)).mnemonic, (Op.vex (.vexabs .w .x3 .x1)).mnemonic,
+      (Op.vex (.vexabs .d .x3 .x1)).mnemonic, (Op.vex (.vexbin .mulld .x3 .x1 .x2)).mnemonic,
+      -- D384: wave E, legacy then VEX, one row per mnemonic.
+      (Op.vbin .subsw .x3 .x1).mnemonic, (Op.vbin .avgw .x3 .x1).mnemonic, (Op.vbin .muldq .x3 .x1).mnemonic,
+      (Op.vex (.vexbin .subsw .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .avgw .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .muldq .x3 .x1 .x2)).mnemonic,
+      -- D393: wave F, the five VEX unpacks, one row per mnemonic.
+      (Op.vex (.vexbin .unpckld .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .unpcklq .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .unpckhb .x3 .x1 .x2)).mnemonic, (Op.vex (.vexbin .unpckhd .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexbin .unpckhq .x3 .x1 .x2)).mnemonic,
+      -- D394: wave G, the VEX scalar floating-point forms, one row per mnemonic.
+      (Op.vex (.vexarith .add .d .x3 .x1 .x2)).mnemonic, (Op.vex (.vexarith .add .q .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexarith .sub .d .x3 .x1 .x2)).mnemonic, (Op.vex (.vexarith .sub .q .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexarith .mul .d .x3 .x1 .x2)).mnemonic, (Op.vex (.vexarith .mul .q .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexarith .div .d .x3 .x1 .x2)).mnemonic, (Op.vex (.vexarith .div .q .x3 .x1 .x2)).mnemonic,
+      (Op.vex (.vexmovs .d .x3 .x1 .x2)).mnemonic, (Op.vex (.vexmovs .q .x3 .x1 .x2)).mnemonic] := by decide
 
 /-! ### ⭐⭐⭐ THE GATE THE ROSTER'S DOCSTRING CLAIMED AND DID NOT HAVE (2026-09-06)
 
@@ -201,7 +262,8 @@ register file, so a row for it would claim a form the model cannot execute. -/
 -- ⭐ SUB-GROUP B7 (D295) adds ONE: `cvtpd2ps`, through `vcvtpd2ps`/`vcvtpd2psm`.
 -- ⭐ D330 (W1b) adds TWO: `adcx`, `adox`, through `.adx`.  ⚠️ `mulx` (`.mulx`) is implemented
 --   and is NOT counted here: x86isa refuses it, so it has no vector; it is `siliconTable`'s row.
-theorem roster_size_is_199 : rosterSize = 199 := by decide
+-- ⭐ V8a (D347) adds ONE: `endbr64`, a NOP on this model's state, refereed differentially.
+theorem roster_size_is_200 : rosterSize = 200 := by decide
 
 /-- ⭐⭐ P1 BATCH 20 — THE VECTOR COUNT, PINNED IN THE KERNEL, so that
 `scripts/kernel_cost.py` can divide by it.
@@ -264,7 +326,12 @@ def vectorCount : Nat := vectors.length
 -- ⭐ D330 (W1b) adds EIGHT: `adcx` and `adox` at `.q` and `.d`, register and memory source.
 -- ⭐ THE BIT STRING (D331) adds 28: the four `m,r` rows D23 declined, at w/l/q with RCX and
 -- RDX offsets, three fixed far offsets, and one LOCK form.
-theorem vector_count_is_1198 : vectorCount = 1198 := by decide
+-- ⭐ V8a (D347) adds ONE: `endbr64`, the census's largest uncovered row.
+-- ⭐ D355 adds 23: `sub` `cmp` `xchg` `test` and the kernel's per-CPU forms through `%fs:`/`%gs:`.
+-- ⭐ D356 adds 8: `movd`/`movq` between an XMM register and memory, both directions.
+-- ⭐ D357 adds 8: `comis*`/`ucomis*` with a memory source, at `%xmm1` and `%xmm9`.
+-- ⭐ D358 adds 3: `%xmm9` twins of the scalar stores whose `%xmm0` rows cannot see a dropped write.
+theorem vector_count_is_1241 : vectorCount = 1241 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
@@ -1082,6 +1149,8 @@ def isMemDestVector (v : Vec) : Bool :=
     -- ⭐ P2 BATCH 32: `vcomis` writes EFLAGS and nothing else, so it is not a
     -- memory destination and cannot become one — it has no `Ea` at all.
     | .vmov .. | .vbin .. | .vcomis .. => false
+    -- ⭐ D357, in the same commit as the constructor: the memory operand is a SOURCE.
+    | .vcomism .. => false
     -- ⭐ P2 VECTOR WAVE, BATCH 3.  A vector STORE is a memory destination; a
     -- vector LOAD is not.  This is the first time the two vector mnemonics
     -- differ from each other in this function, which is the shape of the whole
@@ -1094,11 +1163,57 @@ def isMemDestVector (v : Vec) : Bool :=
     -- the store writes eight bytes of memory, the load does not.
     | .vloadq .. => false
     | .vstoreq .. => true
+    -- D376, in the SAME COMMIT as the constructor: `movntdqa` READS 16 bytes and writes an XMM register.
+    | .vloadnt .. => false
+    -- D379, in the SAME COMMIT as the constructors: `pabs` writes an XMM register; its memory operand is a SOURCE.
+    | .vabs .. | .vabsm .. => false
     -- ⭐ P2 BATCH 36, added in the SAME COMMIT as the constructors, which is what
     -- this function's own doc comment asks for.  NONE of the three is a memory
     -- destination: the cross moves have no memory operand at all, and
     -- `vddupM`'s `Ea` is its SOURCE — the distinction `vshiftm` established.
     | .vmovhl .. | .vddupR .. | .vddupM .. => false
+    -- ⭐ V3 (D341), in the SAME COMMIT as the constructors: the VEX.128 register
+    -- twins write an XMM register (and zero its YMM upper half), never memory.
+    -- V5 (D343): nested under `Op.vex`, matched one level down so a new `VexOp` constructor
+    -- is still a compile error here.
+    | .vex v => (match v with
+      | .vexmov .. | .vexddup .. | .vexbin .. | .vexbinm .. => false
+      -- V4 (D342): the AES-NI / CLMUL / VEX-shuffle register forms write an XMM register, never memory.
+      | .vexaes .. | .vexclmul .. | .vexshufb .. | .vexalignr .. | .vexshiftdq .. => false
+      -- V6 (D344): the VEX.256 register twins write a YMM register, never memory.
+      | .vexmov256 .. | .vexddup256 .. | .vexbin256 .. => false
+      -- V7 (D345): the silicon-refereed twins write a vector register or (vpmovmskb) a GPR, never memory.
+      | .vexshufps .. | .vexshufps256 .. | .vexsrax .. | .vexsrax256 .. | .vexsrai .. | .vexsrai256 .. => false
+      | .vexparith .. | .vexparith256 .. | .vexmovmskb .. | .vexmovmskb256 .. => false
+      -- V8c (D350): the memory twin and the broadcasts READ memory and write a vector register.
+      | .vexbinm256 .. | .vexbcastd .. | .vexbcastd256 .. | .vexbcastdm .. | .vexbcastdm256 .. => false
+      -- V9b (D354), in the SAME COMMIT as the constructors: the move memory forms split as batch 3's did,
+      -- a STORE is a memory destination (16 or 32 bytes) and a LOAD is not.
+      | .vexload .. | .vexload256 .. => false
+      | .vexddupm .. | .vexddupm256 .. => false
+      | .vexstore .. | .vexstore256 .. => true
+      -- D369, in the SAME COMMIT as the constructor: vzeroupper writes the YMM upper halves, never memory.
+      | .vexzeroupper => false
+      -- V10 (D361): the silicon rows' memory twins READ memory and write a vector register.
+      | .vexshufbm .. | .vexalignrm .. | .vexparithm .. | .vexparithm256 .. | .vexsraxm .. | .vexsraxm256 .. => false
+      -- D371, in the SAME COMMIT as the constructors: the VEX movd/movq STORE is a memory destination; the GPR and
+      -- load forms are not.
+      | .vexmovg .. | .vexmovgld .. => false
+      | .vexmovgst .. => true
+      -- D375, in the SAME COMMIT as the constructors: an extract to memory is a 16-byte memory destination; the
+      -- insert from memory READS it, and the register forms name none.
+      | .vexins128 .. | .vexins128m .. | .vexext128 .. => false
+      | .vexext128m .. => true
+      -- D376, in the SAME COMMIT as the constructors: the half-move STORE writes 8 bytes of memory; the load READS them.
+      | .vexloadq .. => false
+      | .vexstoreq .. => true
+      -- D379, in the SAME COMMIT as the constructors: `vpabs` writes a vector register; its memory operand is a SOURCE.
+      | .vexabs .. | .vexabsm .. | .vexabs256 .. | .vexabsm256 .. => false
+      -- D394, in the SAME COMMIT as the constructors: the scalar FP STORE writes 4 or 8 bytes of memory; the arithmetic
+      -- and the other moves write a vector register, and their memory operand is a SOURCE.
+      | .vexarith .. | .vexarithm .. | .vexmovs .. | .vexmovsld .. => false
+      | .vexmovsst .. => true)
+    | .vaes .. => false
     -- ⭐ P2 BATCH 22 — `prefetch` names an address and WRITES NOTHING, so it is
     -- not a memory destination.  It is the first form here that names an `Ea` it
     -- does not even READ.
@@ -1122,6 +1237,9 @@ def isMemDestVector (v : Vec) : Bool :=
     -- D336 (V1b): every memory operand of the six is a SOURCE (PEXTRD/Q's
     -- destination is a GPR by its type); no vector reaches any of them today.
     | .vshufb .. | .vshufbm .. | .valignr .. | .valignrm .. | .vinsr .. | .vextr .. => false
+    -- D338 (V2): `vsham`'s memory operand is SRC2, a SOURCE; the destination is
+    -- always an XMM register.  Added in the same commit as the constructors.
+    | .vsha .. | .vsham .. => false
     -- ⭐ P2 VECTOR WAVE, BATCH 15, added in the SAME COMMIT as the constructor.
     -- `vbinm`'s memory operand is its SOURCE; the destination is always an XMM
     -- register, so this is not a memory-destination form either.
@@ -1134,6 +1252,10 @@ def isMemDestVector (v : Vec) : Bool :=
     -- destination; the register form and the load are not.
     | .vmovs .. | .vmovsld .. => false
     | .vmovsst .. => true
+    -- ⭐ D356, in the same commit as the constructors: the `movd`/`movq` store is a memory
+    -- destination; the load is not.
+    | .vmovgld .. => false
+    | .vmovgst .. => true
     -- P2 BATCH 38, in the same commit as the constructors: a scalar min/max
     -- writes an XMM register at both shapes; the memory operand is its SOURCE.
     | .vminmax .. | .vminmaxm .. => false
@@ -1249,6 +1371,7 @@ def isMemDestVector (v : Vec) : Bool :=
     | .loop .. => false
     | .flagop _ => false
     | .nop _ => false
+    | .endbr64 => false
     | .ud2 => false
     | .ret => false
     | .leave => false
@@ -1413,6 +1536,9 @@ theorem memDestSweep :
       == [("sarx", true), ("shlx", true), ("shrx", true),
           ("cmps", false), ("scas", false), ("repe", false), ("repne", false),
           ("movdqa", false), ("movdqu", false),
+          -- ⭐ D356 — `movd`/`movq` join, in TABLE order, for the same vocabulary reason as the
+          -- rows below: their store shape is `m,x`, which the loose rule cannot see.
+          ("movd", false), ("movq", false),
           -- ⭐ P2 VECTOR WAVE, BATCH 11 adds four more in the SAME direction, and
           -- their sameness is the point: the loose rule is blind to `m,x` for
           -- every mnemonic, not just for the two that first exposed it.  A
@@ -1507,6 +1633,8 @@ theorem mem_dest_rewrite_changed_exactly_the_three_operand_rows :
          -- vocabulary the loose rule does not have": its literal is `m,r`, and a
          -- vector store's shape is `m,x`.
          ("movdqa", false), ("movdqu", false),
+         -- ⭐ D356 — `movd`/`movq`, the same gap, in table order (and in `memDestSweep`'s copy).
+         ("movd", false), ("movq", false),
          -- ⭐ P2 VECTOR WAVE, BATCH 11: four more stores in the SAME vocabulary
          -- gap.  `movss`/`movsd` write 4 and 8 bytes rather than 16, so the gap
          -- is not about the WIDTH of the store either — it is `x` the loose rule
@@ -1971,7 +2099,7 @@ cross-check that this replaced — and why — is in the note on that function. 
 def segVectors : List Vec := vectors.filter (fun v => !(segEas v.instr).isEmpty)
 
 /-- And there are some, so the sweep below is not vacuous. -/
-theorem some_vector_carries_a_segment : segVectors.length = 8 := by decide
+theorem some_vector_carries_a_segment : segVectors.length = 31 := by decide
 
 /-- ⭐ EVERY LINEAR ADDRESS THIS MODEL COMPUTES THROUGH A SEGMENT IS CANONICAL,
 over every pre-state.  This is what bounds the departure named in

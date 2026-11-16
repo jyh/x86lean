@@ -107,6 +107,18 @@ on:
 # queues. WHY: until this edit five jobs cancelled a superseded MASTER push too, and a master run's checks
 # are the only reading of THAT push's range of a public repository; the newer run does not cover it.
 
+# ⚖️ A SUPERSEDED PULL-REQUEST RUN IS CANCELLED WHOLE, WHEN THE NEWER RUN IS CREATED (the helm, 2026-10-29, #887 ①).
+# The per-job groups below cancel an older job only when the NEWER job of the same group is QUEUED, and with `needs:`
+# and max-parallel 5 a newer run's shards 6-20 are not queued for hours: on 10-29 a superseded #142 run had shard 15
+# SUCCESS and 17-20 still running beside the newer head's run, while salt's one-minute required checks sat queued
+# behind the account-wide job cap. This group acts on the RUN. Off pull_request it is keyed by run_id, so no master
+# run shares a group and none is ever cancelled (D224's reason, and the 10-13 rule, untouched). The per-job groups
+# stay. `check_ci_shards.py` check 9 holds this shape. A MERGED or closed PR's still-running run has no newer run to
+# supersede it: `ci-close.yml` joins this group on `closed` and cancels it (D370; check 10 holds the two strings).
+concurrency:
+  group: ci-run-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -174,8 +186,8 @@ jobs:
       # thing that makes sharding safe: it fails if shards 1..N do not name every
       # arm exactly once.  Sharding a coverage gate is how a coverage gate
       # silently stops covering, and this is what stands in the way of that.
-      - name: Shard partition gate (shards 1..10 name every selftest arm exactly once)
-        run: lake env .lake/build/bin/x86lean-diff selftest-shards 10
+      - name: Shard partition gate (shards 1..20 name every selftest arm exactly once)
+        run: lake env .lake/build/bin/x86lean-diff selftest-shards 20
 
       # ⛔⛔ D226: WHAT THE SHARDING DROPPED, RESTORED. Until 289a330 (D92, 09/04) this job ran
       # `x86lean-diff selftest` with no argument, and that command runs the arms AND THEN two
@@ -190,6 +202,16 @@ jobs:
       # nRandom 4; the differential emits nRandom 8, 88 pre-states, 89,056 cases).
       - name: Oracle leak check, its cursor plant, and the undefined column (D226)
         run: lake env .lake/build/bin/x86lean-diff undefined-column
+
+      # ROW 130: THE INDEXED COMPARATOR AGAINST THE LINEAR ONE IT REPLACED. `compareRecs`
+      # was a `find?` per record (95.5 % of a selftest arm's time, sampled) and is now a
+      # first-match id index. This step holds it to the old body, kept as
+      # `compareRecsListRef`: a duplicate-id fixture must read first-match, a last-match
+      # mutant must fail that arm, and over three wrong models the full report must be
+      # byte-equal. Every shard and the differential run trust `compareRecs`, so its
+      # contract is checked here, once, beside the other comparator gates.
+      - name: The indexed comparator renders byte-equal to the linear reference (row 130)
+        run: lake env .lake/build/bin/x86lean-diff compare-index-selftest
 
       # ⛔ THE LOCAL RUNNER'S ARGUMENT READER, DRIVEN RED (D173). `ci_local.py` is
       # how every gate in this workflow is exercised on a developer box, and an
@@ -304,7 +326,17 @@ jobs:
       # selftest to go red. It writes nothing into the tree.
       - name: Demand-census mapping + scope partition + staleness (both halves) + red probe
         run: |
-          python3 scripts/demand_census.py --selftest
+          # D391: the census reads LLVM objdump's one-line raw format (D385) and ubuntu's objdump is GNU's, so D388's
+          # one-command arm printed its forms-read half NOT RUN here. Put LLVM's objdump first on PATH for THIS step,
+          # print which one ran, and REFUSE a NOT RUN line, so a runner without LLVM objdump reds instead of passing.
+          LLVM_OD=$(command -v llvm-objdump || ls /usr/bin/llvm-objdump-* 2>/dev/null | sort -V | tail -1 || true)
+          if [ -z "$LLVM_OD" ]; then sudo apt-get update -qq >/dev/null; sudo apt-get install -y -qq llvm >/dev/null; LLVM_OD=$(command -v llvm-objdump); fi
+          mkdir -p "$RUNNER_TEMP/llvm-od" && ln -sf "$LLVM_OD" "$RUNNER_TEMP/llvm-od/objdump"
+          export PATH="$RUNNER_TEMP/llvm-od:$PATH"
+          echo "objdump for the census: $LLVM_OD -> $(objdump --version | grep -m1 -i llvm)"
+          rc=0; python3 scripts/demand_census.py --selftest > "$RUNNER_TEMP/census-selftest.txt" || rc=$?
+          cat "$RUNNER_TEMP/census-selftest.txt"; test "$rc" -eq 0
+          if grep -F 'NOT RUN here' "$RUNNER_TEMP/census-selftest.txt"; then echo "::error::the forms-read half did not run"; exit 1; fi
           python3 scripts/demand_census.py --check
           python3 scripts/census_redprobe.py
 
@@ -550,6 +582,73 @@ jobs:
           # D335: the packed-integer arithmetic pins are hwprobe's SIMD rows (mk_simda_rows.py), same rule.
           python3 hwprobe/mk_simda_anchors.py --selftest
           python3 hwprobe/mk_simda_anchors.py --check
+          # D373: set B (pminsw pmulhw pmulhuw pavgb), its pins in Tests/AnchorsSimdB.lean, same rule.
+          python3 hwprobe/mk_simda_anchors.py --set-b --selftest
+          python3 hwprobe/mk_simda_anchors.py --set-b --check
+          # D338: the SHA-NI pins are hwprobe's SHA rows (mk_sha_rows.py), same rule; the generator's own selftest
+          # holds its textbook SHA-256 to FIPS 180-4's digests and every known-answer row to the rule.
+          python3 hwprobe/mk_sha_rows.py --selftest
+          python3 hwprobe/mk_sha_anchors.py --selftest
+          python3 hwprobe/mk_sha_anchors.py --check
+          # D342: the AES-NI / VPCLMULQDQ / VEX-shuffle pins are hwprobe's AES rows (mk_aes_rows.py), same rule; the
+          # generator's selftest holds its textbook AES-128 to FIPS-197 and its textbook CLMUL to the white paper's vectors.
+          python3 hwprobe/mk_aes_rows.py --selftest
+          python3 hwprobe/mk_aes_anchors.py --selftest
+          python3 hwprobe/mk_aes_anchors.py --check
+          # D345: the VEX-silicon pins are hwprobe's VEX-silicon rows (mk_vexsil_rows.py), same rule; the generator's
+          # selftest holds every row's rule to an independent textbook and both FP references to the host's binary32.
+          python3 hwprobe/mk_vexsil_rows.py --selftest
+          python3 hwprobe/mk_vexsil_anchors.py --selftest
+          python3 hwprobe/mk_vexsil_anchors.py --check
+          # D348: the second VEX-silicon path's pins are hwprobe's vexsilb rows (mk_vexsilb_rows.py), same rule.
+          python3 hwprobe/mk_vexsilb_rows.py --selftest
+          python3 hwprobe/mk_vexsilb_anchors.py --selftest
+          python3 hwprobe/mk_vexsilb_anchors.py --check
+          # D350: the VEX memory-operand pins are hwprobe's vexsilc rows (mk_vexsilc_rows.py), same rule.
+          python3 hwprobe/mk_vexsilc_rows.py --selftest
+          python3 hwprobe/mk_vexsilc_anchors.py --selftest
+          python3 hwprobe/mk_vexsilc_anchors.py --check
+          python3 hwprobe/mk_vexsild_rows.py --selftest
+          python3 hwprobe/mk_vexsild_anchors.py --selftest
+          python3 hwprobe/mk_vexsild_anchors.py --check
+          # D361 (V10): the VEX memory pins of the silicon rows are hwprobe's vexsile rows (mk_vexsile_rows.py), same rule.
+          python3 hwprobe/mk_vexsile_rows.py --selftest
+          python3 hwprobe/mk_vexsile_anchors.py --selftest
+          python3 hwprobe/mk_vexsile_anchors.py --check
+          # D371: the VEX movd/movq pins are hwprobe's vexsilf rows (mk_vexsilf_rows.py), same rule.
+          python3 hwprobe/mk_vexsilf_rows.py --selftest
+          python3 hwprobe/mk_vexsilf_anchors.py --selftest
+          python3 hwprobe/mk_vexsilf_anchors.py --check
+          # D374: the VEX twins' pins are hwprobe's vexsilg rows (mk_vexsilg_rows.py), same rule.
+          python3 hwprobe/mk_vexsilg_rows.py --selftest
+          python3 hwprobe/mk_vexsilg_anchors.py --selftest
+          python3 hwprobe/mk_vexsilg_anchors.py --check
+          # D375: the lane insert/extract pins are hwprobe's vexsilh rows (mk_vexsilh_rows.py), same rule.
+          python3 hwprobe/mk_vexsilh_rows.py --selftest
+          python3 hwprobe/mk_vexsilh_anchors.py --selftest
+          python3 hwprobe/mk_vexsilh_anchors.py --check
+          # D376: movntdqa and the VEX half-moves are hwprobe's vexsili rows (mk_vexsili_rows.py), same rule.
+          python3 hwprobe/mk_vexsili_rows.py --selftest
+          python3 hwprobe/mk_vexsili_anchors.py --selftest
+          python3 hwprobe/mk_vexsili_anchors.py --check
+          # D379: pabs and pmulld are hwprobe's vexsilj rows (mk_vexsilj_rows.py), same rule.
+          python3 hwprobe/mk_vexsilj_rows.py --selftest
+          python3 hwprobe/mk_vexsilj_anchors.py --selftest
+          python3 hwprobe/mk_vexsilj_anchors.py --check
+          # D384: wave E's pins, set C (mk_simda_rows.py --set-c) and its VEX twins (mk_vexsilk_rows.py), one unit.
+          python3 hwprobe/mk_simda_anchors.py --set-c --selftest
+          python3 hwprobe/mk_simda_anchors.py --set-c --check
+          python3 hwprobe/mk_vexsilk_rows.py --selftest
+          python3 hwprobe/mk_vexsilk_anchors.py --selftest
+          python3 hwprobe/mk_vexsilk_anchors.py --check
+          # D393: wave F's pins, the five VEX unpacks (mk_vexsill_rows.py), one unit.
+          python3 hwprobe/mk_vexsill_rows.py --selftest
+          python3 hwprobe/mk_vexsill_anchors.py --selftest
+          python3 hwprobe/mk_vexsill_anchors.py --check
+          # D394: wave G's pins, the VEX scalar floating-point forms (mk_vexsilm_rows.py), one unit.
+          python3 hwprobe/mk_vexsilm_rows.py --selftest
+          python3 hwprobe/mk_vexsilm_anchors.py --selftest
+          python3 hwprobe/mk_vexsilm_anchors.py --check
           # The pins are only right if the RULE that selected them still is. `--check`
           # cannot see that: it compares the file to the generator, and PINNED is declared.
           # ARM 3 reds when a vector is added to a form without a STREAMS line, which is the
@@ -714,11 +813,18 @@ jobs:
           fetch-depth: 0
       - name: Prove the skip decision before trusting it
         run: python3 scripts/selftest_skip.py --selftest
+      # ⚖️ D340 (the helm, 2026-10-14): the FAST PATH reuses this digest to let a PR whose merge ref
+      # equals a green master's merge on its required checks alone; its rule is proved here too.
+      - name: Prove the fast-path rule before anyone takes it
+        run: python3 scripts/fast_path.py --selftest
       - name: Decide SKIP or MEASURE on the consumed-set digest
         id: decide
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/selftest_skip.py --decide --branch "${{ github.ref_name }}"
+        # ⛔ 2026-10-29: this passed `--branch "${{ github.ref_name }}"`, which on a pull_request is `N/merge`;
+        # no run is filed under that name, so a PR never skipped. `lookup_branch` now picks the base branch on
+        # a pull_request (the checkout is the merge ref) and the ref's own branch otherwise.
+        run: python3 scripts/selftest_skip.py --decide --event "${{ github.event_name }}" --ref-name "${{ github.ref_name }}" --base-ref "${{ github.base_ref }}"
 
   selftest:
     needs: selftest-gate
@@ -738,7 +844,13 @@ jobs:
       # pull_request run, and none ever cancels a master run (the paragraph above `jobs:`).
       max-parallel: 5
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        # 20, not 10 (2026-10-26, STATUS row 23): measured per arm on master's run 40194035579 (208 arms,
+        # 35.3 arm-hours), the stride split over 10 put 4.81 h on shard 2; over 20 the slowest shard is
+        # 2.77 h. A runner ~1.6x slow (#132's run 40208935351) took shard 2 past GitHub's 360-min job limit.
+        # Shards run 5 at a time here, so the count is chosen for WALL CLOCK too: simulated at 5 slots
+        # (10 min per job for checkout and harness start) 20 shards take ~8.0 h, as 10 do, while 11 take
+        # ~9.7 h (a third round). A reading of today's arms: a new expensive arm can move it again.
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     steps:
       - uses: actions/checkout@v4
       - uses: leanprover/lean-action@v1
@@ -748,8 +860,8 @@ jobs:
           test: false
       - name: Build the differential executable
         run: lake build x86lean-diff
-      - name: "Harness selftest shard ${{ matrix.shard }} of 10"
-        run: lake env .lake/build/bin/x86lean-diff selftest-shard ${{ matrix.shard }} 10
+      - name: "Harness selftest shard ${{ matrix.shard }} of 20"
+        run: lake env .lake/build/bin/x86lean-diff selftest-shard ${{ matrix.shard }} 20
 
   # ⭐⭐⭐ THE KERNEL-TIME DELTA GATE (D123), REGISTERED HERE BY THE HELM'S RULING
   # OF 2026-09-04 21:42: *"the absolute ceilings are retired as a MERGE GATE …
@@ -802,6 +914,11 @@ jobs:
   # a gate nobody reads.
   kernel-delta:
     runs-on: ubuntu-latest
+    # ⚖️ D381: `actions: read` lets a master push run read its PR run and its previous master run (the record and
+    # the two-in-a-row count). Nothing here writes.
+    permissions:
+      contents: read
+      actions: read
     concurrency:
       group: ci-${{ github.workflow }}-kernel-delta-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -826,6 +943,10 @@ jobs:
       # right. The command prints its own count.
       - name: Delta-gate comparison and budget file, driven red
         run: python3 scripts/kernel_delta.py --selftest
+
+      # ⚖️ D381: the record-decided refusal's own arms (no network: the forge is injected).
+      - name: A refusal decided by the record, driven red
+        run: python3 scripts/refusal_record.py --selftest
 
       # ⭐⭐ ARM A′ (the helm's ruling of 2026-09-13 on D229 §3). Two CHEAP arms,
       # here rather than in a job of their own because neither needs Lean: the
@@ -1000,7 +1121,12 @@ jobs:
       # refuse every job for billing, desk FH". That was STRUCK 2026-09-09 — Actions
       # runs here, and the jobs that looked refused were UNREACHABLE by trigger.
       - name: Kernel-time DELTA against this change's base (two trees, one machine)
-        run: python3 scripts/kernel_delta.py --repeats 12
+        # ⚖️ D381: on a MASTER PUSH run only, an exit 3 is decided by the record (scripts/refusal_record.py);
+        # a PR run passes no flag and is unchanged.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REFUSAL_FLAG: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/master') && '--refusal-by-record' || '' }}
+        run: python3 scripts/kernel_delta.py --repeats 12 $REFUSAL_FLAG
 
   # ⭐⭐ THE ARM THE HELM ASKED FOR BY NAME — *"a planted constructor that doubles
   # the delta must fail"* — in its own job because it needs FOUR builds and eight

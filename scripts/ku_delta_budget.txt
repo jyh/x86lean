@@ -180,3 +180,57 @@ Tests.AnchorsShuf @ku 511292
 # Tests.Anchors read Δku +0 (the pins left it), Tests.Coverage +163,749 of 702,603, X86.Theorems +3,112, X86.Syntax +1,111,
 # X86.Semantics +26, every other module +0.
 Tests.AnchorsSimd @ku 3499549
+# D338 arm (A) (the V2 SHA-NI pins in their own module from the start, 2026-10-14): ARM A′'s own reading and its printed line,
+# 76b6890 → 34cee41 on yukon.lan, copied not retyped; in that run Tests.Anchors read Δku +0, Tests.Coverage +45,620 of 720,809,
+# X86.Theorems +3,767, X86.Syntax +616, X86.Semantics +16, X86.Coverage +10, X86.Serialize +10, X86.Program +2,
+# Tests.LogicKit +2, every other module +0.
+Tests.AnchorsSha @ku 1217137
+# D341 (V3): the four NEW modules, registered at ARM A′'s own readings — the lines PR #98's ku-delta job PRINTED
+# ("register `<unit> @ku <n>`"), copied, not retyped. They were missing from the batch (the executor copied only the
+# ms ceilings), so the PR's ku-delta refused all four once; this is that registration, in its own step.
+Tests.AnchorsVex @ku 5648
+Tests.CoverageVex @ku 1051609
+X86.Vex @ku 5085
+X86.YmmHi @ku 75
+# D342 (V4): the NEW unit ARM A′ refused, 9d81f4b (origin/master) → fc5f3e1, yukon.lan, copied from its printed line, not retyped.
+Tests.AnchorsAes @ku 1611835
+# D344 (V6): the NEW unit ARM A′ refused, e92b5fc (V5's head) → 59f2b96, yukon.lan, copied from its printed line, not retyped.
+Tests.CoverageVex256 @ku 231898
+# D345 (V7): the NEW unit ARM A′ refused, 8862206 (origin/master) → cac895b, yukon.lan, its printed count (2,010,793) with the commas removed by the shell, not retyped.
+Tests.AnchorsVexSil @ku 2010793
+# D348 (V8b): the NEW unit ARM A′ refused, b14c4e0 (V8a's head) → 7c54f8a, yukon.lan, its printed count (250,470) with the commas removed, not retyped.
+Tests.AnchorsVexSilB @ku 250470
+# D350 (V8c): the NEW unit ARM A′ refused, 0f0a069 → 95ef3d3, yukon.lan, its printed count (2,478,482) with the commas removed, not retyped.
+Tests.AnchorsVexSilC @ku 2478482
+# D353 (V9a): the NEW unit ARM A′ refused, 6b10e8b → 1ffdbc1, katmai (K1b), its printed count (678,739) with the commas removed, not retyped.
+Tests.CoverageVexMem @ku 678739
+# D354 (V9b): the two NEW units, the lines ku_delta printed on refusing them at K1 (61edd92 -> 27ee2d2, katmai), copied.
+Tests.AnchorsVexSilD @ku 2662681
+Tests.CoverageVexMov @ku 874362
+# D361 (V10): the NEW unit. Registered at K1 (738411c → 709af7c, katmai) as 6163927; RE-REGISTERED at the re-carry from K2's
+# head_ku (02d3712 → 89d5fee, katmai, read from its --json, not retyped), because the unit's own file is unchanged and the count
+# rose by 18 below it: yukon reads 6163927 at 709af7c and 6163945 at this branch (deterministic_cost.measure, both trees).
+Tests.AnchorsVexSilE @ku 6163945
+# D362: the NEW unit, the line ku_delta printed on refusing it at K1 (06ca21f → b45a6a8, katmai), copied.
+Tests.AnchorsShufM @ku 352020
+# D371: the NEW unit, the line ku_delta printed on refusing it at K1 (733f8f2 → 914ab1c, katmai), copied.
+Tests.AnchorsVexSilF @ku 220986
+# D373: the NEW unit, the line ku_delta printed on refusing it at K1 (5796e5b → f5d9ffa, katmai), copied.
+Tests.AnchorsSimdB @ku 1267652
+# D374: the NEW unit, the line ku_delta printed on refusing it at K1 (f5d9ffa → f0364d8, katmai), copied.
+Tests.AnchorsVexSilG @ku 5371473
+# D375: the NEW unit, the line ku_delta printed on refusing it at K1 (f0364d8 → 3248cf3, katmai), copied.
+Tests.AnchorsVexSilH @ku 1977574
+
+# D376: the NEW unit, the line ku_delta printed on refusing it at K1 (244dac3 → 681dd86, katmai), copied.
+Tests.AnchorsVexSilI @ku 1537866
+# D379: the NEW unit, the line ku_delta printed on refusing it at K1 (cbc52e8 → e09965c, katmai), copied.
+Tests.AnchorsVexSilJ @ku 5084765
+# D384: the NEW unit, the count ku_delta printed on refusing it at K1 (0875143 → 0710c63, katmai), copied.
+Tests.AnchorsVexSilK @ku 2410985
+# D393: the NEW unit, the count ku_delta printed on refusing it at K1 (cb636b5 → f042629, katmai), copied.
+Tests.AnchorsVexSilL @ku 2059194
+# D394: the NEW unit, the count ku_delta printed on refusing it at K1 (fc9f804 → 53299ce, katmai), copied.
+Tests.AnchorsVexSilM @ku 1043936
+# D395: the NEW unit, the count ku_delta printed on refusing it at K1b (1d48ff7 → 97036fc, katmai), copied.
+X86.Effects @ku 64389
