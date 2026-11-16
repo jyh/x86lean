@@ -11,9 +11,12 @@ own limits that it never asks whether the cited statement is the one the sentenc
 THE RECORD  .prose-lean-reads, one claim per line, TAB-separated:
     id  path  claim-sha12  lean-decl  stmt-sha12  author  reader  date
   claim-sha12 = sha256 of the whitespace-flattened sentence, first 12 hex.
-  lean-decl   = <tracked .lean path>::<declaration name>  (unambiguous by construction).
+  lean-decl   = <tracked .lean path>::<declaration name>  (unambiguous by construction), OR cite:<bibkey> for a sentence
+                about ANOTHER system's result (O88 change 2): the key names exactly one entry across the tracked .bib files.
   stmt-sha12  = sha256 of the flattened declaration statement (from its keyword to the first ':=' or
-                ' where'), first 12 hex. A docstring is not part of it.
+                ' where'), first 12 hex. A docstring is not part of it. For cite:<bibkey>, sha256 of the flattened bib
+                entry, so an edit to the entry stales the read. A cite record attests a read against the CITATION's
+                entry, never the cited work, and never an x86lean statement.
   author, reader = names; date = YYYY-MM-DD.
 
 THE BASELINE  .prose-lean-baseline, one accepted-debt claim per line: claim-sha12 TAB path TAB class.
@@ -337,6 +340,37 @@ def decl_statement(repo, spec):
     return "found", flat(stmt_code[start:stmt_end(code, start)])
 
 
+_BIB_HEAD = re.compile(r"@\w+\s*\{\s*([^,\s]+)\s*,")
+
+
+def cite_statement(repo, key):
+    """'cite:<bibkey>' -> (state, entry text): the one entry with that key across the tracked .bib files, flattened.
+    O88 change 2 (paper's word, 2026-11-15): a sentence about ANOTHER system's result has no Lean statement here, so its
+    record names the citation it was read against. The entry's text is what is hashed, so an edit to the entry stales
+    the read the way a Lean edit stales a statement. It attests a read against the CITATION, never the cited work."""
+    hits = []
+    for rel in sorted(repo.files):
+        if not rel.endswith(".bib"):
+            continue
+        text = aan.read(repo.root, rel)
+        for m in _BIB_HEAD.finditer(text):
+            if m.group(1) != key:
+                continue
+            depth, j = 0, text.index("{", m.start())
+            k = j
+            while k < len(text):
+                depth += {"{": 1, "}": -1}.get(text[k], 0)
+                k += 1
+                if depth == 0:
+                    break
+            hits.append(flat(text[m.start():k]))
+    if not hits:
+        return "missing", None
+    if len(hits) > 1:
+        return "ambiguous", None
+    return "found", hits[0]
+
+
 def norm_name(n):
     """'Kent.' / 'kent (helm)' / 'KENT' -> kent / kent-helm / kent. An empty or '-' name names no one."""
     return re.sub(r"[^a-z0-9]+", "-", n.casefold()).strip("-")
@@ -653,16 +687,19 @@ def scan(root):
         if not nr or nr == na or nr.split("-")[0] == na.split("-")[0]:
             findings.append((READS_FILE, i, "SELF-READ", f"{rid}: reader {reader!r} is the author {author!r}"))
             continue
-        state, stmt = decl_statement(repo, decl)
+        is_cite = decl.startswith("cite:")
+        state, stmt = cite_statement(repo, decl[len("cite:"):]) if is_cite else decl_statement(repo, decl)
+        if is_cite and state == "found":
+            stats["cite_records"] = stats.get("cite_records", 0) + 1
         if state == "ambiguous":
-            findings.append((READS_FILE, i, "AMBIGUOUS", f"{rid}: {decl} matches more than one declaration in its file -- qualify it with its namespace"))
+            findings.append((READS_FILE, i, "AMBIGUOUS", (f"{rid}: {decl} names more than one entry across the tracked .bib files" if is_cite else f"{rid}: {decl} matches more than one declaration in its file -- qualify it with its namespace")))
             continue
         if state != "found":
-            findings.append((READS_FILE, i, "NO-STATEMENT", f"{rid}: {decl} is not declared in code in a tracked .lean file (a comment or string does not count)"))
+            findings.append((READS_FILE, i, "NO-STATEMENT", (f"{rid}: {decl} names no entry in a tracked .bib file" if is_cite else f"{rid}: {decl} is not declared in code in a tracked .lean file (a comment or string does not count)")))
             continue
         if sha12(stmt) != ssha:
             findings.append((READS_FILE, i, "STALE-STATEMENT",
-                             f"{rid}: {decl} now hashes {sha12(stmt)}, the read was of {ssha} -- the Lean moved"))
+                             f"{rid}: {decl} now hashes {sha12(stmt)}, the read was of {ssha} -- the {'citation entry' if is_cite else 'Lean'} moved"))
             continue
         if (path, csha) not in sentences:
             findings.append((READS_FILE, i, "STALE-CLAIM", f"{rid}: no sentence in {path} hashes {csha} -- the prose moved"))
@@ -807,6 +844,8 @@ def limits(stats, ledgers):
         "because only % comments are stripped. Both are older than the migration arm and are declared here, not fixed here",
         "  NOT MATCHED for claim words: a TeX sentence's own \\src{...} tags and a glued alltt block (they cite; the hash keeps them). "
         "STILL MATCHED: a \\section, \\paragraph or \\item glued to a sentence (the splitter does not cut there; fixing it moves hashes)",
+        f"  CITE RECORDS: {stats.get('cite_records', 0)} record(s) name cite:<bibkey> in place of a Lean declaration: each attests a non-author's "
+        "read of the sentence against that bib entry's TEXT (hashed), never the cited work itself and never a Lean statement",
         "  NOT checked: that anyone read (the reader is a name, differing from the author); that the named statement is the RIGHT one "
         "(only that it exists and is unchanged since the read); a claim in words outside the lexicon; a sentence the splitter cut differently",
     ]
@@ -1475,6 +1514,26 @@ def self_test():
            ["STALE-CLAIM"])
     expect("O88-5 a baseline line whose sentence is GONE is still STALE-BASELINE", {**o1, BASELINE_FILE: "deadbeef0000\tpapers/main.tex\tcensus\n"},
            ["STALE-BASELINE"])
+    # ---- O88 change 2: a record may name cite:<bibkey>, read against that bib entry's text
+    s_other = "Its proof development is far stronger than ours: eight verified program families carry the theorems."
+    BIB = "@inproceedings{goel-x86isa,\n  title = {Engineering a Formal, Executable x86 ISA Simulator},\n  year = {2014}\n}\n"
+    c_entry = flat(BIB.rstrip("\n"))
+    c_base = {"papers/main.tex": tex_of(s_other), "papers/refs.bib": BIB}
+    def crec(rid, key="goel-x86isa", ss=None, author="author-a", reader="reader-b"):
+        return "\t".join([rid, "papers/main.tex", sha12(flat(s_other)), "cite:" + key, ss or sha12(c_entry), author, reader, "2026-11-15"]) + "\n"
+    expect("O88-C0 a sentence about another system's proofs is a claim", c_base, ["UNREAD"])
+    expect("O88-C1 a cite record over its bib entry clears it", {**c_base, READS_FILE: crec("c1")}, [])
+    arms += 1
+    _, _, stc, _ = scan(build({**c_base, READS_FILE: crec("c1")}))
+    if stc.get("cite_records") != 1:
+        fails.append(f"O88-C1 the cite record must be counted beside the verdict, saw {stc.get('cite_records')}")
+    expect("O88-C2 a cite key with no entry is NO-STATEMENT", {**c_base, READS_FILE: crec("c2", key="nobody-2099")}, ["NO-STATEMENT", "UNREAD"])
+    expect("O88-C3 an edited entry is STALE-STATEMENT", {**c_base, READS_FILE: crec("c3"), "papers/refs.bib": BIB.replace("2014", "2015")},
+           ["STALE-STATEMENT", "UNREAD"])
+    expect("O88-C4 a key in two .bib files is AMBIGUOUS", {**c_base, READS_FILE: crec("c4"), "papers/more.bib": BIB}, ["AMBIGUOUS", "UNREAD"])
+    expect("O88-C5 a cite record still refuses a self-read", {**c_base, READS_FILE: crec("c5", reader="author-a")}, ["SELF-READ", "UNREAD"])
+    expect("O88-C6 with no .bib in the tree a cite key names nothing", {"papers/main.tex": tex_of(s_other), READS_FILE: crec("c6")},
+           ["NO-STATEMENT", "UNREAD"])
     if fails:
         print("check_prose_lean --self-test: FAIL")
         print("\n".join("  " + x for x in fails))
