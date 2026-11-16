@@ -45,7 +45,14 @@ DECLARED LIMITS (printed beside every verdict):
   * the shape lexicon is fixed and was read off the census it is calibrated on; a claim in other words
     is not seen; a sentence the splitter cuts differently hashes differently;
   * ledgers and Lean docstrings are counted, not gated;
-  * "a machine-checked result" is not decidable from prose; carrier + shape is a proxy.
+  * "a machine-checked result" is not decidable from prose; carrier + shape is a proxy;
+  * a TeX sentence's own \\src{...} tag and a glued alltt listing are NOT matched for claim words (they cite;
+    the hash still includes them), but a \\section, \\paragraph or \\item glued to a sentence IS: its words count
+    as the sentence's. Fixing that moves cut points, so hashes, and is not done here.
+
+OVER-COVER (counted beside the verdict, never a finding): a record or baseline line whose sentence still EXISTS in
+  its path but no longer claims. STALE-CLAIM and STALE-BASELINE look a hash up among ALL sentences, so a sentence
+  that stops claiming (an edit, or a detection change such as the \\src strip) is over-cover, not "the prose moved".
 
 Exit: 0 clean, 1 findings, 2 usage or a broken file.
 Usage: check_prose_lean.py [--root DIR] [--verbose] [--list-claims] [--self-test]
@@ -162,6 +169,28 @@ def split_sentences(flat_text, legacy=False):
     return [x for x in out if x]
 
 
+_ALLTT = re.compile(r"\\begin\{alltt\}.*?(?:\\end\{alltt\}|\Z)", re.S)
+
+
+def strip_citing(sn):
+    """The sentence with its own \\src{...} tags (balanced braces) and any glued alltt block removed: the text that is
+    MATCHED for claim words, never the text that is hashed. A source pointer and a listing cite; they never claim
+    (the rule this file already applies to an inline code span). An unbalanced \\src{ runs to the end of the sentence."""
+    out, i = [], 0
+    while True:
+        k = sn.find("\\src{", i)
+        if k < 0:
+            out.append(sn[i:])
+            break
+        out.append(sn[i:k])
+        depth, j = 1, k + 5
+        while j < len(sn) and depth:
+            depth += {"{": 1, "}": -1}.get(sn[j], 0)
+            j += 1
+        i = j
+    return _ALLTT.sub(" ", "".join(out))
+
+
 def claim_sentences(prose, headline=True, legacy=False, epoch=None, docstring=False):
     """-> [(sentence, [shape names], [claim words])] for the claim sentences of a prose string.
     The sentence (and so its hash) KEEPS its inline code spans -- a span is the part that names the Lean, so a
@@ -173,7 +202,7 @@ def claim_sentences(prose, headline=True, legacy=False, epoch=None, docstring=Fa
     shapes_tbl = EPOCH_SHAPES[ep]
     out = []
     for sn in split_sentences(flat(prose), legacy):
-        seen = flat(CODE_SPAN.sub(" ", sn))
+        seen = flat(strip_citing(CODE_SPAN.sub(" ", sn)))
         words = [w for w, neg in aan.claim_hits(seen) if not neg]
         if headline:
             words += [m.group(0).lower() for m in EXTRA_WORDS.finditer(seen)]
@@ -560,6 +589,7 @@ def scan(root):
     repo = aan.Repo(root)
     ledgers = [c[0] for _, c, _ in load_tsv(repo, LEDGERS_FILE, 1) if c]
     claims = {}                               # (path, sha) -> (sentence, shapes, words)
+    sentences = set()                         # (path, sha) of EVERY sentence of a gated carrier: the stale lookups
     stats = {"carriers": 0, "ledger_files": 0, "ledger_claims": 0, "docstring_claims": 0, "tiers": {}}
     lean_files, public_prose = [], []
     for rel in repo.files:
@@ -576,6 +606,8 @@ def scan(root):
         for prose in prose_of(rel, text):
             if not in_ledger:
                 public_prose.append(prose)
+            if not in_ledger:
+                sentences.update((rel, sha12(x)) for x in split_sentences(flat(prose)))
             for sn, shapes, words in claim_sentences(prose, is_headline(rel)):
                 found += 1
                 if in_ledger:
@@ -592,6 +624,8 @@ def scan(root):
     for rel in lean_files:
         in_ledger = any(rel.startswith(p) for p in ledgers)
         for ds, decl in docstring_items(aan.read(repo.root, rel)):
+            if LEXICON_EPOCH >= 3 and not in_ledger:
+                sentences.update((rel, sha12(x)) for x in split_sentences(flat(ds)))
             for sn, shapes, words in claim_sentences(ds, True, docstring=True):
                 stats["docstring_claims"] += 1
                 if LEXICON_EPOCH >= 3 and not in_ledger:
@@ -603,7 +637,7 @@ def scan(root):
     findings = []
     reads = load_tsv(repo, READS_FILE, 8)
     base = load_tsv(repo, BASELINE_FILE, 3)
-    read_keys, base_keys = set(), set()
+    read_keys, base_keys, over = set(), set(), set()
     for i, cols, line in reads:
         if cols is None:
             findings.append((READS_FILE, i, "BAD-RECORD", f"expected 8 TAB columns: {line[:120]}"))
@@ -630,19 +664,26 @@ def scan(root):
             findings.append((READS_FILE, i, "STALE-STATEMENT",
                              f"{rid}: {decl} now hashes {sha12(stmt)}, the read was of {ssha} -- the Lean moved"))
             continue
-        if (path, csha) not in claims:
+        if (path, csha) not in sentences:
             findings.append((READS_FILE, i, "STALE-CLAIM", f"{rid}: no sentence in {path} hashes {csha} -- the prose moved"))
+            continue
+        if (path, csha) not in claims:
+            over.add(("record", path, csha))
             continue
         read_keys.add((path, csha))
     for i, cols, line in base:
         if cols is None:
             findings.append((BASELINE_FILE, i, "BAD-RECORD", f"expected 3 TAB columns: {line[:120]}"))
             continue
-        if (cols[1], cols[0]) not in claims:
+        if (cols[1], cols[0]) not in sentences:
             findings.append((BASELINE_FILE, i, "STALE-BASELINE", f"{cols[0]} in {cols[1]}: the sentence is gone -- delete the line"))
+            continue
+        if (cols[1], cols[0]) not in claims:
+            over.add(("baseline", cols[1], cols[0]))
             continue
         base_keys.add((cols[1], cols[0]))
     stats["claims"], stats["read"], stats["baselined"] = len(claims), len(read_keys), len(base_keys - read_keys)
+    stats["over_cover"] = sorted(over)
     for (path, csha), (sn, shapes, words) in sorted(claims.items()):
         if (path, csha) in read_keys or (path, csha) in base_keys:
             continue
@@ -764,6 +805,8 @@ def limits(stats, ledgers):
         "  A BASELINE ROW LICENSES EVERY COPY of its sentence in that file (it keys on path + hash): a baselined sentence copied elsewhere in "
         "its own file stays green, with or without a migration; and TeX that never renders (\\iffalse, a comment environment) counts as prose, "
         "because only % comments are stripped. Both are older than the migration arm and are declared here, not fixed here",
+        "  NOT MATCHED for claim words: a TeX sentence's own \\src{...} tags and a glued alltt block (they cite; the hash keeps them). "
+        "STILL MATCHED: a \\section, \\paragraph or \\item glued to a sentence (the splitter does not cut there; fixing it moves hashes)",
         "  NOT checked: that anyone read (the reader is a name, differing from the author); that the named statement is the RIGHT one "
         "(only that it exists and is unchanged since the read); a claim in words outside the lexicon; a sentence the splitter cut differently",
     ]
@@ -792,7 +835,13 @@ def main(argv=None):
         return 0
     for rel, line, cls, msg in findings:
         print(f"{rel}:{line}: {cls}: {msg}")
-    print(f"check_prose_lean: {'FAIL' if findings else 'OK'} ({len(findings)} finding(s))")
+    oc = stats.get("over_cover", [])
+    print(f"check_prose_lean: {'FAIL' if findings else 'OK'} ({len(findings)} finding(s)); OVER-COVER {len(oc)} "
+          f"({sum(1 for o in oc if o[0] == 'record')} record(s), {sum(1 for o in oc if o[0] == 'baseline')} baseline line(s) over a sentence that "
+          f"exists and no longer claims: not a finding; --verbose lists them)")
+    if a.verbose:
+        for kind, path, csha in oc:
+            print(f"  OVER-COVER {kind} {path} {csha}")
     print("\n".join(limits(stats, ledgers)))
     return 1 if findings else 0
 
@@ -1400,6 +1449,32 @@ def self_test():
         got = docstring_items(txt)
         if got != want:
             fails.append(f"G4 {name}: wanted {want!r}, got {got!r}")
+    # ---- O88 change 1 (paris, 2026-11-15; paper's word): a sentence's own \src{} and a glued alltt block cite, never claim;
+    # the stale lookups search EVERY sentence, so a sentence that stops claiming is OVER-COVER, never "the prose moved".
+    def tex_of(*sents):
+        return "\\begin{document}\n" + " ".join(sents) + "\n\\end{document}\n"
+    s_src_only = r"The archive resolves to its latest version. \src{docs/CLAIMS.tsv[proof\_sample\_routines]; VERIFIED at its README}"
+    s_src_claim = r"The theorem pins the halt. \src{X86/Theorems.lean step\_refuses}"
+    s_alltt = r"The arm is shown. {\scriptsize \begin{alltt} theorem t : True := trivial \end{alltt} }"
+    o1 = {"Salt/Fulcrum.lean": LEAN, "papers/main.tex": tex_of(s_src_only)}
+    expect("O88-1 a claim word only inside the sentence's own \\src{} is not a claim", o1, [])
+    o2 = {"Salt/Fulcrum.lean": LEAN, "papers/main.tex": tex_of(s_src_claim)}
+    expect("O88-2 a claim word in the prose still claims", o2, ["UNREAD"])
+    expect("O88-2 its record clears it (the hash includes the \\src{})", {**o2, READS_FILE: rec("p2", "papers/main.tex", s_src_claim)}, [])
+    expect("O88-2 an edit INSIDE the \\src{} moves the hash", {**o2, READS_FILE: rec("p2", "papers/main.tex", s_src_claim.replace("step", "stp"))},
+           ["STALE-CLAIM", "UNREAD"])
+    expect("O88-3 a claim word only inside a glued alltt listing is not a claim", {"papers/main.tex": tex_of(s_alltt)}, [])
+    o4 = {**o1, READS_FILE: rec("p4", "papers/main.tex", s_src_only)}
+    expect("O88-4 a record over a sentence that exists and no longer claims is not STALE-CLAIM", o4, [])
+    arms += 1
+    _, _, st4, _ = scan(build(o4))
+    if [k for k, *_ in st4.get("over_cover", [])] != ["record"]:
+        fails.append(f"O88-4 the record must be counted OVER-COVER once, saw {st4.get('over_cover')}")
+    expect("O88-4 a baseline line over it is not STALE-BASELINE", {**o1, BASELINE_FILE: f"{sha12(flat(s_src_only))}\tpapers/main.tex\tcensus\n"}, [])
+    expect("O88-5 a record whose sentence is GONE is still STALE-CLAIM", {**o1, READS_FILE: rec("p5", "papers/main.tex", "A sentence nobody wrote.")},
+           ["STALE-CLAIM"])
+    expect("O88-5 a baseline line whose sentence is GONE is still STALE-BASELINE", {**o1, BASELINE_FILE: "deadbeef0000\tpapers/main.tex\tcensus\n"},
+           ["STALE-BASELINE"])
     if fails:
         print("check_prose_lean --self-test: FAIL")
         print("\n".join("  " + x for x in fails))
