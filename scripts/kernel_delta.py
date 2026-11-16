@@ -176,7 +176,7 @@ BUDGET_FILE = os.environ.get("X86LEAN_DELTA_BUDGET",
 CEIL_FILE = os.path.join(ROOT, "scripts", "kernel_ceilings.txt")
 # The registry's machine column. One spelling, three parsers read this file.
 MACHINE_TAG = "@on"
-RUNNER_POOL = "runner-pool"
+RUNNER_POOL = kernel_cost.RUNNER_POOL  # one definition (row 69)
 DEFAULT_TAG = "@default"
 FLOOR_TAG   = "@floor"
 
@@ -1266,8 +1266,9 @@ def read_ceilings():
 # crossed here, because katmai and yukon are never in the class. The exact
 # (unit, machine) line is tried FIRST and wins.
 def machine_class(machine):
-    """`runner-pool` for a GitHub-hosted runner VM, else None."""
-    return RUNNER_POOL if machine and machine.startswith("runnervm") else None
+    """`runner-pool` for a GitHub-hosted runner VM, else None. Delegated to kernel_cost's ONE definition (row 69),
+    so the registry's two parsers cannot learn different classes."""
+    return kernel_cost.machine_class(machine)
 
 
 def ceiling_entry(ceilings, unit, machine):
