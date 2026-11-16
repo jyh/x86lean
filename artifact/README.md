@@ -9,8 +9,8 @@ comes from public sources. Nothing in it needs a credential.
 
 | Paper claim | Command (inside the container) | Expected output |
 |---|---|---|
-| The model and every theorem build | `bash artifact/measure.sh` | `lake-build rc=0 … lean_errors=0`, "Build completed successfully (85 jobs)" |
-| Theorems use only the three standard axioms | `bash scripts/axiom_gate.sh` | its CLEAN line, with the declaration count it read. ⚠️ Not yet run inside the image. |
+| The whole Lean tree builds | `bash artifact/measure.sh` | `lake-build rc=0 … lean_errors=0`, "Build completed successfully (85 jobs)" |
+| The axiom gate passes (the policy is in `TRUSTBASE.md`) | `bash scripts/axiom_gate.sh` | its CLEAN line, with the declaration count it read. ⚠️ Not yet run inside the image. |
 | The differential validation (Sect. 4.1) | `bash artifact/measure-diff.sh` | the main-table line, below |
 | Every published figure re-derives at its commit | `python3 scripts/check_claims.py` | `check_claims: CLEAN`. ⚠️ Not yet run inside the image. It needs the repository's full history, because it re-derives each figure at the commit it names, and the image currently gets a shallow checkout. |
 
@@ -53,8 +53,8 @@ everything.
 
 - **The processor probe (Sect. 5.3).** `hwprobe/` runs rows derived from the manual on real AMD and Intel processors.
   That needs those processors, so a reviewer on another machine cannot rerun it. What the artifact does check: the probe
-  rows are in the repository, and the model is pinned to them by `decide` theorems, which the Lean build above
-  re-checks on any host.
+  rows are in the repository, and `decide` checks the model against the same rows
+  inside the Lean build above, so that part runs on any host.
 - **Timing figures.** Kernel-cost readings depend on the machine. The ones the paper quotes name the machine they were
   taken on.
 
