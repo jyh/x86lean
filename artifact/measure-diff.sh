@@ -30,4 +30,10 @@ wait "$pid"; rc=$?
 echo "MEASURE diff-total rc=$rc secs=$(( $(date +%s) - t0 ))"
 grep -E 'oracle produced|cases|unexplained|leak|disagree' /tmp/diff.log | tail -8
 tail -5 /tmp/diff.log
+# ⭐ THE MAIN TABLE, the population the paper cites (records 41-45's own method; artifact/main_table.py says it). Its compare
+# exits 1 when declared divergences of the VEX tables the split removes did not occur: that is expected, and printed.
+python3 artifact/main_table.py run || { echo "MEASURE main-table REFUSED"; exit 2; }
+lake env .lake/build/bin/x86lean-diff compare run/main-lean.txt run/main-oracle.txt > /tmp/main.log 2>&1; mrc=$?
+echo "MEASURE main-table compare rc=$mrc $(grep -m1 -E '^cases=' /tmp/main.log)"
+grep -A3 -F 'DID NOT OCCUR' /tmp/main.log | head -8
 exit $rc
