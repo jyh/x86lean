@@ -35,6 +35,12 @@ jobs:
         run: |
           docker save x86lean-artifact:stage1 | gzip -1 > image.tar.gz
           echo "MEASURE image-tar-gz bytes=$(stat -c %s image.tar.gz)"
+      - name: docker load, as a reviewer would start (the image removed first)
+        run: |
+          docker rmi -f x86lean-artifact:stage1 > /dev/null
+          start=$(date +%s); docker load < image.tar.gz > /tmp/load.log 2>&1; r=$?
+          echo "MEASURE docker-load rc=$r secs=$(( $(date +%s) - start ))"; cat /tmp/load.log
+          docker run --rm x86lean-artifact:stage1 bash -c 'lean --version && test -x vendor/acl2/saved_acl2 && echo oracle-present'
   # (a') the reviewer on an ARM laptop: the SAME linux/amd64 image under QEMU on an arm64 runner, the Lean build only.
   # It measures the emulation penalty the README cannot otherwise state. A one-off measurement, not a gate.
   emulated:
