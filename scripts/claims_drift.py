@@ -57,7 +57,7 @@ def selftest():
         print(("  ✔ " if c else "  ⛔ ") + n)
         if not c:
             bad.append(n)
-    with tempfile.TemporaryDirectory() as t:
+    with tempfile.TemporaryDirectory(prefix="x86lean-claimsdrift-") as t:
         def g(*a):
             subprocess.run(["git", *a], cwd=t, check=True, capture_output=True)
         g("init", "-q"); g("config", "user.email", "x@x"); g("config", "user.name", "x")
