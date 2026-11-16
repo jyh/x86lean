@@ -481,7 +481,7 @@ opposite oracles, and we have not proved it for every instruction.
 \src{Tests/Nonvacuity.lean cursor\_add\_spends\_nothing, cursor\_and\_spends\_one, cursor\_shift\_nonzero\_spends\_three,
 cursor\_shift\_zero\_spends\_nothing, cursor\_independent\_of\_bits (the one over two oracles, one SHL at one state); docs/DECISIONS.md D213, D250}
 It is checked case by case: the leak check of Section~\ref{sec:undef:derived} also requires the two runs
-to leave the cursor in the same place, so the 0 leaks in the 105{,}424 cases of the differential record cited in Section~\ref{sec:validation:harness} include it, and an earlier Lean-only run over the 89{,}056 cases of the 1{,}012-vector population found the cursors differ in 0. A model planted to draw one extra bit whenever its first drawn bit is set is caught on exactly
+to leave the cursor in the same place, so the 0 leaks in the 109{,}208 cases of the differential record cited in Section~\ref{sec:validation:harness} include it, and an earlier Lean-only run over the 89{,}056 cases of the 1{,}012-vector population found the cursors differ in 0. A model planted to draw one extra bit whenever its first drawn bit is set is caught on exactly
 the cases that draw, 27{,}717 of 85{,}008 in the check's own walk of 84 pre-states per vector.
 \src{X86/Serialize.lean undefinedLeaked (the oracle cursor clause); docs/CLAIMS.tsv[diff\_cases, diff\_leaks]; docs/CURSOR-LEAK-CHECK-2026-09-13.md, ``emitted 1012 vectors x 88 pre-states = 89056 cases'', a Lean-only run without ACL2, and the cursor-plant line and the 84-vs-88 pre-state note (D250); docs/CLAIMS.tsv[cursor\_cases, cursor\_leaks, cursor\_plant\_fired, cursor\_plant\_cases, cursor\_walk\_prestates]; X86/Serialize.lean
 undefinedLeakedBy; Main.lean wrongDrawCountReadsDrawnBit; docs/DECISIONS.md D226}
@@ -584,10 +584,10 @@ which both models refuse is matched on the refusal alone, since neither claims a
 
 The summary counts two different things, and they must be read apart: cases, and disagreeing fields.
 The record we cite, taken against the reference model pinned at ACL2 commit c8897a34, covers
-1{,}198 vectors at 88 pre-states, 105{,}424 cases, of which 82{,}367 are
-matched. The remaining cases carry 34{,}155 field disagreements explained by the undefined set and 616
+1{,}241 vectors at 88 pre-states, 109{,}208 cases, of which 85{,}692 are
+matched. The remaining cases carry 34{,}407 field disagreements explained by the undefined set and 835
 declared divergences. 0 disagreements are unexplained, and in 0 cases did an undefined bit leak.
-\src{docs/DIFFERENTIAL-P2-BATCH40.md, the RUN block; docs/CLAIMS.tsv[diff\_vectors, diff\_prestates, diff\_cases,
+\src{docs/DIFFERENTIAL-P2-BATCH45.md at the pin 6f85116, the RUN block's main table; docs/CLAIMS.tsv[diff\_vectors, diff\_prestates, diff\_cases,
 diff\_matched, diff\_explained, diff\_diverged, diff\_unexplained, diff\_leaks]. Units: Main.lean
 compareRecs counts cases, matched and leaks per case, and the other three per field}
 Every mnemonic in the differential table has a vector (Section~\ref{sec:gated}), and each vector runs at the same 88
@@ -672,9 +672,8 @@ Agreement with a reference model that does not implement a rule is not evidence 
 For forms the reference model refuses to execute, a second source of another kind now exists: a probe
 runs rows derived from the manual's rules on the processors of hosted x86-64 runners, and the model is
 pinned to the same rows by \lean{decide}. It referees 110 mnemonics that no differential vector can test
-(the BMI1/BMI2 forms x86isa refuses, MOVNTI and MOVNTDQA, the SHA and AES rounds and VPCLMULQDQ, SSSE3/SSE4.1 shuffle, align,
-insert, extract and absolute-value forms, SSE packed-integer arithmetic, their VEX encodings, and VEX binary32/binary64
-arithmetic) on AMD and Intel processors. Its rows are chosen rather than swept and are never counted with the differential
+(BMI1/BMI2 forms x86isa refuses, MOVNTI, MOVNTDQA, SHA, AES and VPCLMULQDQ, SSSE3/SSE4.1 shuffle, align,
+insert, extract and absolute-value forms, SSE packed-integer arithmetic, their VEX forms, and VEX floating point) on AMD and Intel processors. Its rows are chosen rather than swept and are never counted with the differential
 figures; a processor can refute a reading of the manual, but cannot show that an undefined bit is defined.
 \src{docs/CLAIMS.tsv[silicon\_mnemonics]; X86/Coverage.lean siliconTable; hwprobe/; docs/DECISIONS.md D330, D334--D336}
 The probe also found a defect in the reference model. For BT, BTS, BTR and BTC with a memory bit base and
@@ -691,15 +690,17 @@ liblisa.nl/publications/liblisa-oopsla24/05-results section 5.2.2, the BT/BTS/BT
 Moving a general-purpose register into an XMM register (MOVD, MOVQ) clears the destination's upper bits in
 the manual and in K's rules; the reference model keeps them and writes only the low 32 or 64. x86lean
 follows the manual, and the two vectors are declared divergences with K's rule as their independent
-source. They are 163 of the cited record's 616 declared divergences. The eight shifts below are
-another eight, the floating-point records added 121, and the bit-string forms of Sect.~\ref{sec:validation:limits} the remaining 324. A wrong model planted to merge rather than
+source. They are 163 of the cited record's 835 declared divergences. The eight shifts below are
+another eight, the floating-point records added 121, bit strings (Sect.~\ref{sec:validation:limits}) 324,
+and three later memory-form records 219. A wrong model planted to merge rather than
 clear was already one of the harness's controls, and it fired against x86lean; the reference model
 implements the same mistake. libLISA's semantics agree with the manual on the VEX-encoded forms, on each
 of its five machines.
 \src{docs/DECISIONS.md D93, sections 1 and 2 (the planted arm, and K's movd\_xmm\_r32.k and movq\_xmm\_r64.k);
 Main.lean knownDivergences, movd\_to\_x and movq\_to\_x; docs/DECISIONS.md D108, the first run's record
 ``unexplained=8 oracle-divergence=163'', taken while those two were the only declared entries, and 171 once the
-eight shifts were declared; docs/CLAIMS.tsv[movdq\_divergences, diff\_diverged, fp\_divergences\_added, p2\_shift\_divergences, liblisa\_machines]; 616 = 171 + the four floating-point records' increases (DIFFERENTIAL-P2-BATCH27, 29, 31 and 35: +50, +11, +12, +48) + BATCH40's 324 for the 29 bit-string entries (D331, docs/CLAIMS.tsv[bitstring\_divergences\_added]); every other record from BATCH22 to BATCH39 adds 0, D300; docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, the vmovd and vmovq verdicts; D221; docs/DECISIONS.md D248}
+eight shifts were declared; docs/CLAIMS.tsv[movdq\_divergences, diff\_diverged, fp\_divergences\_added, p2\_shift\_divergences, liblisa\_machines,
+memrecords\_divergences\_added]; 835 = 171 + the four floating-point records' increases (DIFFERENTIAL-P2-BATCH27, 29, 31 and 35: +50, +11, +12, +48) + BATCH40's 324 for the 29 bit-string entries + BATCH42's 6, BATCH43's 171 and BATCH44's 42 (at the pin) (D331, docs/CLAIMS.tsv[bitstring\_divergences\_added]); every other record from BATCH22 to BATCH39 adds 0, D300; docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, the vmovd and vmovq verdicts; D221; docs/DECISIONS.md D248}
 
 \paragraph{A reference model that disagrees with itself.}
 On the packed shifts (PSLLW, PSRAD and their siblings) with a count in an XMM register, the first
