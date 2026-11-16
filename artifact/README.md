@@ -28,8 +28,9 @@ outside the main table, so they do not occur in it. The script prints them by na
 
 ## Host requirements
 
-- **Architecture:** an x86-64 host runs the image natively. On Apple silicon or another ARM host, Docker runs it under
-  amd64 emulation, which is slower by a factor not yet measured.
+- **Architecture:** an x86-64 host runs the image natively. On Apple silicon or another ARM host, Docker runs it under amd64 emulation. Under QEMU on a 4-core arm64 machine the cold
+  Lean build took 1 h 21 min, about 12 times the native time. The differential under emulation has not been measured,
+  and Docker Desktop's Rosetta path on Apple silicon has not been measured either.
 - **Memory:** 8 GB is enough. The largest single process measured 2.75 GB.
 - **Cores:** 2 or more. The times below were measured on 4 cores, with Lean limited to 2 threads.
 - **Disk:** about 1.6 GB for the compressed image, and several times that once it is loaded.
@@ -42,7 +43,7 @@ Measured on a hosted GitHub `ubuntu-latest` runner (4 cores, 16 GB) with `LEAN_N
 | Step | Time |
 |---|---|
 | `docker load` of the image | not yet measured |
-| Cold Lean build (`artifact/measure.sh`) | 5–8 min (5:13, 5:42 and 7:48 over three runs) |
+| Cold Lean build (`artifact/measure.sh`) | 5–8 min over five native runs (5:13 to 7:48); 1 h 21 min under QEMU on arm64 |
 | The full differential with its main-table split (`artifact/measure-diff.sh`) | 15–19 min (900 and 1108 s; about 9 min of that is the kernel-cost readings at the end, which are not a verdict) |
 | Building the image from source, if you choose to | 30–34 min, of which 27–31 is certifying x86isa (two runs) |
 
