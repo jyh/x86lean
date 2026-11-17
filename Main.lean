@@ -4347,8 +4347,8 @@ def wrongMmxLoadNoTouch (i : Instr) (s : Cpu) : Cpu :=
   | _ => t
 
 /-- D402 ARM 4 — an MMX STORE that leaves the x87 state alone: x86isa's behaviour at the pin
-(D402 §1). An arm, so the model and that behaviour are PROVED distinguishable by these vectors;
-which one is right is silicon's question (D402 §2.2), not this arm's. -/
+(D402 §1). An arm, so a run shows these vectors tell the model and that behaviour apart; which one
+is right is silicon's question (D402 §2.2), not this arm's. -/
 def wrongMmxStoreNoTouch (i : Instr) (s : Cpu) : Cpu :=
   let t := step i s
   match i.op with
