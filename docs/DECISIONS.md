@@ -25882,3 +25882,54 @@ The branch and a CONTROL on master `3fcb7ee` (the same script, the same pin, no 
   xmm and MXCSR keys (`rows_on_x86isa.py`), so its MMX values are unread. A silicon MMX row would have to add the loads.
 - **Bits 79:64 of each register** (which x86isa's `!mmx` sets to 0xFFFF) stay a declared limit: nothing in the roster reads them.
 - **The ku of the pattern in `mkPre`** was not read on this step. It lands in the PR's K1 reading, beside D400's field cost.
+
+## D402 — Row 77 step (c), the MMX moves: predictions and price BEFORE any model work, and one predicted oracle divergence
+
+⚖️ The seat's queue row 77, step (c): `movd`/`movq` with an MMX operand, batch 1 of the MMX wave (14,495 instructions of
+demand: movq mm 11,109 · movd mm 3,386, by the 11-17 census re-run at 3fcb7ee). Written before any model work, on D400's
+field and D401's channel.
+
+### 1. THE FORMS, AND WHAT THE REFEREE DOES WITH EACH (vendored x86isa at the pin c8897a34, `instructions/move-mmx.lisp`)
+```
+  NP 0F 6F /r          movq mm, mm/m64      x86-movq-from-mmx/mem   calls mmx-instruction-updates (:183)
+  NP 0F 6E /r          movd mm, r/m32       x86-movd/movq-to-mmx    calls it (:264); zero-extends (:262 comment)
+  NP REX.W 0F 6E /r    movq mm, r/m64       x86-movd/movq-to-mmx    calls it (:264)
+  NP 0F 7F /r          movq mm/m64, mm      x86-movq-to-mmx/mem     does NOT call it
+  NP 0F 7E /r          movd r/m32, mm       x86-movd/movq-from-mmx  does NOT call it; keeps the low 32 bits
+  NP REX.W 0F 7E /r    movq r/m64, mm       x86-movd/movq-from-mmx  does NOT call it
+```
+Four `def-inst`s are in the file, and the two that READ an MMX register as their source never touch the x87 state.
+`mmx-instruction-updates`'s own documentation (register-readers-and-writers.lisp) says it accounts for *"the effects of all
+MMX instructions except EMMS"*, citing SDM Vol. 1 §9.5.1 (the tags) and Vol. 3 §15.2 (TOP). ⇒ **The referee is
+inconsistent with its own stated rule on exactly the store direction.** I have not read the SDM table this session, so the
+SDM reading is OWED and is not quoted here as a fact.
+
+### 2. PREDICTIONS (each with what would show it wrong)
+1. **The to-MMX forms (6F, 6E, REX.W 6E) agree in every key with no declaration**: the mm destination, `fptag` 0 and
+   `fptop` 0. Wrong if any of them reads `unexplained > 0`.
+2. **The from-MMX forms (7F, 7E, REX.W 7E) DISAGREE with the oracle in `fptag` in every executed case, and in `fptop`
+   exactly where the pre-state's TOP is non-zero**, if the model follows the documented rule (tag 0, TOP 0). That is
+   because the pre-state tag is 0xFFFF and x86isa leaves it there. Wrong if either count differs from that derivation.
+   ⛔ **It is NOT declared on the oracle's word or on mine.** The third source decides (D-class "the third source turns a
+   disagreement into a finding"): a silicon row that reads the tag word and TOP after a `movq mm, m64` store (FNSTENV or
+   FXSAVE on two vendors, the D330 hwprobe mechanism). If silicon agrees with x86isa, the MODEL is wrong and changes. If
+   it agrees with the documented rule, the divergence is declared in exactly the derived states (D93's class), and the
+   model keeps the rule.
+3. **`movd mm, r/m32` zero-extends** (bits 63:32 of mm := 0). A red arm that MERGES is caught in `mmN`, because
+   `mmxPattern`'s registers are non-zero in their upper halves.
+4. **`movd r/m32, mm` to a GPR writes 32 bits under the GPR rule** (zero-extending into the 64-bit register). An arm that
+   merges is caught in the GPR key. `rdx := ~~~a` (D26) is non-zero there.
+5. **REX.R does not select an MMX register** (x86isa: *"Since there are only 8 MMX registers, the REX byte is not used"*).
+   One vector carries REX.R = 1 and names mm(reg & 7). An arm that indexes mm by REX.R:reg refuses to decode or names the
+   wrong register, and is caught.
+6. **The census credits exactly the mm-operand rows of `movq`/`movd`**, the amount derived from the census JSON after the
+   build, never typed here (D-class: an expectation written from intent).
+
+### 3. PRICE
+- **Semantics:** six forms, three AST constructors' worth (`mmovq` register/load/store, `mmovgld`/`mmovgst` for the GPR and
+  m32 legs). Each writes `mmx` through one setter that also applies tag := 0 and TOP := 0 (the documented rule, pending §2.2).
+- **State:** none new (D400). **Channel:** none new (D401).
+- **Oracle:** implemented for all six (§1), with the store-side x87 divergence of §2.2 to be decided by silicon.
+- **Silicon:** one hwprobe row family (tag word and TOP after each store form), and the runners' cost. This is the part
+  of the batch not yet priced in minutes, and it decides prediction 2.
+- **Kernel:** measured at the batch's K1, never predicted from D263 or D400.
