@@ -44,7 +44,7 @@ Measured on a hosted GitHub `ubuntu-latest` runner (4 cores, 16 GB) with `LEAN_N
 |---|---|
 | `docker load` of the image (1.59 GB compressed) | 29–41 s |
 | Cold Lean build (`artifact/measure.sh`) | about 5–8 min on the native runs measured (5:01 to 8:00, the slowest in the clean-machine read, run 44017099389); 1 h 21 min and 1 h 26 min under QEMU on arm64 |
-| The full differential with its main-table split (`artifact/measure-diff.sh`) | 15–27 min (the script's own total read 900, 1042, 1050, 1108 and 1572 s over five runs). Most of the spread is in two stages: the Lean build it starts with (307 s and 477 s in the last two runs) and the kernel-cost readings at the end (510 s and 750 s), which are not a verdict. A step still printing `MEASURE diff-stage` lines has not hung. |
+| The full differential with its main-table split (`artifact/measure-diff.sh`) | 15–27 min (the script's own total read 900, 1042, 1050, 1108 and 1572 s over five runs). Most of the spread is in two stages: the Lean build it starts with (307 to 477 s) and the kernel-cost readings at the end (510 to 750 s), which are not a verdict; those two ranges are from the three runs that print stage times. A step still printing `MEASURE diff-stage` lines has not hung. |
 | Building the image from source, if you choose to | 27–34 min, of which 25–31 is certifying x86isa (three runs; the deposited image took 27.2 min, 24.6 of it certifying) |
 
 The whole reproduction takes well under the call's 8-hour bound, so no reduced subset is provided: the artifact runs
