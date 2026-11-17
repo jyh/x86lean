@@ -308,6 +308,26 @@ def set (xs : Xmms) : XmmReg → BitVec 128 → Xmms
 
 end Xmms
 
+/-- ⭐ DRAFT (STATUS-paris row 77 step a): the MMX register file and its x87 alias.
+Eight 64-bit registers (mm0–mm7 alias bits 63:0 of ST/R0–R7, SDM Vol. 1 §9.5) and the
+two x87 fields every MMX form writes: the tag word (x86isa `mmx-instruction-updates`
+writes 0 on every MMX form and EMMS writes 0xFFFF) and TOP (written 0).  Bits 79:64
+are a DECLARED LIMIT (nothing in the roster can read them).  One nested field on
+`Cpu`, by D71's lesson.  At this step NOTHING READS IT: the draft prices the record,
+as D263 did for MXCSR. -/
+structure Mmxs where
+  mm0 : BitVec 64 := 0
+  mm1 : BitVec 64 := 0
+  mm2 : BitVec 64 := 0
+  mm3 : BitVec 64 := 0
+  mm4 : BitVec 64 := 0
+  mm5 : BitVec 64 := 0
+  mm6 : BitVec 64 := 0
+  mm7 : BitVec 64 := 0
+  fpTag : BitVec 16 := 0xFFFF
+  fpTop : BitVec 3 := 0
+  deriving DecidableEq, Repr, Inhabited, BEq
+
 namespace Regs
 
 /-- Read the full 64-bit register. -/

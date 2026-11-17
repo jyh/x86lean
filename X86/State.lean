@@ -110,6 +110,8 @@ structure Cpu where
   (`withSimd`). Every pre-state masks every exception and clears DAZ and FZ, and that
   is a declared limit: this model does not state what either does. -/
   mxcsr : BitVec 32 := 0x1F80
+  /-- ⭐ DRAFT (row 77 a): MMX + its x87 alias, one nested field; unread. -/
+  mmx : Mmxs := {}
   oracle : Oracle := Oracle.zero
   ms : Option MsErr := none
 
