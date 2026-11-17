@@ -70,7 +70,7 @@ The image is one file, `x86lean-artifact.tar.gz` (1,586,592,248 bytes), with thi
 - **Archive (permanent):** the artifact's Zenodo record, which the paper's Data Availability section cites. The DOI is
   assigned when the record is deposited, and this line will then give it.
 - **Provenance:** the file was built by `.github/workflows/artifact-image.yml`, run 44050927744, at commit `8ae2028` (the merge that put `artifact/` on `master`).
-  That run keeps the same file as its artifact `x86lean-artifact` until 2026-11-24 09:53 UTC, and downloading it needs a GitHub login.
+  That run keeps the same file as its artifact `x86lean-artifact` until 2026-11-24 09:53 UTC, and downloading it needs a GitHub login. GitHub serves it as a zip around the tarball: unzip it, then check the tarball's SHA-256.
 
 Check the file before loading it: `sha256sum x86lean-artifact.tar.gz` must print the line above.
 
