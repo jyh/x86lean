@@ -25821,3 +25821,64 @@ bought, for D263's reason: a draft is not a landing, and the step that lands the
   (D27). Owed: the driver dumps mm0–7, fp-tag and TOS and sets them per case; `Cpu.render` and the format check carry the same
   keys; `undefinedLeakedBy` compares `a.mmx == b.mmx`; and a planted difference in each new key is red.
 - The 80-bit exponent alias (bits 79:64, which x86isa's `!mmx` sets to 0xFFFF) stays a DECLARED LIMIT: no roster form reads it.
+
+## D401 — Row 77 step (b): the MMX channel is in the record, both models report it, they agree, and a planted difference in each new key is caught
+
+⚖️ The seat's queue row 77, step (b), the Xmms batch-0 precedent (D27): the channel lands BEFORE any MMX instruction. No
+form in the roster writes the MMX file, so by D27 the channel watches a constant per case. Of the batch's four claims (the
+channel exists, both models report it, they agree, a planted difference is caught), only the last has teeth, and it is the
+one this entry proves first.
+
+### 1. WHAT IS IN THE RECORD
+- **Lean** (`Cpu.renderMmx`): `mm0=`…`mm7=` (16 hex digits each, from `Mmxs.regs`), `fptag=` (the full 16-bit tag word,
+  4 hex digits) and `fptop=` (TOP, 1 hex digit), after the MXCSR keys. `undefinedLeakedBy` compares `a.mmx == b.mmx`
+  absolutely, with no declaration channel, for the reason the XMM conjunct gives.
+- **The driver** (`x86l-mmxs`): the same keys from x86isa's `mmx` (bits 63:0 of fp-data), `fp-tag` and
+  `fp-statusBits->top`.
+- **The pre-state crosses the other way** as `:mmxs`, `:fptag` and `:fptop`, and the driver loads all three on EVERY case.
+  ⛔ This is not optional. x86isa's `fp-tag` stobj field starts at 0 (machine/state.lisp:496), and `init-x86-state-64`
+  resets none of the three. Without the load, one case's values are the next case's pre-state (D265 §4, the MXCSR lesson).
+  The driver writes the WHOLE status word (TOP at bits 13:11, every other bit 0), so no x87 bit a previous case left survives.
+- **The pattern** (`mmxPattern`, in `mkPre`): `mmI = ~~~c + I · 0x0101010101010101`. No two registers are equal, each
+  moves with the pre-state, and none equals an XMM half, so a model that read an XMM register for an MM one would differ.
+  The tag word is 0xFFFF (all empty, the state a process starts in). TOP sweeps as `fseed % 8`, because every MMX form
+  writes TOP := 0, and a TOP that was already 0 would hide a model that forgot to.
+- **The format gate** `scripts/check_mmx_format.py` (CI, beside the MXCSR gate; preflight): the register count, each key's
+  width on both sides, that each side CALLS its renderer, the leak conjunct, the emitter's three keywords, the driver's
+  three loads, and that the driver's tag default equals Lean's. Its selftest mutates each side separately, a WIDTH as well
+  as a name: **12 of 12 arms**.
+
+### 2. THE RED ARMS (`x86lean-diff selftest <pattern>`, yukon)
+```
+  ✔ an XMM register is clobbered (the existing arm, the control)   caught — 124,252 in `xmm3`
+  ✔ an MMX register is clobbered                                    caught — 124,268 in `mm3`
+  ✔ the x87 tag word is written as all-valid                        caught — 124,268 in `fptag`
+  ✔ the x87 TOP is forced to 0                                      caught —  72,562 in `fptop`
+  shard partition gate: CLEAN — shards 1..20 name all 211 arms exactly once
+```
+`fptop` is caught in fewer cases by construction: it can show only where the pre-state's TOP (`fseed % 8`) is non-zero.
+⚠️ The selftest's population (124,268 per arm) is not the differential run's (132,176), so its counts are not compared with §3's.
+
+### 3. BOTH MODELS REPORT IT AND AGREE, AND THE CHANNEL MOVED NOTHING ELSE (`run_differential.sh`, yukon)
+The branch and a CONTROL on master `3fcb7ee` (the same script, the same pin, no MMX channel), each run once:
+```
+  reference-model: acl2@c8897a34d3efc37eb466d7ee50a2e3861c6e82db                     (both)
+  branch:  cases=132176 matched=108396 explained=34407 unexplained=0 oracle-divergence=1363 oracle-leaks=0 missing=0
+  master:  cases=132176 matched=108396 explained=34407 unexplained=0 oracle-divergence=1363 oracle-leaks=0 missing=0
+  mm3= keys in the oracle's output:   branch 132,176 (one per case) · master 0
+```
+- **Every count is identical**, so the new keys agree in every case and added no disagreement, explained or not. Every
+  declared divergence is keyed on a field the channel does not touch.
+- **The keys are present on both sides and are not one constant**: `mm3` takes 33 distinct values in each file, and `fptop`
+  has the same distribution of all eight values on both sides (oracle: TOP 0 in 52,570 cases, 7 in 36,048, 5 in 31,542).
+  `fptag` is `ffff` in every case on both sides, because no roster form writes it. That constant is exactly what the
+  `fptag` red arm exists for.
+- The axiom gate is CLEAN over 6,273 declarations.
+
+### 4. WHAT IS NOT SETTLED
+- **No MMX instruction exists yet.** "They agree" here is agreement on a transported constant. The teeth are §2's arms.
+  Batch 1 (movq/movd, 14,495 instructions of demand) is the first test of x86isa's MMX semantics.
+- **`hwprobe/run_case_mx.lisp` does not load the MMX keys.** It prints them, through `x86l-post`, and it reads only named
+  xmm and MXCSR keys (`rows_on_x86isa.py`), so its MMX values are unread. A silicon MMX row would have to add the loads.
+- **Bits 79:64 of each register** (which x86isa's `!mmx` sets to 0xFFFF) stay a declared limit: nothing in the roster reads them.
+- **The ku of the pattern in `mkPre`** was not read on this step. It lands in the PR's K1 reading, beside D400's field cost.

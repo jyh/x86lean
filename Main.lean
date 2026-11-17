@@ -137,6 +137,15 @@ def ymmhisToLisp (s : Cpu) : String :=
       let lo : BitVec 64 := v.setWidth 64
       s!"({r.index.val} . #x{hex64 hi}{hex64 lo})")) ++ ")"
 
+/-- ⭐⭐ THE MMX ALIST (row 77 step b, D401), by register index, for the driver's
+`x86l-set-mmxs` (x86isa's `!mmx`, which also sets bits 79:64 to 0xFFFF). The tag word and TOP
+travel as `:fptag` and `:fptop`, and the driver loads all three on EVERY case: x86isa's
+`fp-tag` stobj field starts at 0 and `init-x86-state-64` resets none of them, so one case's
+value would otherwise be the next case's pre-state (the MXCSR lesson, D265 §4). -/
+def mmxsToLisp (s : Cpu) : String :=
+  "(" ++ String.intercalate " "
+    (s.mmx.regs.zipIdx.map fun (v, i) => s!"({i} . #x{hex64 v})") ++ ")"
+
 /-- The GPR alist, by x86isa register index. -/
 def gprsToLisp (s : Cpu) : String :=
   "(" ++ String.intercalate " "
@@ -204,6 +213,7 @@ def acl2Case (v : Vec) (idx : Nat) (pre : Cpu) (ws : List Window) : String :=
    :xmms {xmmsToLisp pre}\n\
    :ymmhis {ymmhisToLisp pre}\n\
    :mxcsr #x{hexPad (pre.mxcsr.setWidth 64) 8}\n\
+   :mmxs {mmxsToLisp pre} :fptag #x{hexPad (pre.mmx.fpTag.setWidth 64) 4} :fptop {pre.mmx.fpTop.toNat}\n\
    :rflags {rflagsToLisp pre.flags}\n\
    :mem {memToLisp v pre ws})"
 
@@ -4290,6 +4300,26 @@ element of a walk is the one an off-by-one still reaches. -/
 def wrongXmmClobbered (i : Instr) (s : Cpu) : Cpu :=
   (step i s).setXmm .x3 0
 
+/-- ⭐⭐ ROW 77 STEP b (D401) — THE MMX CHANNEL'S OWN RED ARMS, one per new kind of key. No form in
+the roster writes the MMX file yet, so by D27 the channel watches a constant per case, and these
+arms are its only teeth: a register (mm3), the tag word, and TOP. Each must be CAUGHT in the
+record before the first MMX form is written. -/
+def wrongMmxClobbered (i : Instr) (s : Cpu) : Cpu :=
+  let t := step i s
+  { t with mmx := { t.mmx with mm3 := 0 } }
+
+/-- The x87 tag word written as all-VALID (0), what every MMX form but EMMS writes, on a form
+that is not MMX. The pre-state tag is 0xFFFF, so every case shows it. -/
+def wrongFpTagClobbered (i : Instr) (s : Cpu) : Cpu :=
+  let t := step i s
+  { t with mmx := { t.mmx with fpTag := 0 } }
+
+/-- TOP forced to 0 on a form that is not MMX. It shows only where the pre-state's TOP
+(`fseed % 8`) is non-zero, which is why `mmxPattern` sweeps it. -/
+def wrongFpTopClobbered (i : Instr) (s : Cpu) : Cpu :=
+  let t := step i s
+  { t with mmx := { t.mmx with fpTop := 0 } }
+
 /-- ⛔⛔ P2 BATCH 14, ARM 1 — THE PERMUTE'S FIELD ORDER REVERSED.  Destination
 lane `j` takes the immediate's field `3-j` instead of field `j`.
 
@@ -4915,6 +4945,10 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   -- semantics is written.
   , ("an XMM register is clobbered (the harness's own red arm)",
      wrongXmmClobbered, "xmm3")
+  -- ⭐⭐ ROW 77 STEP b (D401) — the MMX channel: one arm per new kind of key.
+  , ("an MMX register is clobbered (the MMX channel's red arm)", wrongMmxClobbered, "mm3")
+  , ("the x87 tag word is written as all-valid", wrongFpTagClobbered, "fptag")
+  , ("the x87 TOP is forced to 0", wrongFpTopClobbered, "fptop")
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFTS.  Four arms, and the
   -- first two are the batch: each is a model a careful reader would write, and
   -- each is bit-identical to the right one over a whole regime of counts.

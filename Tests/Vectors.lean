@@ -4847,6 +4847,19 @@ def xmmPattern (a c : BitVec 64) : Xmms :=
     let lo : BitVec 64 := c ^^^ (i * 0x1111111111111111)
     xs.set r ((hi.setWidth 128) <<< 64 ||| lo.setWidth 128)) {}
 
+/-- ⭐⭐ THE MMX PATTERN (row 77 step b, D401), built from the swept values like `xmmPattern`
+and for its reason: eight zero registers on both sides would agree with a model that read the
+wrong register, a constant, or nothing. `mmI = ~~~c + I * 0x0101010101010101`, so no two
+registers are equal, each moves with the pre-state, and none equals an XMM half (those are
+`a + i` and `c XOR (i * 0x1111…)`), so a model that read an XMM register for an MM one differs.
+The tag word is 0xFFFF (all empty, the state a process starts in) and TOP sweeps with the flag
+seed, because every MMX form writes TOP := 0 and a TOP that was already 0 would hide a model
+that forgot to. -/
+def mmxPattern (c : BitVec 64) (fseed : Nat) : Mmxs :=
+  let r (i : Nat) : BitVec 64 := ~~~c + BitVec.ofNat 64 i * 0x0101010101010101
+  { mm0 := r 0, mm1 := r 1, mm2 := r 2, mm3 := r 3, mm4 := r 4, mm5 := r 5, mm6 := r 6, mm7 := r 7
+    fpTag := 0xFFFF, fpTop := BitVec.ofNat 3 (fseed % 8) }
+
 /-- A pre-state built from two operand values and a flag seed.  RBX and RSP are
 fixed so the memory windows mean the same thing in every vector; RAX/RCX carry
 the values under test. -/
@@ -4957,6 +4970,8 @@ def mkPre (a c : BitVec 64) (fseed : Nat) : Cpu :=
     -- buys is that the constant is a DIFFERENT constant in every register and
     -- every case, which is what a wrong reading has to survive.
     xmm := xmmPattern a c
+    -- ⭐⭐ THE MMX FILE AND ITS x87 ALIAS (D401): see `mmxPattern`.
+    mmx := mmxPattern c fseed
     oracle := zeroOracle }
 
 /-- ⭐ THE CARRY BOUNDARY, added by P1 BATCH 2 — and it is the same finding P0's

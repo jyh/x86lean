@@ -308,13 +308,13 @@ def set (xs : Xmms) : XmmReg → BitVec 128 → Xmms
 
 end Xmms
 
-/-- ⭐ DRAFT (STATUS-paris row 77 step a): the MMX register file and its x87 alias.
+/-- ⭐⭐ The MMX register file and its x87 alias (row 77; D400, D401).
 Eight 64-bit registers (mm0–mm7 alias bits 63:0 of ST/R0–R7, SDM Vol. 1 §9.5) and the
 two x87 fields every MMX form writes: the tag word (x86isa `mmx-instruction-updates`
 writes 0 on every MMX form and EMMS writes 0xFFFF) and TOP (written 0).  Bits 79:64
 are a DECLARED LIMIT (nothing in the roster can read them).  One nested field on
-`Cpu`, by D71's lesson.  At this step NOTHING READS IT: the draft prices the record,
-as D263 did for MXCSR. -/
+`Cpu`, by D71's lesson.  The default tag 0xFFFF is the all-empty state a process starts
+in (x86isa's stobj starts at 0, so the driver loads it on every case, D401). -/
 structure Mmxs where
   mm0 : BitVec 64 := 0
   mm1 : BitVec 64 := 0
@@ -327,6 +327,11 @@ structure Mmxs where
   fpTag : BitVec 16 := 0xFFFF
   fpTop : BitVec 3 := 0
   deriving DecidableEq, Repr, Inhabited, BEq
+
+/-- The eight MMX registers in index order (mm0 first): the record's `mmN=` keys and the
+emitter's `:mmxs` alist both walk this list, so neither can skip or reorder one. -/
+def Mmxs.regs (m : Mmxs) : List (BitVec 64) :=
+  [m.mm0, m.mm1, m.mm2, m.mm3, m.mm4, m.mm5, m.mm6, m.mm7]
 
 namespace Regs
 
