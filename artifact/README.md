@@ -10,7 +10,7 @@ comes from public sources. Nothing in it needs a credential.
 | Paper claim | Command (inside the container) | Expected output |
 |---|---|---|
 | The whole Lean tree builds | `bash artifact/measure.sh` | `lake-build rc=0 … lean_errors=0`, "Build completed successfully (85 jobs)" |
-| The axiom gate passes (the policy is in `TRUSTBASE.md`) | `bash scripts/axiom_gate.sh` | its CLEAN line, with the declaration count it read (6,212 at the pin; 32 s) |
+| The axiom gate passes (the policy is in `TRUSTBASE.md`) | `bash scripts/axiom_gate.sh` | its CLEAN line, with the declaration count it read (6,212 at the pin; 32 s on a built tree; in a fresh container it builds first, 176 s in the clean-machine read) |
 | The differential validation (Sect. 4.1) | `bash artifact/measure-diff.sh` | the main-table line, below |
 | Every published figure re-derives at its commit | `python3 scripts/check_claims.py` | `check_claims: CLEAN` (3 s). It needs the repository's full history, because it re-derives each figure at the commit it names; the image carries it. |
 
@@ -29,7 +29,7 @@ outside the main table, so they do not occur in it. The script prints them by na
 ## Host requirements
 
 - **Architecture:** an x86-64 host runs the image natively. On Apple silicon or another ARM host, Docker runs it under amd64 emulation. Under QEMU on a 4-core arm64 machine the cold
-  Lean build took 1 h 21 min, about 12 times the native time. The differential under emulation has not been measured,
+  Lean build took 1 h 21 min and 1 h 26 min in two runs, more than ten times the native time. The differential under emulation has not been measured,
   and Docker Desktop's Rosetta path on Apple silicon has not been measured either.
 - **Memory:** 8 GB is enough. The largest single process measured 2.75 GB.
 - **Cores:** 2 or more. The times below were measured on 4 cores, with Lean limited to 2 threads.
@@ -42,9 +42,9 @@ Measured on a hosted GitHub `ubuntu-latest` runner (4 cores, 16 GB) with `LEAN_N
 
 | Step | Time |
 |---|---|
-| `docker load` of the image (1.59 GB compressed) | 41 s |
-| Cold Lean build (`artifact/measure.sh`) | 5–8 min over five native runs (5:13 to 7:48); 1 h 21 min under QEMU on arm64 |
-| The full differential with its main-table split (`artifact/measure-diff.sh`) | 15–19 min (900 and 1108 s; about 9 min of that is the kernel-cost readings at the end, which are not a verdict) |
+| `docker load` of the image (1.59 GB compressed) | 35–41 s |
+| Cold Lean build (`artifact/measure.sh`) | about 5–8 min on the native runs measured (5:13 to 8:00, the slowest in the clean-machine read, run 44017099389); 1 h 21 min and 1 h 26 min under QEMU on arm64 |
+| The full differential with its main-table split (`artifact/measure-diff.sh`) | 15–27 min (the script's own total read 900, 1042, 1108 and 1572 s over four runs). Most of the spread is in two stages: the Lean build it starts with (307 s and 477 s in the last two runs) and the kernel-cost readings at the end (510 s and 750 s), which are not a verdict. A step still printing `MEASURE diff-stage` lines has not hung. |
 | Building the image from source, if you choose to | 30–34 min, of which 27–31 is certifying x86isa (two runs) |
 
 The whole reproduction takes well under the call's 8-hour bound, so no reduced subset is provided: the artifact runs
