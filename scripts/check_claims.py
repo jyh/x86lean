@@ -93,7 +93,7 @@ PAPER_REL = "paper/x86lean-semantics.tex"
 PAPER = os.path.join(ROOT, PAPER_REL)
 # A row whose value is an INVARIANT over other rows (a residue of 0) is not quoted as a number;
 # the paper states the relation in words, and that sentence is what must sit beside the citation.
-RELATIONS = {"p2_ceiling_partition_residue": "The five parts sum to the total"}
+RELATIONS = {"p2_ceiling_partition_residue": "The four parts sum to the total"}  # FIVE until the CAV pin 6f85116 (the LOCK part landed)
 NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
                 "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen",
                 "nineteen", "twenty"]
@@ -377,13 +377,13 @@ def selftest():
         assert paper.count(old) >= 1, f"plant anchor {old!r} is absent from the paper -- the arm would test nothing"
         return paper.replace(old, new, 1)
 
-    f = check_prose(_plant("169{,}877", "169{,}878"), rs0, verbose=False)
+    f = check_prose(_plant("169{,}439", "169{,}440"), rs0, verbose=False)
     arm("PLANT: a number changed in the PROSE is caught, naming the row",
         any("p2_bucket_refuses" in x and "NOT in the prose" in x for x in f), str(f)[:200])
     f = check_prose(_plant("p2\\_bucket\\_refuses", "p2\\_bucket\\_refusez"), rs0, verbose=False)
     arm("PLANT: a citation of an id the manifest lacks is caught",
         any("refusez" in x and "NOT a row" in x for x in f), str(f)[:200])
-    f = check_prose(_plant("The five parts sum to the total", "The parts are as stated"),
+    f = check_prose(_plant("The four parts sum to the total", "The parts are as stated"),
                     rs0, verbose=False)
     arm("PLANT: deleting the sentence a RELATION row stands for is caught",
         any("p2_ceiling_partition_residue" in x and "the relation" in x for x in f), str(f)[:200])
@@ -391,7 +391,7 @@ def selftest():
     f = check_prose(paper, extra, verbose=False)
     arm("PLANT: a row that names the paper and is cited nowhere is caught (the under-claim direction)",
         any("paper_orphan" in x and "no marker cites it" in x for x in f), str(f)[:200])
-    planted = _plant("169{,}877; on 241", "% 169{,}877\nsome; on 241")
+    planted = _plant("169{,}439; on 241", "% 169{,}439\nsome; on 241")
     assert planted != paper, "the comment plant did not apply -- the arm would test nothing"
     f = check_prose(planted, rs0, verbose=False)
     arm("PLANT: a value present only in a COMMENT does not satisfy its citation",
@@ -427,7 +427,9 @@ def selftest():
     arm("PLANT: a total cited WITHOUT its part in the same marker is caught",
         any("recheck_d201_total" in x and "SAME marker" in x for x in f), str(f)[:200])
 
-    f = check_prose(_plant("500 of the 525", "525 of the 500"), rs0, verbose=False)
+    # The anchor read "500 of the 525" until 2026-10-14: the eb4d609 re-pin made the prose "504 of the 525", and the
+    # plant refused (rightly) as absent, so this arm was RED at that head until re-anchored here.
+    f = check_prose(_plant("504 of the 525", "525 of the 504"), rs0, verbose=False)
     arm("PLANT: D231's declared limit, closed — a swapped COVERAGE fraction (525 of the 500) is caught",
         any("coverage_rows_total" in x for x in f), str(f)[:200])
 
@@ -448,9 +450,11 @@ def selftest():
     f = check_prose("over 118 000 000 groups\n\\src{docs/CLAIMS.tsv[sp\\_big]}\n", sp_row, verbose=False)
     arm("PLANT: a space-grouped PREFIX of a longer group ('118 000 000') does not satisfy it",
         any("sp_big" in x for x in f), str(f)[:200])
-    f = check_prose(_plant("24 of 15{,}400 tests", "15{,}400 of 24 tests"), rs0, verbose=False)
-    arm("PLANT: Armstrong's external fraction SWAPPED ('15,400 of 24') is caught — both values stay present, only the PAIR sees it",
-        any("armstrong_avs_tests" in x for x in f), str(f)[:200])
+    # Re-anchored 2026-11-15: the Armstrong sentence this arm planted into was cut for the CAV page limit (11-14), so its
+    # anchor was absent and the arm refused to run; the same PAIR shape is planted into a fraction the paper still prints.
+    f = check_prose(_plant("504 of the 525", "525 of the 504"), rs0, verbose=False)
+    arm("PLANT: the roster's fraction SWAPPED ('525 of the 504') is caught — both values stay present, only the PAIR sees it",
+        any("coverage_rows_total" in x for x in f), str(f)[:200])
 
     print(f"\n  arms={len(arms)} red={red}")
     return 1 if red else 0

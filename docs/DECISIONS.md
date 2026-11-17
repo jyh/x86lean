@@ -25640,3 +25640,138 @@ stated at a register destination only, as the module header lists.
 
 **USED BY:** vir's S3 (`compiler/DECLARATIONS-S3.md`, vir 8b5913f) reads these declarations by name at the branch and
 re-pins to this PR's merge. **The names are load-bearing for vir: a rename is a change to vir's input.**
+
+## D399 — `check_lean_route` sees a `lake` call behind a wrapper (`time`, `nice`, `env`, `VAR=…`, `sudo`, …) (STATUS row 70)
+
+**THE DEFECT, found 2026-11-15 writing the CAV artifact's `artifact/measure.sh` and DRIVEN through the gate's own
+`scan_shell`.** The control `lake build X86` is flagged. `/usr/bin/time -v lake build`, `nice lake build`, `env A=1 lake
+build`, `time lake build` and `sudo lake env lean F.lean` were NOT: the shell matcher required `lake` to be the first word
+in command position, and the Python matcher required a literal argv to START with `"lake"`. So the fleet's one-heavy-job
+lock could be bypassed by a prefix, and the gate printed `0 offender(s)`.
+
+**THE RULE.** Before `lake` is matched, a leading run of wrapper tokens is skipped: a known command name by basename
+(`WRAPPERS`: time, nice, env, sudo, command, nohup, timeout, gtimeout, stdbuf, caffeinate, arch, ionice, taskset, chrt),
+a flag, a bare number, or a `VAR=value` assignment. Any other word ends the prefix, so `echo lake build` is still not a
+call. The same token rule strips a literal argv in Python (`["nice", "lake", "build"]`). A wrapper does not change a
+call's class: `time lake env <binary>` stays EXEMPT.
+
+**ARMS (`check_lean_route --selftest`, 20 → 37).** 15 new shape arms (ten shell prefixes on `lake build`, `nice lake env
+lean`, `time lake env <binary>` as EXEMPT, two Python argv forms and one Python string), plus two controls (`echo lake
+build` → nothing; `/usr/bin/time -v python3 scripts/lean_route.py build` → nothing, a wrapper around the DOOR is
+allowed). Red first: 22 of 37 (the 20 existing arms and both controls green; all 15 shape arms red). Red backwards: the prefix emptied → 22 of
+37 again. The tree at master: 0 offenders, the same 15 exempt calls, so no wrapped call was hiding in this repository.
+**kent's read of #193 (bus @103,696,373, driven on the regex): a flag's WORD argument ended the prefix.** `timeout 1h
+lake build`, `sudo -u root lake build` and `env -u FOO lake build` were not flagged. Now a flag may consume ONE following
+word that is not `lake` and does not start with `-`, and a number may carry a duration suffix (`1h`); the Python argv
+strip takes the same rule. Selftest 37 → 43 (his three shell shapes, two argv forms, and a chained `nice -n 10 time -v`), then → 47 with
+paper's four (bus @103,697,978: `timeout 60s`, `timeout 1.5`, `/usr/bin/time -o t.txt`, `/usr/bin/time -f %e`), each
+green at the fixed head.
+Red first 38/43 (the five of his shapes; the chain already held). Red backwards: the rule removed → 38/43 again.
+**WHAT IT DOES NOT SEE.** A wrapper outside `WRAPPERS`; `lake` reached through a shell variable or an alias; and a flag
+taking TWO or more word arguments before `lake` (a numeric second argument is still read, as `timeout -k 5 60`).
+**WHAT IT OVER-READS (the fail-safe direction, paper's INFO on #193):** a BOOLEAN flag also consumes the next word
+when that word is the wrapped command, so `sudo -E echo lake build`, `time -p echo lake build` and `time -p grep lake
+build.log` are flagged although `lake` never runs; the argv `[sudo, -E, echo, lake, build]` strips to `[lake, build]`.
+It over-flags rather than bypasses; the tree reads 0 offenders. A false OFFENDER is fixed by rewording the line.
+
+## D351 — The paper for arXiv: the submitted text (e66e24a), describing x86lean at 7e634fe, framed contribution first (council 2026-10-20 ②, O38)
+
+**Why.** Council 10-20 ② opened arXiv for this paper after its TACAS 2027 rejection, after the rule that a prose claim
+about a machine-checked result names its Lean statement and carries a non-author's read, with the first page revised:
+no private vocabulary, no weakness-first. Every other venue is held; the click is the author's.
+**The subject.** The paper of record is the TACAS submission `e66e24a` (tag `tacas27-submission`, his 10-15 read
+applied), whose Lean is `7e634fe` (2026-10-14): `e66e24a` changes no Lean above it. It is NOT master's paper. A first
+attempt (branch `paris/o38-arxiv-framing`, retired unmerged) revised master's older tex, 519 lines away; it was caught
+at the re-freeze (17 pages against the package's 20); the census and the reads it was given are in the private
+working record, and only their findings that hold for THIS text are carried below. ⇒ The arXiv text describes `7e634fe`, and Data Availability says
+so, names the one later behaviour change (BSF/BSR at a zero source, decided on master after 7e634fe) and says the Zenodo concept DOI resolves to the
+latest version. This branch is NOT merged with master: master's Lean would change the generated listings of Section 3.
+**What changed (`paper/x86lean-semantics.tex` only).** The abstract and introduction state the contribution first and the
+comparison with K and x86isa in a `Scope` paragraph after the contributions (his figures: 199 mnemonics tested, a copy
+loop of any length below 2^14); fleet words replaced ("ungated", "gated in CI", "as far as its gates reach", "two
+origins and not three", "wrong-model controls"); the conclusion's close states the contribution without the negation.
+From the two non-author reads of the earlier attempt, only the findings still true of THIS text are applied, each
+re-checked here: the coverage table is checked against the roster, not the AST (G10, G55) · "every other ENCODABLE double
+shift" (G25) · the declared divergences: at 7e634fe 39 of 57 cite K (MOVD/MOVQ 2, packed shifts 8, D331's bit-string 29) and
+the floating-point 18 cite the manual, x86isa and a processor run (G34; counted at the object — see the correction below) · the prologue's stack pointer is at least 8 (G43) · the alignment fault is by theorem
+for the loads, stores and packed binary, shuffle, byte-shuffle, align and shift memory forms, by run for twelve logical
+forms with five vectors, and NOT by theorem for the packed floating-point arithmetic, SQRTPS, SHUFPS/SHUFPD and CVTPD2PS forms (G29; the
+five theorem names exist at `e66e24a`; SHUFPS/SHUFPD are `VShufpKind`, which no alignment theorem covers). His text
+already carried G4, G6, G7, G19 (true at 7e634fe), G22 (his 092US/093US wording), G23, G35, G57 and the MXCSR record.
+**Checks at the commit:** `check_claims` CLEAN 112 · `check_listings` CLEAN, 7 · `check_verification_claims` rc 0 ·
+`check_private_paths --tree` OK · tectonic rc 0, no undefined reference · master's `check_prose_lean --list-claims`
+from a scratch copy: 7 claim sentences in the tex. Owed: paper's non-author reads of this diff and of the submitted
+sentences master's tex never had, then the records, then the re-freeze.
+**paper's read of this diff (10-21 09:51): one finding — the port had DELETED the submission's true limit that the packed
+floating-point forms have no unaligned vector.** Restored as its own sentence, wider than before (packed FP arithmetic,
+SQRTPS, CVTPD2PS, SHUFPS, SHUFPD: an `aligned16` check in the model, no theorem, no unaligned vector), placed AFTER the
+weakest-claim sentence and its `\src` so that "This … a proof" cannot reach it; the conclusion's limit names the same
+forms as carried "only by the model's code". Two invisible `\src` section references named by title. SQRTPS added above.
+**paper's two non-author reads of the submission's own sentences (the 147 that master's older tex never had), 10-21
+09:58: twelve fixes, applied** — F1 the saturation theorem takes the count as a number, so it cannot see which bits of the
+count register are read, the rule the eight packed-shift entries excuse · F2 the 362,093 gap counts forms not
+DIFFERENTIALLY validated, including the silicon-refereed mnemonics · F3 processors arbitrate both where the reference
+model refuses and where it departs from the manual · F4 general-purpose operands go through two functions; every
+explicit memory operand, vector and bit-string included, through `Ea.addr` · F5 the cursor check is inside the cited
+record's 105,424 cases (`diff_cases`, `diff_leaks`; folded into the existing `\src` so `cursor_leaks` keeps its 0) ·
+F6 · F7 the classes in `classify`'s own order (harness first; refusal is per field) · F8 the refusal theorem's
+hypotheses (16-bit, memory destination, immediate count above 16) · F9 · F10 "six cases in which the reference model
+cannot serve as the specification" · F11 the state holds the six arithmetic flags AND DF (`Flags.df`) · F12 how a
+truncated listing is marked — and the `add-arm` listing, which stops after its ADD case, now says so (the `dshift`
+and `dshift-thm` texts already did).
+**And a record corrected:** x86isa at ACL2 `c8897a34` carries the 16-byte alignment check
+(`:memory-address-is-not-16-byte-aligned`) in `fp/arithmetic.lisp` (4), `fp/convert.lisp` (1) and `fp/logical.lisp` (2)
+as well as `logical.lisp` (1), counted in the vendored tree at the pinned commit. D113 and D250 F5's "only in
+logical.lisp" is stale; the paper's `\src` already says the newer reading. The fp forms ship no unaligned vector, so no
+differential record tests them.
+**Checks at the commit:** `check_claims` CLEAN 112 · `check_listings` CLEAN 7 · `check_verification_claims` rc 0 ·
+private-paths OK · tectonic rc 0, 0 undefined.
+**paper's round 2, the non-author read of the FINAL diff e66e24a → 6f293f4 (10-21 10:12): eight fixes, applied** — R1 the
+gap's non-covered demand includes scalar forms (ENDBR64 16,488, BMI2 400), and "one form of each mnemonic in the gap" ·
+R2 39 entries cite K, including D331's 29 bit-string entries · R3 the abstract keeps "as far as its checks reach" ·
+R4 Data Availability points at all three sections that describe BSF/BSR at a zero source · R5 the cursor sentence names
+the record it means · R6 the `add-arm` sentence I added is deleted: the paragraph's second sentence already says the
+listing stops after ADD, and "the other operations follow the same pattern" was false (CMP and TEST write no result;
+the logical group draws AF) · R7 "for the forms carried by theorem alone this is the weakest claim the model proves",
+so "nothing else" no longer contradicts the run one sentence earlier · R8 the reference model's own memory-count form
+rejoins the evidence for the count-register rule. And, from its deletions note, the abstract keeps K beside x86isa:
+"its proofs are fewer than x86isa's or K's".
+⛔ **A COUNT OF MINE CORRECTED:** this entry first said "10 of 28 cite K". 28 is the count at `1f9ad9b`, the pin of
+master's OLDER paper, where I first counted it. At THIS paper's `7e634fe`, `knownDivergences` also carries D331's
+bit-string block, 29 entries built by nested `flatMap` (3 widths × 5, `rdxMem` 3 × 2, `rcxMem` 3 × 2, and 2 LOCK
+entries), whose shared source cites K's `bt*_m*_r*.k` rule beside the manual, x86isa and a processor reading. ⇒ 57
+entries, 39 citing K, 18 not. The same wrong-subject defect as this entry's first attempt, one level down: a count
+taken at the wrong commit is accurate and about something else.
+
+## D398 — the profiler parsers are DRIVEN on `1e+03ms`, and `kernel_cost` learns D396's `runner-pool` class (STATUS rows 68 and 69)
+
+**Row 68 (paper's LOW on #190).** D397's ARM 8 matches one literal spelling of the old pattern, so a copy spelled
+`([0-9.]+)(ms|s)` passed it (paper's M3). ARM 8b feeds each of the six known parsers the `%g` form and reads the number
+back: kernel_cost's cumulative parse, threads_ab's, the `TC` regex of `ku_constructor_plant`, `ku_kind_plants` and
+`ku_module_census`, and `p2_batch_size`. That last parse was inline in `profile()`, which runs Lean, so it is now
+`parse_cumulative_ms()`, a function the arm can call. ARM 8 stays for the spelling the defect had; ARM 8b cannot see a
+parser it does not name.
+**And for the three `ku_*` modules it drives the REGEX, not the module's code path** (paper's LOW on #192): their unit
+conversion is inline in a function that runs Lean, so the arm applies its own copy of `* (1000 if s else 1)`. The three inline
+copies are identical to it today; a `parse_ms()` per module would close this.
+Variant spellings that passed ARM 8: `([0-9.]+)(ms|s)` in `ku_kind_plants` reds ARM 8b naming `ku_kind_plants`;
+`(\d+(?:\.\d+)?)(ms|s)` in `p2_batch_size` reds it naming `p2_batch_size`.
+
+**Row 69 (paper's LOW on #189).** `kernel_cost.read_ceilings` skipped any `@on` line whose machine was not this host, so a
+`@on runner-pool` line was ignored on every runner. Specificity is now three levels: the exact host, then its class, then
+machine-less. `machine_class` and `RUNNER_POOL` are defined once, in `kernel_cost`; `kernel_delta` delegates to them, so
+the registry's two parsers cannot learn different classes. ARM 0b: a pool line applies on a runner over a machine-less
+one · an exact-host line beats it in either order · on katmai it stays another box's. Red first: 1 of 3 (the release
+arm; the other two already held under the old rule). Red backwards: undoing the skip change reds the release arm; the
+shared class widened to katmai and yukon reds the katmai arm here AND both of `kernel_delta`'s exclusion arms (2 of 95),
+which shows the delegation is real.
+
+**Counts:** `kernel_cost.conditions_selftest` 31 → 35, PASS; `kernel_delta --selftest` 95, PASS. The full
+`kernel_cost --selftest` walk is CI's.
+**SEQUENCE:** both rows touch `kernel_cost.py`, a reading input, so this lands only after the C3 PR (STATUS row 64) merges.
+**The K2 that lands it (2026-11-16, katmai, `58499a6 → de5fda5`, `--repeats 12`).** CI's kernel-delta refused twice: attempt 1
+UNMEASURABLE on `Tests.Vectors` (+20.4 ms on a 21 ms unit, a commit-cost refusal), attempt 2 rc 3 with BASE and HEAD both over the
+same 9 ceilings (the runner, not the change). Kent's rule allows no third rerun, so this K2 was run on katmai (load1 1.76 to 7.21 across
+the 24 passes, read from the log's pass lines). `kernel_delta` rc 0, "delta gate: CLEAN" (`Tests.Vectors` 17.6 → 14.1 ms, ok). `ku_delta` A′ rc 0,
+CLEAN (`Tests.Vectors` 197 → 197, Δku 0). Recorded with `--record --readings --a-prime`: ms rc 0 and A′ rc 0, so the row lands on
+the ms verdict (D251). As predicted before the run: this PR changes no `.lean`, so neither arm moved.
