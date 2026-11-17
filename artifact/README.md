@@ -42,10 +42,10 @@ Measured on a hosted GitHub `ubuntu-latest` runner (4 cores, 16 GB) with `LEAN_N
 
 | Step | Time |
 |---|---|
-| `docker load` of the image (1.59 GB compressed) | 35–41 s |
-| Cold Lean build (`artifact/measure.sh`) | about 5–8 min on the native runs measured (5:13 to 8:00, the slowest in the clean-machine read, run 44017099389); 1 h 21 min and 1 h 26 min under QEMU on arm64 |
-| The full differential with its main-table split (`artifact/measure-diff.sh`) | 15–27 min (the script's own total read 900, 1042, 1108 and 1572 s over four runs). Most of the spread is in two stages: the Lean build it starts with (307 s and 477 s in the last two runs) and the kernel-cost readings at the end (510 s and 750 s), which are not a verdict. A step still printing `MEASURE diff-stage` lines has not hung. |
-| Building the image from source, if you choose to | 30–34 min, of which 27–31 is certifying x86isa (two runs) |
+| `docker load` of the image (1.59 GB compressed) | 29–41 s |
+| Cold Lean build (`artifact/measure.sh`) | about 5–8 min on the native runs measured (5:01 to 8:00, the slowest in the clean-machine read, run 44017099389); 1 h 21 min and 1 h 26 min under QEMU on arm64 |
+| The full differential with its main-table split (`artifact/measure-diff.sh`) | 15–27 min (the script's own total read 900, 1042, 1050, 1108 and 1572 s over five runs). Most of the spread is in two stages: the Lean build it starts with (307 to 477 s) and the kernel-cost readings at the end (510 to 750 s), which are not a verdict; those two ranges are from the three runs that print stage times. A step still printing `MEASURE diff-stage` lines has not hung. |
+| Building the image from source, if you choose to | 27–34 min, of which 25–31 is certifying x86isa (three runs; the deposited image took 27.2 min, 24.6 of it certifying) |
 
 The whole reproduction takes well under the call's 8-hour bound, so no reduced subset is provided: the artifact runs
 everything.
@@ -61,16 +61,16 @@ everything.
 
 ## Getting the image
 
-The image is one file, `x86lean-artifact.tar.gz` (1,589,375,396 bytes), with this SHA-256:
+The image is one file, `x86lean-artifact.tar.gz` (1,586,592,248 bytes), with this SHA-256:
 
 ```
-5278a0736bb322e8a17ee58a1af524d94b3fe76f8244da97205f5805a75fa987
+623837b23c3d452bb8ca598cfa4ac87317ae171a00e2e97cf81874d9a70d4a08
 ```
 
 - **Archive (permanent):** the artifact's Zenodo record, which the paper's Data Availability section cites. The DOI is
   assigned when the record is deposited, and this line will then give it.
-- **Provenance:** the file was built by `.github/workflows/artifact-image.yml`, run 44007043374, at commit `766d670`.
-  That run keeps the same file as its artifact `x86lean-artifact` until 2026-11-24, and downloading it needs a GitHub login.
+- **Provenance:** the file was built by `.github/workflows/artifact-image.yml`, run 44050927744, at commit `8ae2028` (the merge that put `artifact/` on `master`).
+  That run keeps the same file as its artifact `x86lean-artifact` until 2026-11-24 09:53 UTC, and downloading it needs a GitHub login. GitHub serves it as a zip around the tarball: unzip it, then check the tarball's SHA-256.
 
 Check the file before loading it: `sha256sum x86lean-artifact.tar.gz` must print the line above.
 
