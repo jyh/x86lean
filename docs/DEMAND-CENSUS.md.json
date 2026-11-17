@@ -77,13 +77,19 @@
   },
   "attribution": {
    "cells": {
-    "-": 5379923
+    "CC": 5215297,
+    "U": 27159,
+    "CA": 495,
+    "AC": 136972
    },
    "cells_covered": {
-    "-": 5379794
+    "CA": 495,
+    "AC": 136972,
+    "CC": 5215168,
+    "U": 27159
    },
-   "name_route_asm": 0,
-   "body_route_asm": 0,
+   "name_route_asm": 136972,
+   "body_route_asm": 495,
    "total": 5379923
   },
   "ext": {
@@ -421,13 +427,19 @@
   },
   "attribution": {
    "cells": {
-    "-": 879551
+    "CC": 863382,
+    "U": 14670,
+    "AC": 1155,
+    "CA": 344
    },
    "cells_covered": {
-    "-": 877153
+    "CA": 344,
+    "AC": 798,
+    "CC": 861341,
+    "U": 14670
    },
-   "name_route_asm": 0,
-   "body_route_asm": 0,
+   "name_route_asm": 1155,
+   "body_route_asm": 344,
    "total": 879551
   },
   "ext": {
@@ -1347,13 +1359,21 @@
   },
   "attribution": {
    "cells": {
-    "-": 603554
+    "CC": 504808,
+    "U": 8781,
+    "AC": 55619,
+    "CA": 13783,
+    "AA": 20563
    },
    "cells_covered": {
-    "-": 560007
+    "AA": 15902,
+    "CA": 8989,
+    "AC": 40847,
+    "CC": 485488,
+    "U": 8781
    },
-   "name_route_asm": 0,
-   "body_route_asm": 0,
+   "name_route_asm": 76182,
+   "body_route_asm": 34346,
    "total": 603554
   },
   "ext": {
@@ -3306,13 +3326,21 @@
   },
   "attribution": {
    "cells": {
-    "-": 303830
+    "CC": 93471,
+    "CA": 3619,
+    "U": 957,
+    "AC": 24700,
+    "AA": 181083
    },
    "cells_covered": {
-    "-": 195838
+    "AA": 79058,
+    "CA": 3619,
+    "AC": 18760,
+    "CC": 93444,
+    "U": 957
    },
-   "name_route_asm": 0,
-   "body_route_asm": 0,
+   "name_route_asm": 205783,
+   "body_route_asm": 184702,
    "total": 303830
   },
   "ext": {
@@ -4361,8 +4389,8 @@
  },
  "ffmpeg": {
   "total": 3116986,
-  "covered": 2998862,
-  "pct": 96.21031342457104,
+  "covered": 3005659,
+  "pct": 96.4283766433343,
   "silicon": 54858,
   "silicon_pct": 1.759969406343179,
   "silicon_all": {
@@ -4483,15 +4511,11 @@
    ],
    [
     "pmaddwd",
-    6407
+    6603
    ],
    [
     "vmovdqa",
     6036
-   ],
-   [
-    "movq (vector operand)",
-    5040
    ],
    [
     "vshufps",
@@ -4527,14 +4551,14 @@
    ],
    [
     "packssdw",
-    2475
+    2595
    ],
    [
     "vpsubw",
     2456
    ],
    [
-    "paddw (vector operand)",
+    "paddw",
     2303
    ],
    [
@@ -4542,8 +4566,8 @@
     2176
    ],
    [
-    "movd (vector operand)",
-    1757
+    "psubusb",
+    1762
    ],
    [
     "vpunpcklwd",
@@ -4552,10 +4576,6 @@
    [
     "vpunpckhwd",
     1563
-   ],
-   [
-    "psubusb",
-    1466
    ],
    [
     "vpackssdw",
@@ -4574,11 +4594,19 @@
     1185
    ],
    [
-    "psubw (vector operand)",
+    "pmullw",
+    1174
+   ],
+   [
+    "psubw",
     1146
    ],
    [
-    "punpcklbw (vector operand)",
+    "pmaxsw",
+    1099
+   ],
+   [
+    "punpcklbw",
     1075
    ],
    [
@@ -4586,11 +4614,7 @@
     1063
    ],
    [
-    "pmaxsw",
-    1001
-   ],
-   [
-    "pxor (vector operand)",
+    "pxor",
     961
    ],
    [
@@ -4598,20 +4622,20 @@
     936
    ],
    [
-    "pmullw (vector operand)",
-    844
+    "pminsw",
+    919
+   ],
+   [
+    "pavgb",
+    919
+   ],
+   [
+    "pmaddubsw",
+    877
    ],
    [
     "vpxor",
     836
-   ],
-   [
-    "pmaddubsw",
-    827
-   ],
-   [
-    "pminsw",
-    824
    ],
    [
     "vmovhps",
@@ -4622,7 +4646,11 @@
     792
    ],
    [
-    "psraw (vector operand)",
+    "pmulhrsw",
+    787
+   ],
+   [
+    "psraw",
     728
    ],
    [
@@ -4630,12 +4658,12 @@
     708
    ],
    [
-    "pmulhrsw",
-    689
-   ],
-   [
     "vpminsw",
     686
+   ],
+   [
+    "vperm2f128",
+    680
    ]
   ],
   "miss_all": {
@@ -4653,9 +4681,9 @@
    "vsubps": 2791,
    "vmovss": 19,
    "vmovsd": 117,
-   "pmaddwd": 6407,
+   "pmaddwd": 6603,
    "pmulhuw": 3,
-   "packssdw": 2475,
+   "packssdw": 2595,
    "pabsd": 2,
    "pmulld": 13,
    "vpxor": 836,
@@ -4663,9 +4691,9 @@
    "vpaddd": 4275,
    "vextracti128": 159,
    "vmovq": 1206,
-   "pshufb": 286,
+   "pshufb": 324,
    "vpshufb": 182,
-   "pmaxsw": 1001,
+   "pmaxsw": 1099,
    "vmovups": 46,
    "vdivss": 1,
    "vpand": 1185,
@@ -4673,18 +4701,18 @@
    "vpor": 1063,
    "vpcmpeqd": 51,
    "vorps": 1,
-   "pminsw": 824,
-   "paddsw": 467,
+   "pminsw": 919,
+   "paddsw": 518,
    "vmovlps": 49,
    "vextractf128": 586,
-   "palignr": 373,
-   "pmullw": 330,
+   "palignr": 417,
+   "pmullw": 1174,
    "vpunpckhbw": 317,
    "vpunpcklbw": 677,
    "vpslldq": 81,
    "vpaddb": 86,
-   "psubsw": 139,
-   "pmulhw": 149,
+   "psubsw": 143,
+   "pmulhw": 167,
    "pmuldq": 20,
    "vpunpckhdq": 643,
    "vpunpckldq": 638,
@@ -4693,14 +4721,14 @@
    "vpackssdw": 1439,
    "vpunpckhwd": 1563,
    "vpunpcklwd": 1633,
-   "pavgb": 404,
-   "pmaddubsw": 827,
+   "pavgb": 919,
+   "pmaddubsw": 877,
    "vpsubw": 2456,
    "vpmullw": 282,
    "vpaddw": 3966,
-   "pavgw": 408,
+   "pavgw": 470,
    "vpavgw": 189,
-   "psubusb": 1466,
+   "psubusb": 1762,
    "vpackuswb": 542,
    "vpsubusb": 560,
    "vpcmpeqb": 55,
@@ -4718,11 +4746,11 @@
    "vpaddsw": 180,
    "vpalignr": 246,
    "vpsrldq": 99,
-   "pmulhrsw": 689,
+   "pmulhrsw": 787,
    "vinserti128": 126,
    "vpmaddubsw": 227,
    "vpmulhrsw": 936,
-   "pabsw": 229,
+   "pabsw": 242,
    "vpabsw": 242,
    "vpbroadcastd": 89,
    "vpcmpeqw": 593,
@@ -4731,7 +4759,7 @@
    "vmovlpd": 4,
    "vxorpd": 5,
    "vmovhpd": 3,
-   "psadbw": 146,
+   "psadbw": 250,
    "vpmuldq": 24,
    "vpaddq": 10,
    "pextrd": 6,
@@ -4778,6 +4806,14 @@
    "pmaxsd": 8,
    "vpbroadcastb": 20,
    "vbroadcasti128": 18,
+   "pxor": 961,
+   "punpcklbw": 1075,
+   "punpckhbw": 347,
+   "paddw": 2303,
+   "psubw": 1146,
+   "psraw": 728,
+   "packuswb": 471,
+   "psllw": 187,
    "rcpss": 2,
    "cmpneqps": 2,
    "rsqrtps": 4,
@@ -4805,19 +4841,36 @@
    "pmovsxdq": 4,
    "vpslld": 36,
    "vpsllw": 100,
+   "pcmpgtw": 44,
+   "psrlw": 115,
+   "psubb": 86,
    "paddusb": 475,
+   "pcmpgtb": 74,
+   "pand": 263,
+   "paddb": 73,
+   "punpcklwd": 251,
+   "punpckhwd": 194,
+   "punpckhdq": 172,
+   "punpckldq": 185,
    "pshufw": 205,
    "vpsrlw": 212,
    "pmaxub": 152,
    "vpaddusb": 106,
    "vpmaxub": 9,
    "vpminub": 31,
+   "por": 253,
    "movq2dq": 100,
+   "paddd": 192,
+   "psrad": 124,
    "vpshufhw": 60,
    "vpmovzxbw": 284,
    "vpermq": 178,
+   "psllq": 159,
+   "psrlq": 303,
    "pinsrw": 36,
    "vpinsrw": 61,
+   "pslld": 5,
+   "psrld": 8,
    "pmovsxbw": 308,
    "vpbroadcastw": 341,
    "vpmovsxbw": 116,
@@ -4835,6 +4888,8 @@
    "vmovdqa32": 6,
    "vpacksswb": 3,
    "vpminuw": 48,
+   "pcmpeqb": 6,
+   "pcmpeqd": 16,
    "vmovlhps": 20,
    "vextractps": 24,
    "vfnmaddps": 2,
@@ -4854,8 +4909,12 @@
    "vpermpd": 54,
    "vmulpd": 35,
    "vshufpd": 53,
+   "pcmpeqw": 23,
+   "pandn": 88,
    "vphaddubq": 4,
    "pmulhrw": 4,
+   "psubd": 4,
+   "pcmpgtd": 2,
    "movshdup": 1,
    "vpblendd": 84,
    "vpermd": 101,
@@ -4891,6 +4950,7 @@
    "vpsravd": 10,
    "vpsllq": 5,
    "vpmaxuw": 2,
+   "pmovmskb": 15,
    "fildll": 1,
    "flds": 1,
    "fmull": 1,
@@ -4924,81 +4984,38 @@
    "vfmaddsub231ps": 2,
    "vblendps": 2,
    "vpshufb (vector operand)": 381,
-   "pxor (vector operand)": 961,
-   "movq (vector operand)": 5040,
-   "punpcklbw (vector operand)": 1075,
-   "punpckhbw (vector operand)": 347,
-   "paddw (vector operand)": 2303,
-   "pmullw (vector operand)": 844,
-   "psubw (vector operand)": 1146,
-   "psraw (vector operand)": 728,
-   "packuswb (vector operand)": 471,
-   "movd (vector operand)": 1757,
-   "psllw (vector operand)": 187,
-   "pavgb (vector operand)": 515,
    "vpslldq (vector operand)": 12,
-   "pcmpgtw (vector operand)": 44,
-   "psrlw (vector operand)": 115,
-   "psubusb (vector operand)": 296,
-   "psubb (vector operand)": 86,
-   "pcmpgtb (vector operand)": 74,
-   "pand (vector operand)": 263,
-   "paddb (vector operand)": 73,
-   "punpcklwd (vector operand)": 251,
-   "punpckhwd (vector operand)": 194,
-   "punpckhdq (vector operand)": 172,
-   "punpckldq (vector operand)": 185,
-   "pmaddwd (vector operand)": 196,
-   "packssdw (vector operand)": 120,
-   "pmaddubsw (vector operand)": 50,
-   "pavgw (vector operand)": 62,
-   "por (vector operand)": 253,
-   "paddsw (vector operand)": 51,
-   "paddd (vector operand)": 192,
-   "psrad (vector operand)": 124,
-   "pmaxsw (vector operand)": 98,
-   "pminsw (vector operand)": 95,
-   "psadbw (vector operand)": 104,
-   "pshufb (vector operand)": 38,
-   "psllq (vector operand)": 159,
-   "psrlq (vector operand)": 303,
-   "palignr (vector operand)": 44,
-   "pslld (vector operand)": 5,
-   "psrld (vector operand)": 8,
    "vpbroadcastd (vector operand)": 22,
    "vpmulld (vector operand)": 8,
-   "pcmpeqb (vector operand)": 6,
-   "pmulhrsw (vector operand)": 98,
-   "pcmpeqd (vector operand)": 16,
-   "pcmpeqw (vector operand)": 23,
-   "pandn (vector operand)": 88,
-   "pmulhw (vector operand)": 18,
-   "pabsw (vector operand)": 13,
-   "psubsw (vector operand)": 4,
-   "psubd (vector operand)": 4,
-   "pcmpgtd (vector operand)": 2,
    "vpmaxsw (vector operand)": 4,
    "vpminsw (vector operand)": 4,
    "vmovq (vector operand)": 2,
    "vpunpcklbw (vector operand)": 1,
    "vpmaddubsw (vector operand)": 2,
-   "vpalignr (vector operand)": 103,
-   "pmovmskb (vector operand)": 15
+   "vpalignr (vector operand)": 103
   },
   "attribution": {
    "cells": {
-    "-": 3116986
+    "CC": 2746475,
+    "AC": 127628,
+    "U": 15204,
+    "CA": 133,
+    "AA": 227546
    },
    "cells_covered": {
-    "-": 2998862
+    "AA": 118296,
+    "CA": 133,
+    "AC": 125714,
+    "CC": 2746330,
+    "U": 15186
    },
-   "name_route_asm": 0,
-   "body_route_asm": 0,
+   "name_route_asm": 355174,
+   "body_route_asm": 227679,
    "total": 3116986
   },
   "ext": {
    "SSE-legacy (xmm)": 18850,
-   "MMX (mm)": 19887,
+   "MMX (mm)": 13090,
    "VEX-128 (v\u2026 xmm)": 33474,
    "AVX2/AVX (ymm)": 45395,
    "AVX (state)": 255,
@@ -5018,6 +5035,7 @@
    "mov imm64 / movabs (P2 addition 3)": 2939,
    "BMI1": 139,
    "LOCK prefix (P2 addition 2)": 88,
+   "MMX (mm)": 6797,
    "BMI2": 2,
    "PREFETCH": 1
   },
@@ -5234,9 +5252,6 @@
    "pxor": {
     "MMX (mm)": 961
    },
-   "movq": {
-    "MMX (mm)": 5040
-   },
    "punpcklbw": {
     "MMX (mm)": 1075
    },
@@ -5258,9 +5273,6 @@
    },
    "packuswb": {
     "MMX (mm)": 471
-   },
-   "movd": {
-    "MMX (mm)": 1757
    },
    "psllw": {
     "MMX (mm)": 187
@@ -6105,10 +6117,10 @@
     "AVX2/AVX (ymm)": 2
    }
   },
-  "covered_mem": 1135175,
+  "covered_mem": 1140226,
   "silicon_mem": 12495,
   "vex_mem": 18510,
-  "covered_mem_modelled": 1135162,
+  "covered_mem_modelled": 1140213,
   "silicon_mem_modelled": 12495,
   "vex_mem_modelled": 18510,
   "class": "asm"
@@ -6176,13 +6188,17 @@
   },
   "attribution": {
    "cells": {
-    "-": 151688
+    "CC": 150388,
+    "U": 1018,
+    "CA": 282
    },
    "cells_covered": {
-    "-": 151552
+    "CA": 267,
+    "CC": 150267,
+    "U": 1018
    },
    "name_route_asm": 0,
-   "body_route_asm": 0,
+   "body_route_asm": 282,
    "total": 151688
   },
   "ext": {
@@ -6236,8 +6252,8 @@
  },
  "vlc-video_chroma": {
   "total": 112104,
-  "covered": 99093,
-  "pct": 88.39381288803254,
+  "covered": 101396,
+  "pct": 90.44815528437879,
   "silicon": 5312,
   "silicon_pct": 4.738457146934989,
   "silicon_all": {
@@ -6253,23 +6269,19 @@
   "vex_all": {},
   "miss": [
    [
+    "paddsw",
+    2016
+   ],
+   [
     "movntdqa",
     1984
    ],
    [
-    "movq (vector operand)",
-    1867
-   ],
-   [
-    "paddsw",
-    1344
-   ],
-   [
     "pmulhw",
-    1152
+    1728
    ],
    [
-    "punpcklbw (vector operand)",
+    "punpcklbw",
     897
    ],
    [
@@ -6277,71 +6289,51 @@
     690
    ],
    [
-    "paddsw (vector operand)",
-    672
-   ],
-   [
-    "pmulhw (vector operand)",
+    "psubsw",
     576
    ],
    [
-    "packuswb (vector operand)",
+    "packuswb",
     576
    ],
    [
-    "psllw (vector operand)",
+    "psllw",
     448
    ],
    [
-    "movd (vector operand)",
-    436
-   ],
-   [
-    "psubsw",
-    384
-   ],
-   [
-    "punpckhbw (vector operand)",
+    "punpckhbw",
     327
+   ],
+   [
+    "psubusb",
+    288
    ],
    [
     "pshufb",
     256
    ],
    [
-    "pxor (vector operand)",
+    "pxor",
     224
    ],
    [
-    "psubusb",
+    "pand",
     192
    ],
    [
-    "psubsw (vector operand)",
-    192
-   ],
-   [
-    "pand (vector operand)",
-    192
-   ],
-   [
-    "psrlw (vector operand)",
+    "psrlw",
     144
    ],
    [
-    "punpcklwd (vector operand)",
+    "punpcklwd",
     128
    ],
    [
-    "punpckhwd (vector operand)",
+    "punpckhwd",
     128
    ],
    [
-    "psubusb (vector operand)",
-    96
-   ],
-   [
-    "por (vector operand)",
+    "por",
     64
    ],
    [
@@ -6360,46 +6352,44 @@
   "miss_all": {
    "pshufb": 256,
    "movntdqa": 1984,
-   "psubsw": 384,
-   "pmulhw": 1152,
-   "paddsw": 1344,
-   "psubusb": 192,
+   "psubsw": 576,
+   "pmulhw": 1728,
+   "paddsw": 2016,
+   "psubusb": 288,
    "movntdq": 690,
    "mfence": 8,
    "emms": 24,
-   "sfence": 10,
-   "movd (vector operand)": 436,
-   "pxor (vector operand)": 224,
-   "movq (vector operand)": 1867,
-   "punpcklbw (vector operand)": 897,
-   "psubsw (vector operand)": 192,
-   "psllw (vector operand)": 448,
-   "pmulhw (vector operand)": 576,
-   "paddsw (vector operand)": 672,
-   "psubusb (vector operand)": 96,
-   "pand (vector operand)": 192,
-   "psrlw (vector operand)": 144,
-   "packuswb (vector operand)": 576,
-   "por (vector operand)": 64,
-   "punpckhbw (vector operand)": 327,
-   "punpcklwd (vector operand)": 128,
-   "punpckhwd (vector operand)": 128
+   "pxor": 224,
+   "punpcklbw": 897,
+   "psllw": 448,
+   "pand": 192,
+   "psrlw": 144,
+   "packuswb": 576,
+   "por": 64,
+   "punpckhbw": 327,
+   "punpcklwd": 128,
+   "punpckhwd": 128,
+   "sfence": 10
   },
   "attribution": {
    "cells": {
-    "-": 112104
+    "CC": 52317,
+    "U": 272,
+    "CA": 59515
    },
    "cells_covered": {
-    "-": 99093
+    "CA": 49709,
+    "CC": 51415,
+    "U": 272
    },
    "name_route_asm": 0,
-   "body_route_asm": 0,
+   "body_route_asm": 59515,
    "total": 112104
   },
   "ext": {
    "SSE-legacy (xmm)": 6002,
    "SSE2 (fence)": 8,
-   "MMX (mm)": 6991,
+   "MMX (mm)": 4688,
    "SSE (fence)": 10
   },
   "ext_covered": {
@@ -6408,6 +6398,7 @@
    "segment base %fs:/%gs: (P2 addition 1)": 78,
    "SSE-legacy (xmm)": 39987,
    "mov imm64 / movabs (P2 addition 3)": 12,
+   "MMX (mm)": 2303,
    "PREFETCH": 237
   },
   "miss_by_ext": {
@@ -6426,14 +6417,8 @@
    "emms": {
     "MMX (mm)": 24
    },
-   "movd": {
-    "MMX (mm)": 436
-   },
    "pxor": {
     "MMX (mm)": 224
-   },
-   "movq": {
-    "MMX (mm)": 1867
    },
    "punpcklbw": {
     "MMX (mm)": 897
@@ -6482,18 +6467,18 @@
     "SSE (fence)": 10
    }
   },
-  "covered_mem": 40511,
+  "covered_mem": 41800,
   "silicon_mem": 1984,
   "vex_mem": 0,
-  "covered_mem_modelled": 40511,
+  "covered_mem_modelled": 41800,
   "silicon_mem_modelled": 1984,
   "vex_mem_modelled": 0,
   "class": "asm"
  },
  "vpx": {
   "total": 722331,
-  "covered": 657870,
-  "pct": 91.07597486470884,
+  "covered": 658045,
+  "pct": 91.10020198496257,
   "silicon": 52907,
   "silicon_pct": 7.324481435796055,
   "silicon_all": {
@@ -6598,7 +6583,7 @@
    ],
    [
     "pmullw",
-    2707
+    2727
    ],
    [
     "pmuludq",
@@ -6622,7 +6607,7 @@
    ],
    [
     "paddsw",
-    1322
+    1351
    ],
    [
     "vpaddd",
@@ -6662,7 +6647,7 @@
    ],
    [
     "pmaddubsw",
-    458
+    463
    ],
    [
     "pavgw",
@@ -6741,13 +6726,13 @@
     188
    ],
    [
-    "vmovq",
-    183
+    "pmulhw",
+    187
    ]
   ],
   "miss_all": {
    "pmuludq": 2332,
-   "pmullw": 2707,
+   "pmullw": 2727,
    "pmaddwd": 11258,
    "pinsrq": 2,
    "vpxor": 224,
@@ -6775,10 +6760,10 @@
    "psubusw": 16851,
    "palignr": 711,
    "pshufb": 267,
-   "pmulhw": 171,
+   "pmulhw": 187,
    "packssdw": 1861,
    "pminsw": 428,
-   "paddsw": 1322,
+   "paddsw": 1351,
    "vpshufb": 35,
    "vpor": 118,
    "vpbroadcastd": 93,
@@ -6789,7 +6774,7 @@
    "vpackuswb": 95,
    "vpunpcklwd": 156,
    "vpavgb": 111,
-   "pmaddubsw": 458,
+   "pmaddubsw": 463,
    "vpsrad": 279,
    "vpminsw": 28,
    "vpunpckhwd": 159,
@@ -6904,42 +6889,44 @@
    "pminud": 24,
    "phaddd": 9,
    "emms": 2,
+   "punpcklbw": 31,
+   "punpcklwd": 13,
+   "punpckldq": 13,
    "movdq2q": 3,
+   "pxor": 8,
+   "psubw": 18,
+   "paddw": 41,
+   "punpckhwd": 8,
+   "punpckhdq": 8,
+   "psraw": 13,
+   "packuswb": 16,
+   "psrlq": 3,
+   "punpckhbw": 1,
    "prefetcht2": 4,
    "vpshufb (vector operand)": 229,
    "vpsrldq (vector operand)": 80,
    "vpsadbw (vector operand)": 4,
    "vpslldq (vector operand)": 2,
    "vpunpcklqdq (vector operand)": 1,
-   "vpunpckhqdq (vector operand)": 1,
-   "movq (vector operand)": 131,
-   "punpcklbw (vector operand)": 31,
-   "punpcklwd (vector operand)": 13,
-   "punpckldq (vector operand)": 13,
-   "pxor (vector operand)": 8,
-   "movd (vector operand)": 44,
-   "psubw (vector operand)": 18,
-   "pmullw (vector operand)": 20,
-   "paddw (vector operand)": 41,
-   "pmulhw (vector operand)": 16,
-   "punpckhwd (vector operand)": 8,
-   "punpckhdq (vector operand)": 8,
-   "psraw (vector operand)": 13,
-   "paddsw (vector operand)": 29,
-   "packuswb (vector operand)": 16,
-   "psrlq (vector operand)": 3,
-   "punpckhbw (vector operand)": 1,
-   "pmaddubsw (vector operand)": 5
+   "vpunpckhqdq (vector operand)": 1
   },
   "attribution": {
    "cells": {
-    "-": 722331
+    "CC": 412101,
+    "U": 15158,
+    "CA": 81330,
+    "AC": 31862,
+    "AA": 181880
    },
    "cells_covered": {
-    "-": 657870
+    "AA": 132385,
+    "CA": 72621,
+    "AC": 28778,
+    "CC": 410892,
+    "U": 13369
    },
-   "name_route_asm": 0,
-   "body_route_asm": 0,
+   "name_route_asm": 213742,
+   "body_route_asm": 263210,
    "total": 722331
   },
   "ext": {
@@ -6952,7 +6939,7 @@
    "AVX (state)": 163,
    "AVX-512 (zmm/k)": 25,
    "SSE2 (pause)": 3,
-   "MMX (mm)": 420,
+   "MMX (mm)": 245,
    "PREFETCH": 4
   },
   "ext_covered": {
@@ -6963,6 +6950,7 @@
    "mov imm64 / movabs (P2 addition 3)": 380,
    "486": 12,
    "BMI1": 1,
+   "MMX (mm)": 175,
    "PREFETCH": 50
   },
   "miss_by_ext": {
@@ -7502,9 +7490,6 @@
    "emms": {
     "MMX (mm)": 2
    },
-   "movq": {
-    "MMX (mm)": 131
-   },
    "punpcklbw": {
     "MMX (mm)": 31
    },
@@ -7519,9 +7504,6 @@
    },
    "pxor": {
     "MMX (mm)": 8
-   },
-   "movd": {
-    "MMX (mm)": 44
    },
    "psubw": {
     "MMX (mm)": 18
@@ -7551,18 +7533,18 @@
     "PREFETCH": 4
    }
   },
-  "covered_mem": 238961,
+  "covered_mem": 239089,
   "silicon_mem": 5753,
   "vex_mem": 3780,
-  "covered_mem_modelled": 238961,
+  "covered_mem_modelled": 239089,
   "silicon_mem_modelled": 5753,
   "vex_mem_modelled": 3780,
   "class": "asm"
  },
  "x264": {
   "total": 377330,
-  "covered": 335611,
-  "pct": 88.94363024408342,
+  "covered": 340831,
+  "pct": 90.32703469111918,
   "silicon": 12907,
   "silicon_pct": 3.4206132563008507,
   "silicon_all": {
@@ -7673,15 +7655,11 @@
   },
   "miss": [
    [
-    "movq (vector operand)",
-    4071
-   ],
-   [
     "vmovdqa",
     1858
    ],
    [
-    "paddw (vector operand)",
+    "paddw",
     1822
    ],
    [
@@ -7689,44 +7667,36 @@
     1815
    ],
    [
-    "psubw (vector operand)",
+    "psubw",
     1768
+   ],
+   [
+    "psadbw",
+    1719
+   ],
+   [
+    "pmaxsw",
+    1562
    ],
    [
     "vpsubw",
     1464
    ],
    [
-    "movd (vector operand)",
-    1149
-   ],
-   [
     "vpaddd",
     953
    ],
    [
-    "psadbw",
-    927
-   ],
-   [
-    "pxor (vector operand)",
+    "pxor",
     876
    ],
    [
-    "pmaxsw (vector operand)",
-    819
-   ],
-   [
-    "psadbw (vector operand)",
-    792
-   ],
-   [
-    "pmaxsw",
-    743
-   ],
-   [
     "pabsw",
-    741
+    822
+   ],
+   [
+    "pmaddwd",
+    743
    ],
    [
     "vpabsw",
@@ -7745,10 +7715,6 @@
     587
    ],
    [
-    "pmaddwd",
-    485
-   ],
-   [
     "pshufw",
     437
    ],
@@ -7765,27 +7731,27 @@
     386
    ],
    [
-    "punpcklwd (vector operand)",
+    "punpcklwd",
     384
    ],
    [
-    "punpcklbw (vector operand)",
+    "punpcklbw",
     378
+   ],
+   [
+    "pmaddubsw",
+    365
    ],
    [
     "pmuludq",
     362
    ],
    [
-    "pmaddubsw",
-    346
-   ],
-   [
     "vpxor",
     297
    ],
    [
-    "paddd (vector operand)",
+    "paddd",
     293
    ],
    [
@@ -7797,28 +7763,40 @@
     284
    ],
    [
-    "punpckldq (vector operand)",
+    "pshufb",
+    275
+   ],
+   [
+    "pavgb",
+    272
+   ],
+   [
+    "psubusb",
+    268
+   ],
+   [
+    "punpckldq",
     264
    ],
    [
-    "pmaddwd (vector operand)",
-    258
-   ],
-   [
-    "pshufb",
-    253
+    "packssdw",
+    260
    ],
    [
     "vpunpckldq",
     245
    ],
    [
+    "palignr",
+    242
+   ],
+   [
     "vpunpcklwd",
     239
    ],
    [
-    "palignr",
-    225
+    "pavgw",
+    228
    ],
    [
     "pabsd",
@@ -7831,12 +7809,16 @@
    [
     "vpunpckhwd",
     213
+   ],
+   [
+    "pminsw",
+    210
    ]
   ],
   "miss_all": {
-   "paddsw": 115,
-   "pmaddwd": 485,
-   "pmaddubsw": 346,
+   "paddsw": 149,
+   "pmaddwd": 743,
+   "pmaddubsw": 365,
    "vmovdqa": 1858,
    "vmovq": 587,
    "vpunpcklbw": 165,
@@ -7862,23 +7844,23 @@
    "vpmovmskb": 17,
    "vmovdqu": 644,
    "bzhi": 2,
-   "pmaxsw": 743,
-   "pabsw": 741,
+   "pmaxsw": 1562,
+   "pabsw": 822,
    "pextrd": 6,
    "vmovsd": 6,
    "vmovd": 660,
    "vinserti128": 179,
    "vshufps": 171,
-   "pmulhrsw": 64,
-   "pshufb": 253,
-   "psubusb": 179,
+   "pmulhrsw": 70,
+   "pshufb": 275,
+   "psubusb": 268,
    "vpmulhrsw": 61,
    "vpshufb": 142,
    "vpsubusb": 141,
-   "psadbw": 927,
-   "packssdw": 190,
-   "pmullw": 84,
-   "palignr": 225,
+   "psadbw": 1719,
+   "packssdw": 260,
+   "pmullw": 186,
+   "palignr": 242,
    "vpsrldq": 110,
    "vpalignr": 81,
    "vpslldq": 26,
@@ -7886,7 +7868,7 @@
    "vpor": 184,
    "vpand": 178,
    "vpaddb": 26,
-   "pavgb": 169,
+   "pavgb": 272,
    "vpsubb": 18,
    "vpavgb": 124,
    "pabsb": 8,
@@ -7896,7 +7878,7 @@
    "vmovaps": 71,
    "vxorps": 4,
    "rorx": 6,
-   "pminsw": 103,
+   "pminsw": 210,
    "vmovss": 4,
    "vpminsw": 53,
    "vpmaddwd": 289,
@@ -7914,7 +7896,7 @@
    "vmulss": 4,
    "vpaddd": 953,
    "vpmuludq": 8,
-   "pavgw": 118,
+   "pavgw": 228,
    "pinsrd": 5,
    "vpabsw": 662,
    "vpmaxsw": 186,
@@ -7923,8 +7905,8 @@
    "vpavgw": 65,
    "vandps": 2,
    "vaddss": 2,
-   "psubusw": 104,
-   "pmulhuw": 52,
+   "psubusw": 141,
+   "pmulhuw": 54,
    "vpmulhuw": 10,
    "vpcmpeqd": 6,
    "vpsrad": 159,
@@ -7937,18 +7919,38 @@
    "emms": 83,
    "paddusb": 83,
    "pminub": 40,
+   "pxor": 876,
+   "pcmpgtb": 8,
+   "psubb": 10,
    "cmplesd": 28,
+   "psllw": 32,
    "pshufw": 437,
+   "punpckldq": 264,
+   "pcmpeqd": 16,
+   "por": 87,
+   "pmovmskb": 25,
+   "pand": 57,
+   "psrlq": 137,
+   "psubw": 1768,
    "paddusw": 182,
+   "paddd": 293,
+   "paddw": 1822,
+   "psraw": 79,
    "cpuid": 1,
    "xgetbv": 1,
    "sfence": 22,
    "vpmacsww": 8,
    "vpmovzxbw": 52,
+   "punpcklbw": 378,
+   "punpcklwd": 384,
    "psignw": 75,
    "psignd": 102,
+   "pcmpeqb": 22,
    "vmovdqa32": 205,
+   "punpckhwd": 206,
+   "punpckhdq": 172,
    "pinsrw": 69,
+   "packuswb": 62,
    "vpshuflw": 152,
    "vpshufhw": 12,
    "vpextrd": 29,
@@ -7973,10 +7975,12 @@
    "vpermt2q": 1,
    "vpscatterqq": 1,
    "vpaddusb": 27,
+   "psllq": 70,
    "movdq2q": 16,
    "vpperm": 100,
    "pextrw": 9,
    "packsswb": 144,
+   "paddb": 3,
    "vpacksswb": 50,
    "vpermq": 84,
    "vpcmpeqq": 1,
@@ -7987,6 +7991,7 @@
    "vptestmd": 15,
    "ktestw": 10,
    "pmaxub": 10,
+   "punpckhbw": 77,
    "vpblendvb": 5,
    "vpmaxub": 10,
    "vpminub": 20,
@@ -8003,6 +8008,7 @@
    "vpbroadcastq": 215,
    "vinserti32x4": 178,
    "vpsllw": 43,
+   "psrlw": 70,
    "vpshufd": 118,
    "movntq": 27,
    "movntps": 19,
@@ -8063,6 +8069,9 @@
    "vextracti32x8": 9,
    "phaddd": 19,
    "vpmovqd": 10,
+   "psrld": 71,
+   "pslld": 28,
+   "psubd": 14,
    "movsldup": 32,
    "movq2dq": 10,
    "phaddw": 9,
@@ -8081,6 +8090,7 @@
    "kshiftlb": 22,
    "vmovhlps": 4,
    "vmovshdup": 2,
+   "pcmpgtw": 1,
    "movmskps": 5,
    "ptest": 9,
    "vptest": 9,
@@ -8100,10 +8110,12 @@
    "vpcompressd": 4,
    "pmovsxwd": 8,
    "vpmovsxwd": 8,
+   "psrad": 98,
    "vpermi2d": 6,
    "vmovdqa64": 4,
    "vpandnd": 1,
    "vpsrlvw": 1,
+   "pcmpeqw": 1,
    "vinserti64x4": 4,
    "vphadduwd": 4,
    "vpinsrw": 10,
@@ -8111,36 +8123,7 @@
    "vpcmpnleud": 2,
    "vptestmb": 1,
    "vpcmpneqd": 4,
-   "movd (vector operand)": 1149,
-   "movq (vector operand)": 4071,
-   "pmaxsw (vector operand)": 819,
-   "pminsw (vector operand)": 107,
-   "pxor (vector operand)": 876,
-   "pcmpgtb (vector operand)": 8,
-   "psubb (vector operand)": 10,
-   "psllw (vector operand)": 32,
-   "punpckldq (vector operand)": 264,
-   "pcmpeqd (vector operand)": 16,
-   "por (vector operand)": 87,
-   "pmovmskb (vector operand)": 25,
-   "pand (vector operand)": 57,
-   "psrlq (vector operand)": 137,
-   "psubw (vector operand)": 1768,
-   "pmaddwd (vector operand)": 258,
-   "paddd (vector operand)": 293,
-   "paddw (vector operand)": 1822,
-   "psraw (vector operand)": 79,
-   "palignr (vector operand)": 17,
-   "pmaddubsw (vector operand)": 19,
-   "punpcklbw (vector operand)": 378,
-   "punpcklwd (vector operand)": 384,
-   "pcmpeqb (vector operand)": 22,
    "vpabsw (vector operand)": 15,
-   "punpckhwd (vector operand)": 206,
-   "punpckhdq (vector operand)": 172,
-   "pavgw (vector operand)": 110,
-   "paddsw (vector operand)": 34,
-   "packuswb (vector operand)": 62,
    "vpbroadcastd (vector operand)": 132,
    "vpunpcklbw (vector operand)": 20,
    "vpunpckhbw (vector operand)": 4,
@@ -8155,23 +8138,13 @@
    "vpunpckldq (vector operand)": 3,
    "vpaddsw (vector operand)": 10,
    "vpackuswb (vector operand)": 3,
-   "psubusb (vector operand)": 89,
    "vpshufb (vector operand)": 106,
-   "psadbw (vector operand)": 792,
-   "psllq (vector operand)": 70,
-   "paddb (vector operand)": 3,
-   "punpckhbw (vector operand)": 77,
-   "pavgb (vector operand)": 103,
    "vpabsb (vector operand)": 4,
    "vpsubusb (vector operand)": 2,
    "vpmaddubsw (vector operand)": 26,
-   "pmullw (vector operand)": 102,
-   "pmulhrsw (vector operand)": 6,
    "vmovq (vector operand)": 67,
    "vpmulhrsw (vector operand)": 8,
    "vmovhps (vector operand)": 1,
-   "psrlw (vector operand)": 70,
-   "packssdw (vector operand)": 70,
    "vpalignr (vector operand)": 16,
    "vpsubusw (vector operand)": 2,
    "vmulps (vector operand)": 10,
@@ -8179,34 +8152,32 @@
    "vpsrad (vector operand)": 2,
    "vpmaddwd (vector operand)": 52,
    "vpackssdw (vector operand)": 4,
-   "psrld (vector operand)": 71,
-   "pslld (vector operand)": 28,
-   "psubusw (vector operand)": 37,
-   "psubd (vector operand)": 14,
-   "pabsw (vector operand)": 81,
    "vpslldq (vector operand)": 8,
    "vpsrldq (vector operand)": 6,
    "vpmaxsw (vector operand)": 10,
-   "pshufb (vector operand)": 22,
-   "pcmpgtw (vector operand)": 1,
-   "pmulhuw (vector operand)": 2,
-   "vpabsd (vector operand)": 7,
-   "psrad (vector operand)": 98,
-   "pcmpeqw (vector operand)": 1
+   "vpabsd (vector operand)": 7
   },
   "attribution": {
    "cells": {
-    "-": 377330
+    "CC": 269143,
+    "U": 1796,
+    "AC": 33250,
+    "CA": 572,
+    "AA": 72569
    },
    "cells_covered": {
-    "-": 335611
+    "AA": 39374,
+    "CA": 479,
+    "AC": 30353,
+    "CC": 268829,
+    "U": 1796
    },
-   "name_route_asm": 0,
-   "body_route_asm": 0,
+   "name_route_asm": 105819,
+   "body_route_asm": 73141,
    "total": 377330
   },
   "ext": {
-   "MMX (mm)": 15747,
+   "MMX (mm)": 10527,
    "SSE-legacy (xmm)": 6538,
    "CPUID": 1,
    "XSAVE": 1,
@@ -8225,6 +8196,7 @@
    "SSE-legacy (xmm)": 38151,
    "PREFETCH": 178,
    "LOCK prefix (P2 addition 2)": 2,
+   "MMX (mm)": 5220,
    "486": 760,
    "BMI1": 29,
    "LZCNT": 73,
@@ -8233,12 +8205,6 @@
   "miss_by_ext": {
    "emms": {
     "MMX (mm)": 83
-   },
-   "movd": {
-    "MMX (mm)": 1149
-   },
-   "movq": {
-    "MMX (mm)": 4071
    },
    "pmaxsw": {
     "MMX (mm)": 819,
@@ -9323,18 +9289,18 @@
     "AVX-512 (zmm/k)": 4
    }
   },
-  "covered_mem": 137926,
+  "covered_mem": 142130,
   "silicon_mem": 2886,
   "vex_mem": 2872,
-  "covered_mem_modelled": 137926,
+  "covered_mem_modelled": 142130,
   "silicon_mem_modelled": 2886,
   "vex_mem_modelled": 2872,
   "class": "asm"
  },
  "_asm_pooled": {
   "total": 4784269,
-  "covered": 4438826,
-  "pct": 92.77960750116685,
+  "covered": 4453321,
+  "pct": 93.08257959575434,
   "silicon": 163996,
   "silicon_pct": 3.4278172903739317,
   "vex": 68366,
@@ -9348,7 +9314,7 @@
    "AVX (state)": 1241,
    "AVX-512 (zmm/k)": 38907,
    "BMI2": 400,
-   "MMX (mm)": 43045,
+   "MMX (mm)": 28550,
    "x87 (st)": 23,
    "SSE2 (fence)": 11,
    "TSC": 3,
@@ -10049,16 +10015,16 @@
  },
  "_controls": {
   "cc1": {
-   "name": 0.0,
-   "body": 0.0,
-   "ok_name": true,
+   "name": 2.5459843942004374,
+   "body": 0.009200875179812053,
+   "ok_name": false,
    "ok_body": true
   },
   "glibc": {
-   "name": 0.0,
-   "body": 0.0,
-   "ok_name": false,
-   "ok_body": false
+   "name": 12.622234298836558,
+   "body": 5.6906258594922745,
+   "ok_name": true,
+   "ok_body": true
   }
  }
 }

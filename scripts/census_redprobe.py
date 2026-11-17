@@ -101,9 +101,11 @@ MUTATIONS = [
     # THE OVER-CLAIM — the direction the repair could newly fail in, one
     # register file at a time.  A model with no MMX, no AVX and no VEX
     # encoding must not be credited with them because the MNEMONIC matches.
-    ("MMX is admitted into scope — `paddw %mm0,%mm1` counts as covered",
-     '    "MMX (mm)":                               False,',
-     '    "MMX (mm)":                               True,'),
+    # ⭐ D402: MMX IS in scope now (the model has the file and its moves), so the over-claim to catch moved: an `%mm`
+    # spelling credited to ANY name the model has, so that `paddw %mm0,%mm1` lands on the XMM `paddw` row.
+    ("the MMX mapping credits every implemented name — `paddw %mm0,%mm1` counts as covered",
+     "        return m if m in mmx_of(model) else None",
+     "        return m if m in names_of(model) else None"),
     ("AVX2 is admitted into scope — a `%ymm` operand counts as covered",
      '    "AVX2/AVX (ymm)":                         False,',
      '    "AVX2/AVX (ymm)":                         True,'),
@@ -163,11 +165,11 @@ MUTATIONS = [
      "    ref = ref if isinstance(ref, Model) and not silicon_of(ref) else frozenset(ref)",
      "    return None"),
     ("the no-pooling reference is the model under test, so a pooled model referees itself",
-     "    return Model(frozenset(names_of(model)) - silicon_mnemonics(), lockable=lockable_mnemonics())",
+     "    return Model(frozenset(names_of(model)) - silicon_mnemonics(), lockable=lockable_mnemonics(),\n                 mmx=mmx_rows(cov))",
      "    return frozenset(model)"),
     ("the silicon split is dropped — every implemented mnemonic reads as differential",
-     "    return Model(ms, sil, vex, silicon256_mnemonics(), lockable)",
-     "    return Model(ms, (), vex, silicon256_mnemonics(), lockable)"),
+     "    return Model(ms, sil, vex, silicon256_mnemonics(), lockable, mmx_rows(text))",
+     "    return Model(ms, (), vex, silicon256_mnemonics(), lockable, mmx_rows(text))"),
     # ⭐ D342 (a): the VEX-table class pooled into (a) — `_decide` files a VEX-table instruction as COVERED.
     ("the VEX-table class is pooled into covered (D342)",
      '        if ext == VEX128 and r in vex_of(model):\n            return r, False, "vex"',
