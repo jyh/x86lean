@@ -25933,3 +25933,34 @@ SDM reading is OWED and is not quoted here as a fact.
 - **Silicon:** one hwprobe row family (tag word and TOP after each store form), and the runners' cost. This is the part
   of the batch not yet priced in minutes, and it decides prediction 2.
 - **Kernel:** measured at the batch's K1, never predicted from D263 or D400.
+
+### 4. RESULTS (2026-11-17, yukon; the model on `paris/mmx-draft`, the oracle at the pin)
+- **Built:** six `Op` constructors (`mmovg`, `mmovgld`, `mmovgst`, `mmovq`, `mmovqld`, `mmovqst`), `MmReg`, `Mmxs.get/set/touch`,
+  `Cpu.getMm/setMm/mmxTouch`. **Every MMX write goes through `setMm`, which applies the x87 side effect**, so no form can
+  forget it. Eleven vectors (clang cross-check CLEAN over 1,513). Build EXIT=0, 0 errors. Five red arms, all caught:
+  ```
+    movd into mm merges                    caught  78 in mm0
+    movd out of mm merges into the GPR     caught  36 in rcx
+    an MMX load leaves the tag word        caught 588 in fptag
+    an MMX store leaves the tag word       caught 336 in fptag   (x86isa's behaviour, as an arm)
+    movq mm, mm copies its destination     caught  84 in mm0
+  ```
+- **The differential, against a prediction SEALED before the comparison was read** (scratch file, 22:45:34Z):
+  ```
+    cases=133144 matched=109012 explained=34407 unexplained=564 oracle-divergence=1363 oracle-leaks=0 missing=0
+    sealed: fptag 352 (4 from-MMX vectors × 88) + fptop 212 (4 × 53, TOP ≠ 0 in 53 of 88 pre-states) = 564
+    read:   fptag 352 + fptop 212 = 564; per vector 88 + 53 on each of mmx_movd_from, mmx_movq_from, mmx_movd_st,
+            mmx_movq_st; nothing else; 0 refused on either side
+  ```
+  **Prediction 1 HELD:** matched rose by 616 = 7 to-MMX vectors × 88, so every to-MMX case agreed in every key.
+  **Prediction 2 HELD exactly**, in its count and in its location. Predictions 3 and 4 are carried by the arms above.
+- **NOT DONE, stated:**
+  - **Prediction 5 (REX.R)** is not vectored. This table's bytes come from an assembler, and no assembler emits a redundant
+    REX.R. No vector in the repository is a `.byte` spelling, and `check_encodings.py` has no arm for one. A new mechanism
+    is owed, not a vector.
+  - **The REX.W `0f 6e`/`0f 7e` MEMORY spellings** have no vector: clang spells them `0f 6f`/`0f 7f`.
+  - **The batch does not land with `unexplained=564`.** The 564 are the question §2.2 put to SILICON. The next act is a
+    hwprobe row that reads the tag word and TOP after each store form, on two vendors. If silicon agrees with x86isa, the
+    model's stores lose `mmxTouch`. If it agrees with the documented rule, the 564 are declared in exactly these states,
+    and the declaration FAILS if they stop diverging (D95).
+  - The census delta and the K1 reading belong to the landing step.

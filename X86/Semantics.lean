@@ -1767,6 +1767,32 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       let a := ea.addr s nr
       (s.writeMem sz a ((s.getXmm src).setWidth 64)).setRip nr
 
+  -- ⭐⭐ D402 — THE MMX MOVES. Every MMX write goes through `setMm`, which applies the x87 side
+  -- effect (tag := 0, TOP := 0), so no form here can forget it. The STORES write no MMX register and
+  -- still apply it (`mmxTouch`): that is x86isa's own documented rule ("all MMX instructions except
+  -- EMMS"), which its two store `def-inst`s do not follow. Silicon decides (D402 §2.2).
+  --   * into MMX, `.d` ZEROES bits 63:32 (SDM Vol. 2B MOVD), which `setWidth 64` of a 32-bit
+  --     value is; out of MMX, the GPR write is the ordinary one (`.d` zero-extends to 64).
+  | .mmovg toMm sz m r =>
+      if toMm then
+        (s.setMm m ((s.getReg sz r).setWidth 64)).setRip nr
+      else
+        ((s.setReg sz r ((s.getMm m).setWidth 64)).mmxTouch).setRip nr
+  | .mmovgld sz dst ea =>
+      let a := ea.addr s nr
+      (s.setMm dst ((s.readMem sz a).setWidth 64)).setRip nr
+  | .mmovgst sz ea src =>
+      let a := ea.addr s nr
+      ((s.writeMem sz a (s.getMm src)).mmxTouch).setRip nr
+  | .mmovq dst src =>
+      (s.setMm dst (s.getMm src)).setRip nr
+  | .mmovqld dst ea =>
+      let a := ea.addr s nr
+      (s.setMm dst (s.readMem .q a)).setRip nr
+  | .mmovqst ea src =>
+      let a := ea.addr s nr
+      ((s.writeMem .q a (s.getMm src)).mmxTouch).setRip nr
+
   -- ⭐⭐⭐ THE PACKED SHIFTS (SDM Vol. 2B), all three count shapes.  DEST is
   -- shifted lane-wise by ONE count; "Flags Affected: None".
   --

@@ -333,6 +333,62 @@ emitter's `:mmxs` alist both walk this list, so neither can skip or reorder one.
 def Mmxs.regs (m : Mmxs) : List (BitVec 64) :=
   [m.mm0, m.mm1, m.mm2, m.mm3, m.mm4, m.mm5, m.mm6, m.mm7]
 
+/-- The eight MMX registers, by their ModRM encoding number (D402). ⛔ There is no REX extension:
+x86isa (*"Since there are only 8 MMX registers, the REX byte is not used"*) and the encoding agree,
+so the type has eight constructors and REX.R cannot name a ninth. -/
+inductive MmReg where
+  | m0 | m1 | m2 | m3 | m4 | m5 | m6 | m7
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+namespace MmReg
+
+def index : MmReg → Fin 8
+  | .m0 => 0 | .m1 => 1 | .m2 => 2 | .m3 => 3 | .m4 => 4 | .m5 => 5 | .m6 => 6 | .m7 => 7
+
+def all : List MmReg := [.m0, .m1, .m2, .m3, .m4, .m5, .m6, .m7]
+
+def name (r : MmReg) : String := s!"mm{r.index.val}"
+
+instance : ToString MmReg := ⟨MmReg.name⟩
+
+end MmReg
+
+namespace Mmxs
+
+/-- Read one MMX register (bits 63:0 of the aliased x87 register). -/
+def get (m : Mmxs) : MmReg → BitVec 64
+  | .m0 => m.mm0 | .m1 => m.mm1 | .m2 => m.mm2 | .m3 => m.mm3
+  | .m4 => m.mm4 | .m5 => m.mm5 | .m6 => m.mm6 | .m7 => m.mm7
+
+/-- Write one MMX register, and nothing else. -/
+def set (m : Mmxs) : MmReg → BitVec 64 → Mmxs
+  | .m0, v => { m with mm0 := v } | .m1, v => { m with mm1 := v }
+  | .m2, v => { m with mm2 := v } | .m3, v => { m with mm3 := v }
+  | .m4, v => { m with mm4 := v } | .m5, v => { m with mm5 := v }
+  | .m6, v => { m with mm6 := v } | .m7, v => { m with mm7 := v }
+
+/-- ⭐⭐ THE x87 SIDE EFFECT OF AN MMX INSTRUCTION (D402 §1): the tag word := 0 (all valid) and
+TOP := 0. x86isa's `mmx-instruction-updates` states this for *"all MMX instructions except EMMS"*.
+⛔ Its two store-direction moves do not call it, and that disagreement is decided by silicon (D402 §2.2). -/
+def touch (m : Mmxs) : Mmxs := { m with fpTag := 0, fpTop := 0 }
+
+@[simp] theorem get_set_same (m : Mmxs) (r : MmReg) (v : BitVec 64) :
+    (m.set r v).get r = v := by cases r <;> rfl
+
+@[simp] theorem get_set_ne (m : Mmxs) (r r' : MmReg) (v : BitVec 64) (h : r ≠ r') :
+    (m.set r v).get r' = m.get r' := by
+  cases r <;> cases r' <;> first | rfl | exact absurd rfl h
+
+@[simp] theorem touch_get (m : Mmxs) (r : MmReg) : m.touch.get r = m.get r := by cases r <;> rfl
+
+@[simp] theorem set_fpTag (m : Mmxs) (r : MmReg) (v : BitVec 64) : (m.set r v).fpTag = m.fpTag := by
+  cases r <;> rfl
+
+@[simp] theorem set_fpTop (m : Mmxs) (r : MmReg) (v : BitVec 64) : (m.set r v).fpTop = m.fpTop := by
+  cases r <;> rfl
+
+end Mmxs
+
 namespace Regs
 
 /-- Read the full 64-bit register. -/

@@ -4320,6 +4320,48 @@ def wrongFpTopClobbered (i : Instr) (s : Cpu) : Cpu :=
   let t := step i s
   { t with mmx := { t.mmx with fpTop := 0 } }
 
+/-- ⭐⭐ D402 ARM 1 — `movd r32, mm` MERGES into the MMX register instead of zero-extending:
+bits 63:32 of the destination are kept. Caught because `mmxPattern`'s registers are non-zero there. -/
+def wrongMmovdMerges (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .mmovg true .d m r =>
+      let keep := ((s.getMm m) >>> 32) <<< 32
+      (s.setMm m (keep ||| ((s.getReg .d r).setWidth 32).setWidth 64)).setRip nr
+  | _ => step i s
+
+/-- D402 ARM 2 — `movd mm, r32` MERGES into the 64-bit GPR instead of zero-extending it. -/
+def wrongMmovdFromMerges (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .mmovg false .d m r =>
+      let keep := ((s.getReg .q r) >>> 32) <<< 32
+      ((s.setReg .q r (keep ||| ((s.getMm m).setWidth 32).setWidth 64)).mmxTouch).setRip nr
+  | _ => step i s
+
+/-- D402 ARM 3 — an MMX LOAD that forgets the x87 side effect (tag and TOP left as they were). -/
+def wrongMmxLoadNoTouch (i : Instr) (s : Cpu) : Cpu :=
+  let t := step i s
+  match i.op with
+  | .mmovg true .. | .mmovgld .. | .mmovqld .. | .mmovq .. => { t with mmx := { t.mmx with fpTag := s.mmx.fpTag, fpTop := s.mmx.fpTop } }
+  | _ => t
+
+/-- D402 ARM 4 — an MMX STORE that leaves the x87 state alone: x86isa's behaviour at the pin
+(D402 §1). An arm, so the model and that behaviour are PROVED distinguishable by these vectors;
+which one is right is silicon's question (D402 §2.2), not this arm's. -/
+def wrongMmxStoreNoTouch (i : Instr) (s : Cpu) : Cpu :=
+  let t := step i s
+  match i.op with
+  | .mmovg false .. | .mmovgst .. | .mmovqst .. => { t with mmx := { t.mmx with fpTag := s.mmx.fpTag, fpTop := s.mmx.fpTop } }
+  | _ => t
+
+/-- D402 ARM 5 — `movq mm, mm` copies its DESTINATION (a no-op that still touches x87). -/
+def wrongMmovqReadsDst (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .mmovq dst _ => (s.setMm dst (s.getMm dst)).setRip nr
+  | _ => step i s
+
 /-- ⛔⛔ P2 BATCH 14, ARM 1 — THE PERMUTE'S FIELD ORDER REVERSED.  Destination
 lane `j` takes the immediate's field `3-j` instead of field `j`.
 
@@ -4949,6 +4991,12 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("an MMX register is clobbered (the MMX channel's red arm)", wrongMmxClobbered, "mm3")
   , ("the x87 tag word is written as all-valid", wrongFpTagClobbered, "fptag")
   , ("the x87 TOP is forced to 0", wrongFpTopClobbered, "fptop")
+  -- ⭐⭐ D402 — the MMX moves (row 77 batch 1).
+  , ("movd into an MMX register merges instead of zero-extending", wrongMmovdMerges, "mm0")
+  , ("movd out of an MMX register merges into the 64-bit GPR", wrongMmovdFromMerges, "rcx")
+  , ("an MMX load leaves the x87 tag word as it was", wrongMmxLoadNoTouch, "fptag")
+  , ("an MMX store leaves the x87 tag word as it was (x86isa's behaviour, D402 §2.2)", wrongMmxStoreNoTouch, "fptag")
+  , ("movq mm, mm copies its destination", wrongMmovqReadsDst, "mm0")
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFTS.  Four arms, and the
   -- first two are the batch: each is a model a careful reader would write, and
   -- each is bit-identical to the right one over a whole regime of counts.

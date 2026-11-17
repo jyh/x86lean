@@ -3286,6 +3286,31 @@ def vectors : List Vec :=
     , bytes := "660fd603", instr := ⟨.vmovgst .q { base := some .rbx } .x0, 4⟩ }
   , { id := "movq_st_x9", mnemonic := "movq", asm := "movq %xmm9, (%rbx)"
     , bytes := "66440fd60b", instr := ⟨.vmovgst .q { base := some .rbx } .x9, 5⟩ }
+  -- ⭐⭐ D402 — THE MMX MOVES (row 77 batch 1), both directions, a low and a high register.
+  -- ⛔ The REX.W `0f 6e`/`0f 7e` MEMORY spellings have no vector: clang spells `movq` between MMX
+  -- and memory as `0f 6f`/`0f 7f`, and this table's bytes come from an assembler.
+  , { id := "mmx_movd_to", mnemonic := "movd", asm := "movd %ecx, %mm0"
+    , bytes := "0f6ec1", instr := ⟨.mmovg true .d .m0 .rcx, 3⟩ }
+  , { id := "mmx_movd_to_m7", mnemonic := "movd", asm := "movd %ecx, %mm7"
+    , bytes := "0f6ef9", instr := ⟨.mmovg true .d .m7 .rcx, 3⟩ }
+  , { id := "mmx_movq_to", mnemonic := "movq", asm := "movq %rcx, %mm0"
+    , bytes := "480f6ec1", instr := ⟨.mmovg true .q .m0 .rcx, 4⟩ }
+  , { id := "mmx_movd_from", mnemonic := "movd", asm := "movd %mm0, %ecx"
+    , bytes := "0f7ec1", instr := ⟨.mmovg false .d .m0 .rcx, 3⟩ }
+  , { id := "mmx_movq_from", mnemonic := "movq", asm := "movq %mm0, %rax"
+    , bytes := "480f7ec0", instr := ⟨.mmovg false .q .m0 .rax, 4⟩ }
+  , { id := "mmx_movd_ld", mnemonic := "movd", asm := "movd (%rbx), %mm0"
+    , bytes := "0f6e03", instr := ⟨.mmovgld .d .m0 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_movd_st", mnemonic := "movd", asm := "movd %mm0, (%rbx)"
+    , bytes := "0f7e03", instr := ⟨.mmovgst .d { base := some .rbx } .m0, 3⟩ }
+  , { id := "mmx_movq_ld", mnemonic := "movq", asm := "movq (%rbx), %mm5"
+    , bytes := "0f6f2b", instr := ⟨.mmovqld .m5 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_movq_st", mnemonic := "movq", asm := "movq %mm3, (%rbx)"
+    , bytes := "0f7f1b", instr := ⟨.mmovqst { base := some .rbx } .m3, 3⟩ }
+  , { id := "mmx_movq_mm", mnemonic := "movq", asm := "movq %mm1, %mm0"
+    , bytes := "0f6fc1", instr := ⟨.mmovq .m0 .m1, 3⟩ }
+  , { id := "mmx_movq_mm_hi", mnemonic := "movq", asm := "movq %mm6, %mm2"
+    , bytes := "0f6fd6", instr := ⟨.mmovq .m2 .m6, 3⟩ }
 
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 7 — THE UNPACK (INTERLEAVE) GROUP.  The first
   -- vector operations here that are a PERMUTATION rather than lane-wise

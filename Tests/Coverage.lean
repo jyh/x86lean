@@ -331,7 +331,8 @@ def vectorCount : Nat := vectors.length
 -- ⭐ D356 adds 8: `movd`/`movq` between an XMM register and memory, both directions.
 -- ⭐ D357 adds 8: `comis*`/`ucomis*` with a memory source, at `%xmm1` and `%xmm9`.
 -- ⭐ D358 adds 3: `%xmm9` twins of the scalar stores whose `%xmm0` rows cannot see a dropped write.
-theorem vector_count_is_1241 : vectorCount = 1241 := by decide
+-- ⭐ D402 adds 11: the MMX `movd`/`movq` forms, both directions, a low and a high register.
+theorem vector_count_is_1252 : vectorCount = 1252 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
@@ -1256,6 +1257,10 @@ def isMemDestVector (v : Vec) : Bool :=
     -- destination; the load is not.
     | .vmovgld .. => false
     | .vmovgst .. => true
+    -- ⭐ D402, in the same commit as the constructors: the MMX stores are memory destinations;
+    -- the register forms and the loads are not.
+    | .mmovg .. | .mmovgld .. | .mmovq .. | .mmovqld .. => false
+    | .mmovgst .. | .mmovqst .. => true
     -- P2 BATCH 38, in the same commit as the constructors: a scalar min/max
     -- writes an XMM register at both shapes; the memory operand is its SOURCE.
     | .vminmax .. | .vminmaxm .. => false
@@ -1536,9 +1541,13 @@ theorem memDestSweep :
       == [("sarx", true), ("shlx", true), ("shrx", true),
           ("cmps", false), ("scas", false), ("repe", false), ("repne", false),
           ("movdqa", false), ("movdqu", false),
-          -- ⭐ D356 — `movd`/`movq` join, in TABLE order, for the same vocabulary reason as the
+          -- ⭐ D356 — `movd`/`movq` joined here, in TABLE order, for the same vocabulary reason as the
           -- rows below: their store shape is `m,x`, which the loose rule cannot see.
-          ("movd", false), ("movq", false),
+          -- ⛔ D402 TAKES THEM BACK OUT, AND FOR THE LOOSE RULE'S WRONG REASON: their shapes now carry
+          -- the MMX `mm,r` (a REGISTER destination), and the loose rule's infix `m,r` matches inside it.
+          -- The strict rule reads `m,mm` at a shape start and is right; the loose one agrees by a false
+          -- hit — `bt`'s batch-11 lesson again, recorded rather than repaired, because that rule is kept
+          -- only as data for the audit.
           -- ⭐ P2 VECTOR WAVE, BATCH 11 adds four more in the SAME direction, and
           -- their sameness is the point: the loose rule is blind to `m,x` for
           -- every mnemonic, not just for the two that first exposed it.  A
@@ -1633,8 +1642,9 @@ theorem mem_dest_rewrite_changed_exactly_the_three_operand_rows :
          -- vocabulary the loose rule does not have": its literal is `m,r`, and a
          -- vector store's shape is `m,x`.
          ("movdqa", false), ("movdqu", false),
-         -- ⭐ D356 — `movd`/`movq`, the same gap, in table order (and in `memDestSweep`'s copy).
-         ("movd", false), ("movq", false),
+         -- ⭐ D356 — `movd`/`movq` joined, the same gap, in table order (and in `memDestSweep`'s copy).
+         -- ⛔ D402 removes them from BOTH copies: the loose rule's `m,r` now matches inside the MMX
+         -- `mm,r` (a register destination), so the two rules agree by a false hit (see `memDestSweep`).
          -- ⭐ P2 VECTOR WAVE, BATCH 11: four more stores in the SAME vocabulary
          -- gap.  `movss`/`movsd` write 4 and 8 bytes rather than 16, so the gap
          -- is not about the WIDTH of the store either — it is `x` the loose rule

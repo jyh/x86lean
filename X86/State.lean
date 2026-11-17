@@ -170,6 +170,23 @@ def setReg (s : Cpu) (sz : Size) (r : GPR) (v : Val) (high8 : Bool := false) : C
 @[simp] theorem setReg_oracle (s : Cpu) (sz : Size) (r : GPR) (v : Val) (h8 : Bool) :
     (s.setReg sz r v h8).oracle = s.oracle := rfl
 
+/-! ### The MMX registers (D402) -/
+
+/-- Read one MMX register. -/
+def getMm (s : Cpu) (r : MmReg) : BitVec 64 := s.mmx.get r
+
+/-- ⭐⭐ WRITE one MMX register, WITH the x87 side effect every MMX instruction but EMMS has
+(tag := 0, TOP := 0; `Mmxs.touch`). There is no setter that writes an MMX register without it,
+so no MMX form can forget it. -/
+def setMm (s : Cpu) (r : MmReg) (v : BitVec 64) : Cpu :=
+  { s with mmx := (s.mmx.set r v).touch }
+
+/-- The x87 side effect alone, for an MMX form that only READS an MMX register (the stores). -/
+def mmxTouch (s : Cpu) : Cpu := { s with mmx := s.mmx.touch }
+
+@[simp] theorem getMm_setMm_same (s : Cpu) (r : MmReg) (v : BitVec 64) :
+    (s.setMm r v).getMm r = v := by simp [getMm, setMm]
+
 /-! ### The vector registers -/
 
 /-- Read one XMM register. -/
