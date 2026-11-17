@@ -26014,3 +26014,9 @@ model's `mmxTouch` on stores is right and stays.
 ```
 Equal in every count. The staleness half of the eight entries (a listed state that stops diverging FAILS the run) is D331's
 mechanism, and it was not re-driven by a plant here.
+
+### 7. D402 ADDENDUM — THE CHARACTERIZATION THEOREMS (X86/Theorems.lean), AND ONE RED BACKWARDS
+Four statements: `mmovg_to_mm_zero_extends`, `mmovq_copies`, `mmovg_to_mm_touches_x87`, and `mmovqst_touches_x87`, the
+model's side of D403's eight declarations. **Red backwards:** a mutant that drops `mmxTouch` from the `movq` store (x86isa's
+behaviour) broke exactly one declaration, `mmovqst_touches_x87` (Theorems.lean:845, unsolved goals). The restored tree builds
+EXIT=0, and the axiom gate is CLEAN over 6,541 declarations.
