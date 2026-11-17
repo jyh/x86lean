@@ -25775,3 +25775,49 @@ same 9 ceilings (the runner, not the change). Kent's rule allows no third rerun,
 the 24 passes, read from the log's pass lines). `kernel_delta` rc 0, "delta gate: CLEAN" (`Tests.Vectors` 17.6 → 14.1 ms, ok). `ku_delta` A′ rc 0,
 CLEAN (`Tests.Vectors` 197 → 197, Δku 0). Recorded with `--record --readings --a-prime`: ms rc 0 and A′ rc 0, so the row lands on
 the ms verdict (D251). As predicted before the run: this PR changes no `.lean`, so neither arm moved.
+
+## D400 — Row 77 step (a) measured: one nested `Mmxs` field on `Cpu` costs `X86.Theorems` +2.0% ku and breaks nothing
+
+⚖️ The seat's queue row 77, the MMX wave, step (a). The seat's MMX price brief (2026-11-17) predicted the
+state field's cost from D263's MXCSR field and said the figure was a prediction from a different field. This is the
+measurement it was waiting for.
+
+### 1. THE SUBJECT
+Branch `paris/mmx-draft` `10a85a5` on master `3fcb7ee`. It adds `structure Mmxs` (mm0–mm7 `BitVec 64`, `fpTag : BitVec 16 :=
+0xFFFF`, `fpTop : BitVec 3 := 0`) to `X86/Basic.lean`, and one field `mmx : Mmxs := {}` to `Cpu`, after `mxcsr`. **Nothing reads
+it.** That is D71's and D263's shape: any cost is the record's.
+- fpTag's default is 0xFFFF (all empty, the FNINIT value a Linux process starts with). x86isa's stobj field reads
+  `:initially 0` (machine/state.lisp:496), so the driver must SET it in every case, as it does MXCSR (D265 §4). That is step (b).
+
+### 2. THE KU READING (`ku_delta.py --arm a-prime --base 3fcb7ee --head 10a85a5`, yukon.lan, load 5.8–7.6, rc 0)
+```
+  X86.Theorems   142,815 → 145,662   +2,847   (+2.0%)          D263's MXCSR field: +2,250 (+2.6%) on an 86,982 base
+  X86.Effects     64,389 →  64,623     +234   (+0.4%)
+  X86.Basic       15,861 →  15,911      +50   (the new structure's own derived instances)
+  X86.Program     62,961 →  62,975      +14
+  Tests.*         12 modules +4 … +41 each (Logic*, AnchorsVex*, CoverageVexMov)
+  every other module (40 of 56, X86.State and X86.Syntax included)   +0
+  16 of 56 modules grew, none shrank; whole tree +3,373 of 60,169,716
+  ku-delta gate (a-prime): CLEAN
+```
+⇒ **The prediction held in shape and in size:** the cost is again concentrated in `X86.Theorems`, about one projection per
+whole-record proof, and nothing is near a limit. The absolute figure is larger than D263's (+2,847 vs +2,250) and the relative one
+smaller (2.0% vs 2.6%), because `X86.Theorems` has grown 64% since D263.
+
+### 3. THE MS HALF — ONE PASS, AND A FINDING THAT IS NOT ABOUT THIS DRAFT
+A′'s ms half is one pass a side. Under this load the head read FASTER than the base in every gated module (`X86.Theorems` 2,080 →
+1,800, `Tests.Coverage` 44,100 → 42,900), so these are not a delta and none is quoted as one. No `kernel_delta.py --repeats` was
+bought, for D263's reason: a draft is not a landing, and the step that lands the field re-measures it.
+- ⛔ **`X86.Syntax` on yukon: the BASE read 928 ms against its 879 ceiling (106%).** The head read 837 (95%), and the head passed
+  only because the verdict judges the head alone. The ceiling was registered 2026-09-13 at 293 × 3 (`scripts/ku_delta_budget.txt:81`).
+  This draft did not touch the module (Δku 0). ⇒ **Master's own `X86.Syntax` is now at or over its yukon ceiling, so a yukon A′ run
+  on any change is one slow pass away from FAILED.** That is the tripwire doing its job (it catches SIZE, and the module has grown
+  about 3×), but a tripwire that has already fired on master gates nothing. The CI runner's ceiling (1,668, line 136) is unaffected.
+  It is filed as its own queue row (re-measure on a quiet box, then re-register or explain the growth); it is not repaired here.
+
+### 4. WHAT STEP (a) DOES AND DOES NOT SETTLE
+- **Settled:** the MMX state field is cheap in the record proofs, as predicted.
+- **Not settled, and it is step (b):** the CHANNEL. `x86l-post` reports no MMX, so a field nobody compares reports agreement
+  (D27). Owed: the driver dumps mm0–7, fp-tag and TOS and sets them per case; `Cpu.render` and the format check carry the same
+  keys; `undefinedLeakedBy` compares `a.mmx == b.mmx`; and a planted difference in each new key is red.
+- The 80-bit exponent alias (bits 79:64, which x86isa's `!mmx` sets to 0xFFFF) stays a DECLARED LIMIT: no roster form reads it.
