@@ -10,7 +10,13 @@
  * TOP (FSW bits 13:11) back with FNSTENV:
  *   P0  after FNINIT           FTW = 0xFFFF, TOP = 0
  *   P7  after FNINIT; FLD1      FTW = 0x3FFF, TOP = 7   (TOP and the tag word both differ from 0)
- * A store reading is RULE when it reads (0x0000, 0) and X86ISA when it reads the pre-state unchanged.
+ * ⛔ FNSTENV DOES NOT REPORT THE INTERNAL TAG: it RECOMPUTES a full tag per register from its contents
+ * (00 valid, 01 zero, 10 special, 11 empty). The first run of this probe judged `ftw == 0` and every
+ * load control refused: a load read 0x5556 (mm0 "special", since `!mmx` sets its exponent to all ones;
+ * the others "zero"). What the MMX rule fixes is EMPTY vs NOT EMPTY (the abridged tag), so every
+ * judgement here is on the EMPTY MASK (bit i set when register i's field is 11) and on TOP.
+ * A store reading is RULE when it reads (empty mask 0x00, TOP 0) and X86ISA when it reads the pre-state's
+ * empty mask and TOP unchanged.
  *
  * CONTROLS, which must hold or the probe REFUSES (exit 2) and says nothing about the stores:
  *   a load (movd r32 -> mm) and movq mm -> mm, where both models agree: (0x0000, 0) from either state;
@@ -31,6 +37,12 @@ int main(void) { puts("REFUSED: not x86-64"); return 4; }
 #else
 
 typedef struct { uint16_t ftw, top; } X87;
+
+static unsigned empty_mask(uint16_t ftw) {
+  unsigned m = 0;
+  for (int i = 0; i < 8; i++) if (((ftw >> (2 * i)) & 3) == 3) m |= 1u << i;
+  return m;
+}
 
 static X87 decode(const unsigned char *env) {
   uint16_t fsw, ftw;
@@ -84,12 +96,14 @@ ROW(emms_p7, P7, "emms")
 
 static const X87 PRE0 = { 0xFFFF, 0 }, PRE7 = { 0x3FFF, 7 }, ZERO = { 0x0000, 0 };
 
-static int eq(X87 a, X87 b) { return a.ftw == b.ftw && a.top == b.top; }
+/* Equal in what the rule fixes: which registers are empty, and TOP. */
+static int eq(X87 a, X87 b) { return empty_mask(a.ftw) == empty_mask(b.ftw) && a.top == b.top; }
 
 static int control(const char *name, X87 got, X87 want, int judge_top) {
-  int ok = got.ftw == want.ftw && (!judge_top || got.top == want.top);
-  printf("%s %-12s ftw=%04x top=%u   want ftw=%04x%s\n", ok ? "ok  " : "DIFF", name, got.ftw, got.top,
-         want.ftw, judge_top ? (want.top ? " top=7" : " top=0") : " (top not judged)");
+  int ok = empty_mask(got.ftw) == empty_mask(want.ftw) && (!judge_top || got.top == want.top);
+  printf("%s %-12s ftw=%04x empty=%02x top=%u   want empty=%02x%s\n", ok ? "ok  " : "DIFF", name, got.ftw,
+         empty_mask(got.ftw), got.top, empty_mask(want.ftw),
+         judge_top ? (want.top ? " top=7" : " top=0") : " (top not judged)");
   return ok;
 }
 
@@ -122,10 +136,10 @@ int main(int argc, char **argv) {
     X87 g = st[i].f();
     const char *cls = eq(g, ZERO) ? "RULE" : eq(g, st[i].pre) ? "X86ISA" : "NEITHER";
     rule += eq(g, ZERO); x86isa += eq(g, st[i].pre);
-    printf("STORE %-12s ftw=%04x top=%u   pre ftw=%04x top=%u   %s\n", st[i].name, g.ftw, g.top,
-           st[i].pre.ftw, st[i].pre.top, cls);
+    printf("STORE %-12s ftw=%04x empty=%02x top=%u   pre empty=%02x top=%u   %s\n", st[i].name, g.ftw,
+           empty_mask(g.ftw), g.top, empty_mask(st[i].pre.ftw), st[i].pre.top, cls);
   }
-  if (rule == n) { printf("VERDICT rule (%d of %d store readings: tag 0, TOP 0)\n", rule, n); return 0; }
+  if (rule == n) { printf("VERDICT rule (%d of %d store readings: no register empty, TOP 0)\n", rule, n); return 0; }
   if (x86isa == n) { printf("VERDICT x86isa (%d of %d store readings: x87 state unchanged)\n", x86isa, n); return 0; }
   printf("VERDICT mixed (rule %d, x86isa %d, of %d)\n", rule, x86isa, n);
   return 3;
