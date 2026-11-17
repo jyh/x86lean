@@ -734,7 +734,11 @@ READING_INPUTS = ("PROFILER_PATHS (" + ", ".join(PROFILER_PATHS) + ") and every 
 
 
 def reading_input(path):
-    return path in PROFILER_PATHS or exempt_reason(path) is None
+    # ⛔ `.lean` FIRST, as the step classifier does (paper's LOW on #196, @104,701,504): `exempt_reason` matches by
+    # PREFIX, so without this a `.lean` under docs/, scripts/, paper/, artifact/ ... was left out of the digest while
+    # READING_INPUTS says "every `.lean`". No revision in the history carried such a file (79 `.lean` paths ever, 0
+    # under an exempt prefix, censused 2026-11-16), so no digest already recorded changes and READING_V stays 2.
+    return path.endswith(".lean") or path in PROFILER_PATHS or exempt_reason(path) is None
 
 
 # ⭐ READING DIGEST VERSIONS (systems, 2026-11-07; paper's REC (2) @98,704,190). v1 hashed every
@@ -1863,6 +1867,10 @@ def selftest():
        and not reading_input("scripts/check_citations.py"),
        "...and the reading-input set is the classifier's inverted default: lakefile, "
        "`.lean` and the toolchain in; docs and a non-profiler script out")
+    ok(all(exempt_reason(x) is not None for x in ("docs/x.lean", "scripts/x.lean", "paper/x.lean"))
+       and all(reading_input(x) for x in ("docs/x.lean", "scripts/x.lean", "paper/x.lean")),
+       "RED-FIRST — a `.lean` under an EXEMPT prefix is still a reading input (the classifier buckets `.lean` "
+       "first; the digest must too, or a change to it never moves the reading)", plant="exempt-prefix .lean")
     _r, _ = _slide_gap("README.md", extra_pr_lean=True)
     ok(_r == ("REFUSED", 2),
        "RED-FIRST — the rebased PR differs from the measured head on a `.lean` file: "
