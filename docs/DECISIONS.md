@@ -26020,3 +26020,46 @@ Four statements: `mmovg_to_mm_zero_extends`, `mmovq_copies`, `mmovg_to_mm_touche
 model's side of D403's eight declarations. **Red backwards:** a mutant that drops `mmxTouch` from the `movq` store (x86isa's
 behaviour) broke exactly one declaration, `mmovqst_touches_x87` (Theorems.lean:845, unsolved goals). The restored tree builds
 EXIT=0, and the axiom gate is CLEAN over 6,541 declarations.
+
+## D404 — Row 77 step (d), the MMX arithmetic family: predictions and price BEFORE any model work, and the half of the family a width parameter does NOT reach
+
+⚖️ The seat's queue row 77, step (d), stacked on D400–D403 (branch `paris/mmx-arith` on `paris/mmx-draft`). The residue after
+record 46 is 28,551 MMX instructions, led by paddw 4,166 · psubw 2,932 · punpcklbw 2,381 · pxor 2,069 · packuswb 1,125 ·
+pmullw 966. The price brief said most forms are *"a width parameter, not new arithmetic"*. That is a category claim, and it is
+checked here per member, from `vbinApply`'s definitions (X86/Semantics.lean:820), before it is built on.
+
+### 1. THE CLAIM, PER MEMBER: is MMX(a, b) = low64(XMM(zext a, zext b))?
+- **YES, by construction, for every LANE-WISE kind** (`vlanes w` with w ≤ 64: add/sub at b/w/d/q, the bitwise four, the
+  compares, the multiplies, the saturating and averaging forms). No lane crosses bit 64, and zero upper operands only
+  feed upper lanes, which are discarded.
+- **YES for `punpckl*`.** `vunpack w false` interleaves from the bottom, so the 128-bit result's low 64 bits are the pairs
+  built from each operand's low 32 bits, which is exactly MMX's PUNPCKL (SDM Vol. 2B: the low halves of 64-bit operands).
+- **NO for `punpckh*`.** XMM consumes bits 127:64 of each operand. MMX consumes bits 63:32. Zero-extended, the XMM form
+  reads the zeros.
+- **NO for `pack*`.** XMM writes the source's saturated lanes to bits 127:64. MMX writes them to bits 63:32. Truncated, the
+  XMM form loses the source entirely.
+⇒ **Half of the unpack/pack group needs its own 64-bit definition.** A batch that reused the XMM function by width would be
+right on the low forms and wrong on every high form, in exactly the direction a green run on low-form vectors would not show.
+
+### 2. PREDICTIONS (each with what would show it wrong)
+1. Lane-wise kinds and `punpckl*` through the zero-extend-and-truncate rule agree with x86isa with no declaration.
+   Wrong if any reads `unexplained > 0`.
+2. A red arm that builds `punpckhbw` and `packuswb` by that same rule is CAUGHT in `mmN` on every vector of those forms.
+   That is the reuse model §1 says is wrong. If it is NOT caught, the vectors cannot see the defect, and the pattern is the
+   finding.
+3. Every form applies the x87 touch through `setMm` (D402), so `fptag`/`fptop` agree with x86isa on all of them, because
+   these are to-MMX writes and x86isa's arithmetic def-insts call `mmx-instruction-updates`. ⛔ Measured PER DEF-INST,
+   not per file (D402's lesson: move-mmx.lisp named it and two of its four def-insts never called it): every MMX
+   def-inst in padd, psub, logical, punpck, pack, pmul, pcmp and pmadd calls it exactly once (17 def-insts), and
+   pshift's two macro templates for mm (`mm/m64`, `imm`) call it once each. Wrong if one arithmetic vector diverges in
+   `fptag`.
+4. The census credits exactly the demand of the forms built, derived from the JSON after the build, never typed here.
+
+### 3. PRICE AND ORDER
+- **Batch d1:** the lane-wise kinds the census ranks highest (paddw, psubw, pxor, pand, por, paddd, pmullw, paddsw) plus
+  `punpckl{bw,wd,dq}`. One constructor over `VBinKind` with an MMX destination, reusing `vbinApply` by §1's rule for the
+  kinds §1 says it reaches, and REFUSING (`illegalOperands`) the kinds it does not.
+- **Batch d2:** `punpckh*` and `pack*` with their own 64-bit definitions, each with its own red arm.
+- **Not in either:** pmaxsw, psadbw, pshufw and pavgb. Their mm forms are unimplemented in x86isa (the price brief), so
+  they are a silicon-referee wave.
+- **Kernel:** measured at each batch's K1, never predicted from D400.
