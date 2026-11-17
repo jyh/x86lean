@@ -48,8 +48,8 @@ differential harness whose disagreement classes, and controls that run a deliber
 the reference model is not the specification, including one where it contradicts itself; and a
 measurement, on a sample of six routines, of what safety proofs over the semantics cost. The motivation is
 measured too: in this project's working records, claims that no check read were wrong or could not be
-reproduced as stated at least one time in three, in each of three samples. The model is smaller than the K
-semantics and its proofs are fewer than x86isa's or K's; the paper states its scope against both.
+reproduced as stated at least one time in three, in each of three samples. The model is smaller than K's
+semantics and its proofs fewer than x86isa's or K's; the paper states its scope against both.
 \src{Each claim is the subject of a section below and is cited there; the six routines: docs/CLAIMS.tsv[proof\_sample\_routines];
 the three samples: the section Gated Claims; the declined case: X86/Theorems.lean
 step\_dshift\_mem\_undefined\_refuses.}
@@ -77,14 +77,14 @@ evaluated.
   undefined flags are derived from the semantics rather than declared, undefined registers are checked from two
   sources, and a case the model declines is stated as a theorem (Section~\ref{sec:undef}).
   \src{X86/Theorems.lean step\_dshift\_mem\_undefined\_refuses}
-\item \emph{How it is evaluated.} A differential harness with explicit disagreement classes, units, and wrong-model
-  controls; two of its three candidate references are not independent; and the reference model is not always the
+\item \emph{How it is evaluated.} A differential harness with disagreement classes, units, and wrong-model
+  controls; two of its three candidate references are not independent; the reference model is not always the
   specification (Section~\ref{sec:validation}).
-\item \emph{How its claims are kept true.} Coverage and validation figures derived from their records and checked in CI
-  against the prose, this paper's among them, with a measurement of how often unchecked claims here were wrong
+\item \emph{How its claims are kept true.} Coverage and validation figures derived from records and checked in CI
+  against the prose, this paper's among them, with a measurement of how often unchecked claims were wrong
   (Section~\ref{sec:gated}).
-\item \emph{How it is used in proofs.} A measurement, on a sample, of what safety proofs over the semantics cost, and a
-  property the cheaper proof tier cannot see (Section~\ref{sec:proofs}).
+\item \emph{How it is used in proofs.} The measured cost, on a sample, of safety proofs over the semantics, and a
+  property the cheaper tier cannot see (Section~\ref{sec:proofs}).
   \src{X86/Program.lean runP\_safe; Tests/Program.lean countdown\_writes\_no\_memory, fill\_safe, memcpy\_safe,
   scan\_writes\_no\_memory, prologue\_preserves\_caller\_frame, guarded\_writes\_only\_in\_buffer; the property the
   cheaper tier cannot see is not proved: the section Proofs Over the Semantics, ``What the cheaper tier cannot see''}
@@ -273,30 +273,9 @@ writes anything, because AMD's manual and x86isa leave them undefined. When the 
 nothing else: the destination is unmodified, even at 32 bits, as Intel's edition 093US, AMD and x86isa
 state (the edition we cite called it undefined). Of the 26 frame rows, 2 draw a destination, SHLD and
 SHRD past the operand size; the rest draw flags only. The order of the draws is part of the model,
-which Section~\ref{sec:undef} returns to.
+which Section~\ref{sec:undef} returns to (Appendix~\ref{app:listings} lists the function).
 \src{X86/Semantics.lean bitScanStep, called from step for bsf and bsr, and the .dshift arm; docs/DECISIONS.md D346 (093US Vol.~2A BSF/BSR,
 AMD APM Vol.~3, x86isa machine/instructions/bit.lisp; 093US defines the five flags except on some older processors, D346 keeps them drawn by the union rule; the model drew the destination until D346, on D40); Tests/Nonvacuity.lean bsf\_dest\_upper\_kept\_at\_zero\_source\_d; docs/CLAIMS.tsv[tier\_frame, frame\_dest\_draw]}
-
-{\scriptsize
-% LISTING bsf file=X86/Semantics.lean from=^def\sbitScanStep to=^\s\s\s\s\(s\.setReg\ssz\sdst\s\(BitVec\.ofNat\s64\sidx\)\)\.setRip\snr$ strip=doc elide=^\s+--\s\S+\sD346:..^\s+--\son\sthe\sSDM's\solder|D346:_the_destination_unmodified
-\begin{alltt}
-def bitScanStep (rev : Bool) (sz : Size) (dst : GPR) (a : Val)
-    (nr : BitVec 64) (s : Cpu) : Cpu :=
-  let (cfU, s) := s.undefBit
-  let (pfU, s) := s.undefBit
-  let (afU, s) := s.undefBit
-  let (sfU, s) := s.undefBit
-  let (ofU, s) := s.undefBit
-  let s := s.setFlags (Flags.bitScan sz a cfU pfU afU sfU ofU s.flags)
-  if Value.isZero sz a then
-    -- ... D346: the destination unmodified (5 lines)
-    s.setRip nr
-  else
-    let idx := if rev then Value.bitScanReverse sz a else Value.bitScanForward sz a
-    (s.setReg sz dst (BitVec.ofNat 64 idx)).setRip nr
-\end{alltt}
-% END LISTING bsf
-}
 
 \paragraph{A case the model declines.}
 SHLD and SHRD stop the model in two different ways. A form the encoding does not allow is an illegal
@@ -330,7 +309,7 @@ drawn when its destination is a register and declined when it is memory.
 % END LISTING dshift
 }
 
-The refusal with an immediate count is a theorem, which Section~\ref{sec:undef:refusal} discusses. The statement is shown; its
+The refusal with an immediate count is a theorem (Section~\ref{sec:undef:refusal}). The statement is shown; its
 proof is omitted, and \lean{s}, \lean{rs} and \lean{len} are section variables.
 \src{X86/Theorems.lean step\_dshift\_mem\_undefined\_refuses}
 
@@ -439,7 +418,7 @@ model's value is determined by the mnemonic and the flag, x86lean's by a positio
 advances with each draw.
 \src{docs/CLAIMS.tsv[afp\_instructions]; isa-afp.org/entries/X86\_Semantics.html and X86\_InstructionSemantics, locale unknowns, read
 2026-09-12, and its fall-through branches (else undefined) and tags (unknown\_flags ''ADD'' f, ''logic'') re-read 2026-10-14; docs/TACAS-G1-POSITIONING.md 1d; D220}
-A sixth answer inverts the question. libLISA synthesizes instruction semantics by observing a processor,
+A sixth answer inverts the question. libLISA synthesizes semantics by probing a processor,
 and its model is CPU-specific: behaviour ``that is `undefined' is synthesized for the current
 machine''~\cite{liblisa}.
 \src{docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md; docs/DECISIONS.md D221}
@@ -530,8 +509,8 @@ X86/Semantics.lean the .dshift arm writes its draw with writeOperand sz; X86/Val
 x86-bsf and x86-bsr leave the register unchanged at a zero source (acl2 c8897a34); docs/DECISIONS.md D346 1--2: until D346 a 32-bit BSF or BSR at a zero source was such an uncompared case, where x86lean cleared the upper half and x86isa kept it; both now keep it; Tests/Vectors.lean bsf\_rr\_d, bsf\_rm\_d, bsr\_rr\_d, bsr\_rm\_d}
 The derivation has a precondition it does not itself check. It finds a field whose value is a copy of a
 drawn bit, and it would miss a value that combined two drawn bits so as to agree under both constant
-oracles. Every undefined value in the model is written as drawn; we established this by a syntactic
-search of the model's sources, with a planted positive control, and not by proof.
+oracles. Every undefined value in the model is written as drawn; we checked this by a syntactic
+search of the sources, with a planted positive control, and not by proof.
 \src{docs/DECISIONS.md D213 4}
 
 \subsection{Declining a Case, as a Theorem}
@@ -578,7 +557,7 @@ instruction pointer, the flags, whether the instruction was refused, and a set o
 windows.
 \src{X86/Serialize.lean Cpu.render; scripts/run\_differential.sh}
 The records are compared field by field. A case with no disagreeing field is \emph{matched}; a case in
-which both models refuse is matched on the refusal alone, since neither claims a post-state. Each disagreeing field is then classified. It is a \emph{harness} failure if a record lacks the field; the field that records a refusal is a \emph{refusal} disagreement if only one side refused; any other field is \emph{explained} if it is one the comparator may excuse (a flag or a general-purpose register) and x86lean's derived undefined set for that case contains it, a \emph{declared divergence} if an entry names that vector and that field (and, if the entry narrows, that pre-state or value pair), and a \emph{specification} disagreement otherwise. Only explained fields and declared divergences are excused.
+which both models refuse is matched on the refusal alone, since neither claims a post-state. Each disagreeing field is classified. It is a \emph{harness} failure if a record lacks the field; the field that records a refusal is a \emph{refusal} disagreement if only one side refused; any other field is \emph{explained} if it is one the comparator may excuse (a flag or a general-purpose register) and x86lean's derived undefined set for that case contains it, a \emph{declared divergence} if an entry names the vector and field (and, if the entry narrows, that pre-state or value pair), and a \emph{specification} disagreement otherwise. Only explained fields and declared divergences are excused.
 \src{Main.lean classify, bothRefused, undefinableFields, knownDivergences; KnownDivergence's states and pair fields (D331, D266)}
 
 The summary counts two different things, and they must be read apart: cases, and disagreeing fields.
@@ -1096,6 +1075,29 @@ def add (sz : Size) (a b : Val) (f : Flags) : Flags :=
     of := addOF sz a b res \}
 \end{alltt}
 % END LISTING add-flags
+}
+
+\paragraph{BSF and BSR.} The function the frame-tier clause of Section~\ref{sec:examples} describes.
+
+{\scriptsize
+% LISTING bsf file=X86/Semantics.lean from=^def\sbitScanStep to=^\s\s\s\s\(s\.setReg\ssz\sdst\s\(BitVec\.ofNat\s64\sidx\)\)\.setRip\snr$ strip=doc elide=^\s+--\s\S+\sD346:..^\s+--\son\sthe\sSDM's\solder|D346:_the_destination_unmodified
+\begin{alltt}
+def bitScanStep (rev : Bool) (sz : Size) (dst : GPR) (a : Val)
+    (nr : BitVec 64) (s : Cpu) : Cpu :=
+  let (cfU, s) := s.undefBit
+  let (pfU, s) := s.undefBit
+  let (afU, s) := s.undefBit
+  let (sfU, s) := s.undefBit
+  let (ofU, s) := s.undefBit
+  let s := s.setFlags (Flags.bitScan sz a cfU pfU afU sfU ofU s.flags)
+  if Value.isZero sz a then
+    -- ... D346: the destination unmodified (5 lines)
+    s.setRip nr
+  else
+    let idx := if rev then Value.bitScanReverse sz a else Value.bitScanForward sz a
+    (s.setReg sz dst (BitVec.ofNat 64 idx)).setRip nr
+\end{alltt}
+% END LISTING bsf
 }
 
 \paragraph{Memory.}
