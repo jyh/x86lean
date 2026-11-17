@@ -59,6 +59,21 @@ everything.
 - **Timing figures.** Kernel-cost readings depend on the machine. The ones the paper quotes name the machine they were
   taken on.
 
+## Getting the image
+
+The image is one file, `x86lean-artifact.tar.gz` (1,589,375,396 bytes), with this SHA-256:
+
+```
+5278a0736bb322e8a17ee58a1af524d94b3fe76f8244da97205f5805a75fa987
+```
+
+- **Archive (permanent):** the artifact's Zenodo record, which the paper's Data Availability section cites. The DOI is
+  assigned when the record is deposited, and this line will then give it.
+- **Provenance:** the file was built by `.github/workflows/artifact-image.yml`, run 44007043374, at commit `766d670`.
+  That run keeps the same file as its artifact `x86lean-artifact` until 2026-11-24, and downloading it needs a GitHub login.
+
+Check the file before loading it: `sha256sum x86lean-artifact.tar.gz` must print the line above.
+
 ## Running it
 
 ```
