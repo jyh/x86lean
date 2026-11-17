@@ -25964,3 +25964,53 @@ SDM reading is OWED and is not quoted here as a fact.
     model's stores lose `mmxTouch`. If it agrees with the documented rule, the 564 are declared in exactly these states,
     and the declaration FAILS if they stop diverging (D95).
   - The census delta and the K1 reading belong to the landing step.
+
+## D403 — Silicon decides D402 §2.2: an MMX store sets the x87 tags to non-empty and TOP to 0, so x86isa's two store moves are wrong and the 564 are declared
+
+⚖️ D402 predicted, before any model work, that the four from-MMX vectors would disagree with x86isa in `fptag` in every case
+and in `fptop` where TOP ≠ 0, and it left the question to silicon. The differential read exactly the prediction (564 = 352 +
+212, D402 §4). This is the silicon reading and the declaration that follows from it.
+
+### 1. THE PROBE (`hwprobe/mmx87_probe.c`, wired into `hwprobe.yml`)
+Each row runs one instruction from a known x87 state and reads the tag word and TOP with FNSTENV. The states are P0 (after
+FNINIT: all empty, TOP 0) and P7 (after FNINIT; FLD1: register 7 full, TOP 7). The four store forms are the question.
+Controls must hold or the probe REFUSES (rc 2): a load and `movq mm, mm` (both models agree), a non-MMX `add` (unchanged)
+and EMMS (all empty). A PLANT build turns the load control into a NOP and must refuse.
+
+### 2. THE FIRST RUN REFUSED, AND THE REFUSAL WAS ABOUT THE INSTRUMENT (run 44194153626)
+Every load control failed on both processors: a load read FTW `5556`, not `0000`. **FNSTENV does not report the internal
+tag. It recomputes a full tag per register from its contents** (00 valid, 01 zero, 10 special, 11 empty). After a load, mm0
+is "special" (`!mmx` sets its exponent to all ones) and the others are "zero". What the MMX rule fixes is EMPTY vs NOT
+EMPTY. The probe now judges the EMPTY MASK and TOP. Re-judged on the first run's printed readings, every control passes and
+the plant still fails. Nothing about the stores was read before that repair.
+
+### 3. THE VERDICT (run 44194743241, both legs green)
+```
+  AMD EPYC 7763 (ubuntu-latest)      plant rc 2 (DIFF ld_movd_p0)   controls 8/8   VERDICT rule (8 of 8 store readings)
+  Intel Core i7-8700B (macos-15-intel)  plant rc 2 (DIFF ld_movd_p0)   controls 8/8   VERDICT rule (8 of 8 store readings)
+  every store, from P0 and from P7:  empty mask 00, TOP 0   (P7's pre-state: empty 7f, TOP 7)
+```
+⇒ **On two vendors, an MMX store does what x86isa's own documentation says and what its store `def-inst`s do not.** The
+model's `mmxTouch` on stores is right and stays.
+
+### 4. THE DECLARATION (Main.lean `knownDivergences`, eight entries, D95's rule that an entry FAILS if it stops diverging)
+- `fptag` on each of the four store vectors, at its one pair: x86lean `0000`, oracle `ffff`.
+- `fptop` on each of the four, only at the **53 pre-states whose TOP is non-zero**, derived from the emitted records (identical
+  for all four vectors), never typed. Under D331 the run FAILS if any listed state stops diverging.
+
+### 5. LIMITS, STATED
+- **The record's `fptag` is x86isa's 16-bit internal tag, not an architected observable.** The model writes 0 ("all valid"),
+  where FNSTENV would show a per-content classification (`1556` after these stores). The comparison between the two models
+  is exact. What silicon was asked about is empty vs not empty, and that is what §3 measures.
+- **EMMS from P7 read TOP 0 on both processors.** That was not judged, nothing in the roster depends on it, and the model
+  has no EMMS yet. When EMMS is modelled, this reading is its first question.
+- **An upstream report to x86isa** (its two MMX store moves skip `mmx-instruction-updates`) is outward, so it is offered,
+  not sent.
+
+### 6. THE DECLARED RUN, AGAINST A LINE SEALED BEFORE IT (22:59:36Z)
+```
+  sealed: cases=133144 matched=109012 explained=34407 unexplained=0 oracle-divergence=1927 (1363 + 564) oracle-leaks=0 missing=0
+  read:   cases=133144 matched=109012 explained=34407 unexplained=0 oracle-divergence=1927                oracle-leaks=0 missing=0
+```
+Equal in every count. The staleness half of the eight entries (a listed state that stops diverging FAILS the run) is D331's
+mechanism, and it was not re-driven by a plant here.

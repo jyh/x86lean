@@ -358,7 +358,35 @@ structure KnownDivergence where
   deriving Repr, Inhabited
 
 def knownDivergences : List KnownDivergence :=
-  [ { vec := "movd_to_x", field := "xmm0"
+  [ -- ⛔⛔ D403 — x86isa's MMX STORES LEAVE THE x87 STATE, against its own documented rule and against
+  -- silicon on two vendors (`hwprobe/mmx87_probe.c`). The model applies the rule. `fptag` is declared at
+  -- its one pair (x86lean 0000, oracle ffff); `fptop` only at the 53 pre-states whose TOP is non-zero
+  -- (derived from the emitted records), so the entry FAILS if any of them stops diverging (D331).
+  { vec := "mmx_movd_from", field := "fptag", pair := some ("0000", "ffff")
+    , source := "x86isa move-mmx.lisp at the pin: x86-movq-to-mmx/mem (0F 7F) and x86-movd/movq-from-mmx (0F 7E) never call mmx-instruction-updates, whose own doc covers all MMX instructions except EMMS · processor: hwprobe mmx87_probe (D403), AMD EPYC 7763 and Intel Core i7-8700B, run 44194743241: after each store form no x87 register is empty and TOP is 0"
+    , note := "D403" }
+  , { vec := "mmx_movd_from", field := "fptop", states := [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 61, 63, 65, 67, 71, 75, 81, 82, 83, 84, 85, 86, 87]
+    , source := "x86isa move-mmx.lisp at the pin: x86-movq-to-mmx/mem (0F 7F) and x86-movd/movq-from-mmx (0F 7E) never call mmx-instruction-updates, whose own doc covers all MMX instructions except EMMS · processor: hwprobe mmx87_probe (D403), AMD EPYC 7763 and Intel Core i7-8700B, run 44194743241: after each store form no x87 register is empty and TOP is 0"
+    , note := "D403" }
+  , { vec := "mmx_movq_from", field := "fptag", pair := some ("0000", "ffff")
+    , source := "x86isa move-mmx.lisp at the pin: x86-movq-to-mmx/mem (0F 7F) and x86-movd/movq-from-mmx (0F 7E) never call mmx-instruction-updates, whose own doc covers all MMX instructions except EMMS · processor: hwprobe mmx87_probe (D403), AMD EPYC 7763 and Intel Core i7-8700B, run 44194743241: after each store form no x87 register is empty and TOP is 0"
+    , note := "D403" }
+  , { vec := "mmx_movq_from", field := "fptop", states := [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 61, 63, 65, 67, 71, 75, 81, 82, 83, 84, 85, 86, 87]
+    , source := "x86isa move-mmx.lisp at the pin: x86-movq-to-mmx/mem (0F 7F) and x86-movd/movq-from-mmx (0F 7E) never call mmx-instruction-updates, whose own doc covers all MMX instructions except EMMS · processor: hwprobe mmx87_probe (D403), AMD EPYC 7763 and Intel Core i7-8700B, run 44194743241: after each store form no x87 register is empty and TOP is 0"
+    , note := "D403" }
+  , { vec := "mmx_movd_st", field := "fptag", pair := some ("0000", "ffff")
+    , source := "x86isa move-mmx.lisp at the pin: x86-movq-to-mmx/mem (0F 7F) and x86-movd/movq-from-mmx (0F 7E) never call mmx-instruction-updates, whose own doc covers all MMX instructions except EMMS · processor: hwprobe mmx87_probe (D403), AMD EPYC 7763 and Intel Core i7-8700B, run 44194743241: after each store form no x87 register is empty and TOP is 0"
+    , note := "D403" }
+  , { vec := "mmx_movd_st", field := "fptop", states := [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 61, 63, 65, 67, 71, 75, 81, 82, 83, 84, 85, 86, 87]
+    , source := "x86isa move-mmx.lisp at the pin: x86-movq-to-mmx/mem (0F 7F) and x86-movd/movq-from-mmx (0F 7E) never call mmx-instruction-updates, whose own doc covers all MMX instructions except EMMS · processor: hwprobe mmx87_probe (D403), AMD EPYC 7763 and Intel Core i7-8700B, run 44194743241: after each store form no x87 register is empty and TOP is 0"
+    , note := "D403" }
+  , { vec := "mmx_movq_st", field := "fptag", pair := some ("0000", "ffff")
+    , source := "x86isa move-mmx.lisp at the pin: x86-movq-to-mmx/mem (0F 7F) and x86-movd/movq-from-mmx (0F 7E) never call mmx-instruction-updates, whose own doc covers all MMX instructions except EMMS · processor: hwprobe mmx87_probe (D403), AMD EPYC 7763 and Intel Core i7-8700B, run 44194743241: after each store form no x87 register is empty and TOP is 0"
+    , note := "D403" }
+  , { vec := "mmx_movq_st", field := "fptop", states := [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 61, 63, 65, 67, 71, 75, 81, 82, 83, 84, 85, 86, 87]
+    , source := "x86isa move-mmx.lisp at the pin: x86-movq-to-mmx/mem (0F 7F) and x86-movd/movq-from-mmx (0F 7E) never call mmx-instruction-updates, whose own doc covers all MMX instructions except EMMS · processor: hwprobe mmx87_probe (D403), AMD EPYC 7763 and Intel Core i7-8700B, run 44194743241: after each store form no x87 register is empty and TOP is 0"
+    , note := "D403" }
+  , { vec := "movd_to_x", field := "xmm0"
     , source := "K `movd_xmm_r32.k`: concatenateMInt(mi(96,0), …); SDM Vol. 2B MOVD: DEST[127:32] <- 0 · processor: libLISA's semantics synthesized on 5 machines, on the VEX.128 form, zero the upper destination bits — docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, D221"
     , note := "D93" }
   , { vec := "movq_to_x", field := "xmm0"
