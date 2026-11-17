@@ -9,6 +9,7 @@ A record block is a `CASE id=<vector>/<n> …` line and every line after it up t
 Usage: main_table.py RUN_DIR      writes RUN_DIR/main-lean.txt and RUN_DIR/main-oracle.txt, prints the counts.
 Refuses (exit 2) on zero ids, a missing file, or a side with no kept case: a split of nothing is not a main table.
 """
+import argparse
 import os
 import re
 import sys
@@ -37,9 +38,9 @@ def keep(lines, ids):
 
 
 def main(argv):
-    if len(argv) != 2:
-        sys.exit(__doc__)
-    run = argv[1]
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("run_dir", metavar="RUN_DIR")
+    run = ap.parse_args(argv[1:]).run_dir  # an unknown flag is refused (exit 2) before any work
     ids = main_ids()
     if not ids:
         print("main_table: 0 main-table ids; refusing", file=sys.stderr)
