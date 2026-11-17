@@ -3311,6 +3311,83 @@ def vectors : List Vec :=
     , bytes := "0f6fc1", instr := ⟨.mmovq .m0 .m1, 3⟩ }
   , { id := "mmx_movq_mm_hi", mnemonic := "movq", asm := "movq %mm6, %mm2"
     , bytes := "0f6fd6", instr := ⟨.mmovq .m2 .m6, 3⟩ }
+  -- ⭐⭐ D404 d1 — PACKED MMX BINARY OPERATIONS, register (mm1 into mm0) and memory (m64 into mm2) for each kind.
+  , { id := "mmx_paddb_rr", mnemonic := "paddb", asm := "paddb %mm1, %mm0"
+    , bytes := "0ffcc1", instr := ⟨.mmbin .addb .m0 .m1, 3⟩ }
+  , { id := "mmx_paddb_rm", mnemonic := "paddb", asm := "paddb (%rbx), %mm2"
+    , bytes := "0ffc13", instr := ⟨.mmbinm .addb .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_paddw_rr", mnemonic := "paddw", asm := "paddw %mm1, %mm0"
+    , bytes := "0ffdc1", instr := ⟨.mmbin .addw .m0 .m1, 3⟩ }
+  , { id := "mmx_paddw_rm", mnemonic := "paddw", asm := "paddw (%rbx), %mm2"
+    , bytes := "0ffd13", instr := ⟨.mmbinm .addw .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_paddd_rr", mnemonic := "paddd", asm := "paddd %mm1, %mm0"
+    , bytes := "0ffec1", instr := ⟨.mmbin .addd .m0 .m1, 3⟩ }
+  , { id := "mmx_paddd_rm", mnemonic := "paddd", asm := "paddd (%rbx), %mm2"
+    , bytes := "0ffe13", instr := ⟨.mmbinm .addd .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_psubb_rr", mnemonic := "psubb", asm := "psubb %mm1, %mm0"
+    , bytes := "0ff8c1", instr := ⟨.mmbin .subb .m0 .m1, 3⟩ }
+  , { id := "mmx_psubb_rm", mnemonic := "psubb", asm := "psubb (%rbx), %mm2"
+    , bytes := "0ff813", instr := ⟨.mmbinm .subb .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_psubw_rr", mnemonic := "psubw", asm := "psubw %mm1, %mm0"
+    , bytes := "0ff9c1", instr := ⟨.mmbin .subw .m0 .m1, 3⟩ }
+  , { id := "mmx_psubw_rm", mnemonic := "psubw", asm := "psubw (%rbx), %mm2"
+    , bytes := "0ff913", instr := ⟨.mmbinm .subw .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_psubd_rr", mnemonic := "psubd", asm := "psubd %mm1, %mm0"
+    , bytes := "0ffac1", instr := ⟨.mmbin .subd .m0 .m1, 3⟩ }
+  , { id := "mmx_psubd_rm", mnemonic := "psubd", asm := "psubd (%rbx), %mm2"
+    , bytes := "0ffa13", instr := ⟨.mmbinm .subd .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_pxor_rr", mnemonic := "pxor", asm := "pxor %mm1, %mm0"
+    , bytes := "0fefc1", instr := ⟨.mmbin .xor .m0 .m1, 3⟩ }
+  , { id := "mmx_pxor_rm", mnemonic := "pxor", asm := "pxor (%rbx), %mm2"
+    , bytes := "0fef13", instr := ⟨.mmbinm .xor .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_pand_rr", mnemonic := "pand", asm := "pand %mm1, %mm0"
+    , bytes := "0fdbc1", instr := ⟨.mmbin .and .m0 .m1, 3⟩ }
+  , { id := "mmx_pand_rm", mnemonic := "pand", asm := "pand (%rbx), %mm2"
+    , bytes := "0fdb13", instr := ⟨.mmbinm .and .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_por_rr", mnemonic := "por", asm := "por %mm1, %mm0"
+    , bytes := "0febc1", instr := ⟨.mmbin .or .m0 .m1, 3⟩ }
+  , { id := "mmx_por_rm", mnemonic := "por", asm := "por (%rbx), %mm2"
+    , bytes := "0feb13", instr := ⟨.mmbinm .or .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_pandn_rr", mnemonic := "pandn", asm := "pandn %mm1, %mm0"
+    , bytes := "0fdfc1", instr := ⟨.mmbin .andn .m0 .m1, 3⟩ }
+  , { id := "mmx_pandn_rm", mnemonic := "pandn", asm := "pandn (%rbx), %mm2"
+    , bytes := "0fdf13", instr := ⟨.mmbinm .andn .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_pcmpeqb_rr", mnemonic := "pcmpeqb", asm := "pcmpeqb %mm1, %mm0"
+    , bytes := "0f74c1", instr := ⟨.mmbin .cmpeqb .m0 .m1, 3⟩ }
+  , { id := "mmx_pcmpeqb_rm", mnemonic := "pcmpeqb", asm := "pcmpeqb (%rbx), %mm2"
+    , bytes := "0f7413", instr := ⟨.mmbinm .cmpeqb .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_pcmpeqw_rr", mnemonic := "pcmpeqw", asm := "pcmpeqw %mm1, %mm0"
+    , bytes := "0f75c1", instr := ⟨.mmbin .cmpeqw .m0 .m1, 3⟩ }
+  , { id := "mmx_pcmpeqw_rm", mnemonic := "pcmpeqw", asm := "pcmpeqw (%rbx), %mm2"
+    , bytes := "0f7513", instr := ⟨.mmbinm .cmpeqw .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_pcmpeqd_rr", mnemonic := "pcmpeqd", asm := "pcmpeqd %mm1, %mm0"
+    , bytes := "0f76c1", instr := ⟨.mmbin .cmpeqd .m0 .m1, 3⟩ }
+  , { id := "mmx_pcmpeqd_rm", mnemonic := "pcmpeqd", asm := "pcmpeqd (%rbx), %mm2"
+    , bytes := "0f7613", instr := ⟨.mmbinm .cmpeqd .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_pcmpgtb_rr", mnemonic := "pcmpgtb", asm := "pcmpgtb %mm1, %mm0"
+    , bytes := "0f64c1", instr := ⟨.mmbin .cmpgtb .m0 .m1, 3⟩ }
+  , { id := "mmx_pcmpgtb_rm", mnemonic := "pcmpgtb", asm := "pcmpgtb (%rbx), %mm2"
+    , bytes := "0f6413", instr := ⟨.mmbinm .cmpgtb .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_pcmpgtw_rr", mnemonic := "pcmpgtw", asm := "pcmpgtw %mm1, %mm0"
+    , bytes := "0f65c1", instr := ⟨.mmbin .cmpgtw .m0 .m1, 3⟩ }
+  , { id := "mmx_pcmpgtw_rm", mnemonic := "pcmpgtw", asm := "pcmpgtw (%rbx), %mm2"
+    , bytes := "0f6513", instr := ⟨.mmbinm .cmpgtw .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_pcmpgtd_rr", mnemonic := "pcmpgtd", asm := "pcmpgtd %mm1, %mm0"
+    , bytes := "0f66c1", instr := ⟨.mmbin .cmpgtd .m0 .m1, 3⟩ }
+  , { id := "mmx_pcmpgtd_rm", mnemonic := "pcmpgtd", asm := "pcmpgtd (%rbx), %mm2"
+    , bytes := "0f6613", instr := ⟨.mmbinm .cmpgtd .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_punpcklbw_rr", mnemonic := "punpcklbw", asm := "punpcklbw %mm1, %mm0"
+    , bytes := "0f60c1", instr := ⟨.mmbin .unpcklb .m0 .m1, 3⟩ }
+  , { id := "mmx_punpcklbw_rm", mnemonic := "punpcklbw", asm := "punpcklbw (%rbx), %mm2"
+    , bytes := "0f6013", instr := ⟨.mmbinm .unpcklb .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_punpcklwd_rr", mnemonic := "punpcklwd", asm := "punpcklwd %mm1, %mm0"
+    , bytes := "0f61c1", instr := ⟨.mmbin .unpcklw .m0 .m1, 3⟩ }
+  , { id := "mmx_punpcklwd_rm", mnemonic := "punpcklwd", asm := "punpcklwd (%rbx), %mm2"
+    , bytes := "0f6113", instr := ⟨.mmbinm .unpcklw .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_punpckldq_rr", mnemonic := "punpckldq", asm := "punpckldq %mm1, %mm0"
+    , bytes := "0f62c1", instr := ⟨.mmbin .unpckld .m0 .m1, 3⟩ }
+  , { id := "mmx_punpckldq_rm", mnemonic := "punpckldq", asm := "punpckldq (%rbx), %mm2"
+    , bytes := "0f6213", instr := ⟨.mmbinm .unpckld .m2 { base := some .rbx }, 3⟩ }
 
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 7 — THE UNPACK (INTERLEAVE) GROUP.  The first
   -- vector operations here that are a PERMUTATION rather than lane-wise

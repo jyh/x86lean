@@ -608,37 +608,37 @@ acc,imm · rh"
       shapes := "x,x · x,m · m,x", note := "no alignment requirement at any operand",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVDQU" }
   , { mnemonic := "paddb",
-      shapes := "x,x · x,m", note := "16 lanes of 8 bits, no flag written",
+      shapes := "x,x · x,m · mm,mm · mm,m", note := "16 lanes of 8 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDB/PADDW/PADDD/PADDQ" }
   , { mnemonic := "paddw",
-      shapes := "x,x · x,m", note := "8 lanes of 16 bits, no flag written",
+      shapes := "x,x · x,m · mm,mm · mm,m", note := "8 lanes of 16 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDB/PADDW/PADDD/PADDQ" }
   , { mnemonic := "paddd",
-      shapes := "x,x · x,m", note := "4 lanes of 32 bits, no flag written",
+      shapes := "x,x · x,m · mm,mm · mm,m", note := "4 lanes of 32 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDB/PADDW/PADDD/PADDQ" }
   , { mnemonic := "paddq",
       shapes := "x,x · x,m", note := "2 lanes of 64 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDB/PADDW/PADDD/PADDQ" }
   , { mnemonic := "psubb",
-      shapes := "x,x · x,m", note := "16 lanes of 8 bits, no flag written",
+      shapes := "x,x · x,m · mm,mm · mm,m", note := "16 lanes of 8 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ" }
   , { mnemonic := "psubw",
-      shapes := "x,x · x,m", note := "8 lanes of 16 bits, no flag written",
+      shapes := "x,x · x,m · mm,mm · mm,m", note := "8 lanes of 16 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ" }
   , { mnemonic := "psubd",
-      shapes := "x,x · x,m", note := "4 lanes of 32 bits, no flag written",
+      shapes := "x,x · x,m · mm,mm · mm,m", note := "4 lanes of 32 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ" }
   , { mnemonic := "psubq",
       shapes := "x,x · x,m", note := "2 lanes of 64 bits, no flag written",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ" }
   , { mnemonic := "pxor",
-      shapes := "x,x · x,m", note := "bitwise over all 128 bits; m must be 16-byte aligned, else #GP(0) — and this is the ONE group whose oracle checks it, so the rule is differentially VALIDATED here and theorem-only elsewhere (D110, D112)",
+      shapes := "x,x · x,m · mm,mm · mm,m", note := "bitwise over all 128 bits; m must be 16-byte aligned, else #GP(0) — and this is the ONE group whose oracle checks it, so the rule is differentially VALIDATED here and theorem-only elsewhere (D110, D112)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PXOR" }
   , { mnemonic := "pand",
-      shapes := "x,x · x,m", note := "bitwise over all 128 bits; m must be 16-byte aligned, else #GP(0) — and this is the ONE group whose oracle checks it, so the rule is differentially VALIDATED here and theorem-only elsewhere (D110, D112)",
+      shapes := "x,x · x,m · mm,mm · mm,m", note := "bitwise over all 128 bits; m must be 16-byte aligned, else #GP(0) — and this is the ONE group whose oracle checks it, so the rule is differentially VALIDATED here and theorem-only elsewhere (D110, D112)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PAND" }
   , { mnemonic := "por",
-      shapes := "x,x · x,m", note := "bitwise over all 128 bits; m must be 16-byte aligned, else #GP(0) — and this is the ONE group whose oracle checks it, so the rule is differentially VALIDATED here and theorem-only elsewhere (D110, D112)",
+      shapes := "x,x · x,m · mm,mm · mm,m", note := "bitwise over all 128 bits; m must be 16-byte aligned, else #GP(0) — and this is the ONE group whose oracle checks it, so the rule is differentially VALIDATED here and theorem-only elsewhere (D110, D112)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B POR" }
   , { mnemonic := "movd",
       shapes := "r,x · x,m (upper ZEROED) · m,x · r,mm · mm,r · m,mm · mm,m", note := "out of XMM at 32 bits; the x,r direction is proved, not vectored (D93); x,m and m,x vectored (D356), and x,m is declared where x86isa merges (D93 through memory); MMX forms D402",
@@ -647,13 +647,13 @@ acc,imm · rh"
       shapes := "r,x · x,x · x,m (upper ZEROED) · m,x · r,mm · mm,r · mm,mm · m,mm · mm,m", note := "out of XMM at 64 bits; x,x and x,m zero the upper quadword; the x,r direction is proved, not vectored (D93); x,m and m,x vectored (D356); MMX forms D402",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B MOVD/MOVQ" }
   , { mnemonic := "punpcklbw",
-      shapes := "x,x · x,m", note := "interleaves the low 8-bit lanes, destination first",
+      shapes := "x,x · x,m · mm,mm · mm,m", note := "interleaves the low 8-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKL*" }
   , { mnemonic := "punpcklwd",
-      shapes := "x,x · x,m", note := "interleaves the low 16-bit lanes, destination first",
+      shapes := "x,x · x,m · mm,mm · mm,m", note := "interleaves the low 16-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKL*" }
   , { mnemonic := "punpckldq",
-      shapes := "x,x · x,m", note := "interleaves the low 32-bit lanes, destination first",
+      shapes := "x,x · x,m · mm,mm · mm,m", note := "interleaves the low 32-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKL*" }
   , { mnemonic := "punpcklqdq",
       shapes := "x,x · x,m", note := "interleaves the low 64-bit lanes, destination first",
@@ -1010,27 +1010,27 @@ acc,imm · rh"
       note := "eight SIGNED words from the destination and eight from the source, each saturated to an UNSIGNED byte, destination low; a negative word becomes 0 and one above 255 becomes 255 — the asymmetry is the instruction. Its signed siblings packsswb/packssdw REFUSE on the oracle (D115)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PACKUSWB" }
   , { mnemonic := "pcmpeqb",
-      shapes := "x,x · x,m",
+      shapes := "x,x · x,m · mm,mm · mm,m",
       note := "16 lanes of 8 bits; a lane becomes ALL ONES or all zeros, never 1; equality, so neither signed nor unsigned and it prices nothing about either",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPEQB" }
   , { mnemonic := "pcmpeqw",
-      shapes := "x,x · x,m",
+      shapes := "x,x · x,m · mm,mm · mm,m",
       note := "8 lanes of 16 bits; a lane becomes ALL ONES or all zeros, never 1; equality, so neither signed nor unsigned and it prices nothing about either",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPEQW" }
   , { mnemonic := "pcmpeqd",
-      shapes := "x,x · x,m",
+      shapes := "x,x · x,m · mm,mm · mm,m",
       note := "4 lanes of 32 bits; a lane becomes ALL ONES or all zeros, never 1; equality, so neither signed nor unsigned and it prices nothing about either",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPEQD" }
   , { mnemonic := "pcmpgtb",
-      shapes := "x,x · x,m",
+      shapes := "x,x · x,m · mm,mm · mm,m",
       note := "16 lanes of 8 bits; a lane becomes ALL ONES or all zeros, never 1; the comparison is SIGNED, and an unsigned model agrees wherever both lanes are non-negative",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPGTB" }
   , { mnemonic := "pcmpgtw",
-      shapes := "x,x · x,m",
+      shapes := "x,x · x,m · mm,mm · mm,m",
       note := "8 lanes of 16 bits; a lane becomes ALL ONES or all zeros, never 1; the comparison is SIGNED, and an unsigned model agrees wherever both lanes are non-negative",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPGTW" }
   , { mnemonic := "pcmpgtd",
-      shapes := "x,x · x,m",
+      shapes := "x,x · x,m · mm,mm · mm,m",
       note := "4 lanes of 32 bits; a lane becomes ALL ONES or all zeros, never 1; the comparison is SIGNED, and an unsigned model agrees wherever both lanes are non-negative",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPGTD" }
   , { mnemonic := "pshufhw",
@@ -1046,7 +1046,7 @@ acc,imm · rh"
   -- kernel `decide` at ~5 ms per character, and this column has refused a batch
   -- over documentation twice (D94, D102).  The asymmetry goes in `note`.
   , { mnemonic := "pandn",
-      shapes := "x,x · x,m",
+      shapes := "x,x · x,m · mm,mm · mm,m",
       note := "(NOT DEST) AND SRC — the DESTINATION is complemented, not the source, so DEST AND (NOT SRC) is a different function wherever the operands differ; confirmed on K (pandn_xmm_xmm.k reads andMInt(negMInt(DEST), SRC)) as well as the SDM; m must be 16-byte aligned, else #GP(0)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PANDN" }
   , { mnemonic := "andnps",

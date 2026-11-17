@@ -1793,6 +1793,18 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       let a := ea.addr s nr
       ((s.writeMem .q a (s.getMm src)).mmxTouch).setRip nr
 
+  -- ⭐⭐ D404 d1 — PACKED MMX BINARY OPERATIONS, by D404 §1's rule: the XMM function on ZERO-EXTENDED operands, low 64
+  -- bits kept. That rule is exact for the kinds `mmxTaken` names (no lane crosses bit 64; the low unpack's output pairs
+  -- all lie in bits 63:0) and WRONG for `punpckh*`/`pack*`, which are therefore refused here, not computed.
+  | .mmbin k dst src =>
+      if !k.mmxTaken then s.halt (.illegalOperands s!"mmx {k.mnemonic}")
+      else (s.setMm dst ((vbinApply k ((s.getMm dst).setWidth 128) ((s.getMm src).setWidth 128)).setWidth 64)).setRip nr
+  | .mmbinm k dst ea =>
+      if !k.mmxTaken then s.halt (.illegalOperands s!"mmx {k.mnemonic}")
+      else
+        let a := ea.addr s nr
+        (s.setMm dst ((vbinApply k ((s.getMm dst).setWidth 128) ((s.readMem .q a).setWidth 128)).setWidth 64)).setRip nr
+
   -- ⭐⭐⭐ THE PACKED SHIFTS (SDM Vol. 2B), all three count shapes.  DEST is
   -- shifted lane-wise by ONE count; "Flags Affected: None".
   --

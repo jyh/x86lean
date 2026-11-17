@@ -2270,6 +2270,12 @@ inductive Op where
   | mmovqld (dst : MmReg) (ea : Ea)
   /-- D402 — `movq mm, m64` (`NP 0F 7F /r`): a quadword store. -/
   | mmovqst (ea : Ea) (src : MmReg)
+  /-- ⭐⭐ D404 BATCH d1 — a packed MMX binary operation between two MMX registers (`NP 0F xx /r`, mod = 11). Only the
+  kinds `VBinKind.mmxTaken` names are given a meaning; every other kind is REFUSED (`illegalOperands`), because D404 §1
+  shows the XMM definition does not reach them at 64 bits (`punpckh*`, `pack*`) or they are silicon-refereed. -/
+  | mmbin (k : VBinKind) (dst src : MmReg)
+  /-- D404 d1 — the same with an m64 source. MMX memory operands carry no alignment requirement. -/
+  | mmbinm (k : VBinKind) (dst : MmReg) (ea : Ea)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFTS AT AN IMMEDIATE COUNT
   (`66 0F 71/72/73 /r ib`), and the first operation in this model whose RESULT
   IS NOT A FUNCTION OF ITS OPERANDS LANE BY LANE: one count is applied to every
@@ -2475,6 +2481,17 @@ inductive Op where
   | vaes (k : AesKind) (dst src : XmmReg)
   deriving DecidableEq, Repr, Inhabited, BEq
 
+/-- ⭐⭐ D404 d1 — the kinds given an MMX meaning: the differential, x86isa-implemented, LANE-WISE kinds and the low
+unpacks, for which D404 §1 shows MMX(a, b) = low64(XMM(zext a, zext b)). ⛔ NOT `punpckh*` or `pack*` (the XMM
+definition reads or writes the wrong half at 64 bits), and not the silicon-refereed kinds (their census class is
+per mnemonic, so an MMX differential form of one would land in the wrong class). -/
+def VBinKind.mmxTaken : VBinKind → Bool
+  | .addb | .addw | .addd | .subb | .subw | .subd
+  | .xor | .and | .or | .andn
+  | .cmpeqb | .cmpeqw | .cmpeqd | .cmpgtb | .cmpgtw | .cmpgtd
+  | .unpcklb | .unpcklw | .unpckld => true
+  | _ => false
+
 /-- ⭐⭐ V3 (D341, D339) — the packed binary kinds whose VEX.128 register twin is TAKEN:
 integer add/sub, the bitwise group, and the integer compares.  Exactly the twins the
 oracle executes (D339 measured the other VEX twins REFUSED), so the differential can
@@ -2677,6 +2694,8 @@ def opOperands : Op → List Operand
   | .mmovg _ _ _ r => [.reg r]
   | .mmovgld _ _ ea | .mmovgst _ ea _ | .mmovqld _ ea | .mmovqst ea _ => [.mem ea]
   | .mmovq .. => []
+  | .mmbin .. => []
+  | .mmbinm _ _ ea => [.mem ea]
   | .vmovq .. => []
   | .vmovs .. => []
   -- ⭐ P2 BATCH 13.  The immediate and register count shapes name no `Operand`
@@ -2867,6 +2886,8 @@ def Op.anyLocked : Op → Bool
   | .vmovgld _ _ ea | .vmovgst _ ea _ => ea.lock
   | .mmovgld _ _ ea | .mmovgst _ ea _ | .mmovqld _ ea | .mmovqst ea _ => ea.lock
   | .mmovg .. | .mmovq .. => false
+  | .mmbinm _ _ ea => ea.lock
+  | .mmbin .. => false
   | .vmovg .. | .vmovq .. | .vmovs .. => false
   -- P2 BATCH 13: `lock psrad` is not a form the SDM lists, so `lockable`
   -- refusing it is what makes it #UD — the memory shape reports its `Ea` here
@@ -3118,6 +3139,7 @@ def Op.mnemonic : Op → String
   | .vmovg _ sz .. | .vmovgld sz .. | .vmovgst sz .. => match sz with | .q => "movq" | _ => "movd"
   | .mmovg _ sz .. | .mmovgld sz .. | .mmovgst sz .. => match sz with | .q => "movq" | _ => "movd"
   | .mmovq .. | .mmovqld .. | .mmovqst .. => "movq"
+  | .mmbin k .. | .mmbinm k .. => k.mnemonic
   -- ⭐ P2 BATCH 13.  All three count shapes print the SAME mnemonic — `psrad`
   -- names the operation and the lane, and the count's provenance is in the
   -- operands, not in the name.  That is the opposite of `movss`/`movsd`, where

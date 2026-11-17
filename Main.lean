@@ -4371,7 +4371,7 @@ def wrongMmovdFromMerges (i : Instr) (s : Cpu) : Cpu :=
 def wrongMmxLoadNoTouch (i : Instr) (s : Cpu) : Cpu :=
   let t := step i s
   match i.op with
-  | .mmovg true .. | .mmovgld .. | .mmovqld .. | .mmovq .. => { t with mmx := { t.mmx with fpTag := s.mmx.fpTag, fpTop := s.mmx.fpTop } }
+  | .mmovg true .. | .mmovgld .. | .mmovqld .. | .mmovq .. | .mmbin .. | .mmbinm .. => { t with mmx := { t.mmx with fpTag := s.mmx.fpTag, fpTop := s.mmx.fpTop } }
   | _ => t
 
 /-- D402 ARM 4 — an MMX STORE that leaves the x87 state alone: x86isa's behaviour at the pin
@@ -4388,6 +4388,34 @@ def wrongMmovqReadsDst (i : Instr) (s : Cpu) : Cpu :=
   let nr := s.rip + BitVec.ofNat 64 i.len
   match i.op with
   | .mmovq dst _ => (s.setMm dst (s.getMm dst)).setRip nr
+  | _ => step i s
+
+/-- ⭐⭐ D404 d1 ARM 1 — an MMX low unpack that consumes the HIGH halves (bits 63:32) of both operands: the 64-bit
+analogue of reading the wrong half, and the mistake D404 §1 says the high unpacks would make under reuse. -/
+def wrongMmxUnpackHigh (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  let hiOf (v : BitVec 64) : BitVec 128 := (v >>> 32).setWidth 128
+  match i.op with
+  | .mmbin k dst src =>
+      if k == .unpcklb || k == .unpcklw || k == .unpckld then
+        (s.setMm dst ((vbinApply k (hiOf (s.getMm dst)) (hiOf (s.getMm src))).setWidth 64)).setRip nr
+      else step i s
+  | _ => step i s
+
+/-- D404 d1 ARM 2 — MMX `pandn` complements the SOURCE instead of the destination. -/
+def wrongMmxAndnSource (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .mmbin .andn dst src => (s.setMm dst ((s.getMm dst) &&& ~~~(s.getMm src))).setRip nr
+  | _ => step i s
+
+/-- D404 d1 ARM 3 — a packed MMX operation that ignores its DESTINATION operand (computes as if it were zero). -/
+def wrongMmxIgnoresDst (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  match i.op with
+  | .mmbin k dst src =>
+      if k.mmxTaken then (s.setMm dst ((vbinApply k 0 ((s.getMm src).setWidth 128)).setWidth 64)).setRip nr
+      else step i s
   | _ => step i s
 
 /-- ⛔⛔ P2 BATCH 14, ARM 1 — THE PERMUTE'S FIELD ORDER REVERSED.  Destination
@@ -5025,6 +5053,10 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("an MMX load leaves the x87 tag word as it was", wrongMmxLoadNoTouch, "fptag")
   , ("an MMX store leaves the x87 tag word as it was (x86isa's behaviour, D402 §2.2)", wrongMmxStoreNoTouch, "fptag")
   , ("movq mm, mm copies its destination", wrongMmovqReadsDst, "mm0")
+  -- ⭐⭐ D404 d1 — the packed MMX binary operations.
+  , ("an MMX low unpack consumes the high halves", wrongMmxUnpackHigh, "mm0")
+  , ("MMX pandn complements the source", wrongMmxAndnSource, "mm0")
+  , ("a packed MMX operation ignores its destination", wrongMmxIgnoresDst, "mm0")
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFTS.  Four arms, and the
   -- first two are the batch: each is a model a careful reader would write, and
   -- each is bit-identical to the right one over a whole regime of counts.
