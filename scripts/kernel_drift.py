@@ -485,6 +485,15 @@ EXEMPT_RULES = [
     ("hwprobe/", "the x86-64 hardware referee (D266): C, assembly, Python and Lisp built by a C "
                  "compiler or run by ACL2, never by `lake`; a `.lean` under it would have been "
                  "bucketed as `.lean` first."),
+    # ⛔ ADDED 2026-11-16, BY THE GATE REFUSING — the sixth unargued path (x86lean #196, found by
+    # kent from CI's red selftest). `artifact/` is the CAV 2027 artifact (row 63): a Dockerfile, its
+    # README, two shell drivers and the main-table splitter.
+    ("artifact/", "the CAV artifact's packaging: a Dockerfile, a README and the drivers a reviewer "
+                  "runs. The Dockerfile COPIES the repository into an image and runs `lake` THERE, "
+                  "on that copy; nothing under artifact/ is read by `lake` in this tree, and no "
+                  "`.lean`, lakefile or manifest names it. Running `lake` inside the image measures "
+                  "the same sources under another host's conditions; it does not change what the "
+                  "sources are. A `.lean` under it would have been bucketed as `.lean` first."),
 ]
 
 

@@ -1,0 +1,78 @@
+# CAV 2027 artifact, stage 1 (STATUS-paris row 63, act 3 (a)): build the linux/amd64 image on a hosted runner and
+# MEASURE the cold Lean build inside it (wall time, peak RSS, image size). Read-only for the repository; it publishes
+# nothing (the image is kept as a workflow artifact for 7 days, never pushed to a registry).
+name: artifact-image
+on:
+  workflow_dispatch:
+  push:
+    branches: [paris/o38-artifact]
+    paths: [artifact/**, .github/workflows/artifact-image.yml, '!artifact/README.md']
+permissions:
+  contents: read
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # check_claims re-derives each figure at the commit it names
+      - name: Build the image (no credentials; public downloads only)
+        run: |
+          start=$(date +%s)
+          docker build --progress=plain --platform linux/amd64 -f artifact/Dockerfile -t x86lean-artifact:stage1 . 2>&1 | tee /tmp/dbuild.log; test ${PIPESTATUS[0]} -eq 0
+          echo "MEASURE docker-build secs=$(( $(date +%s) - start ))"
+      - name: Cold Lean build inside the image, timed, at LEAN_NUM_THREADS=2 (a laptop-shaped setting)
+        run: |
+          echo "MEASURE runner nproc=$(nproc) mem_kb=$(awk '/MemTotal/{print $2}' /proc/meminfo)"
+          docker run --rm -e LEAN_NUM_THREADS=2 x86lean-artifact:stage1
+      - name: The axiom gate and the claims manifest inside the image
+        run: |
+          docker run --rm -e LEAN_NUM_THREADS=2 x86lean-artifact:stage1 bash -c 'python3 scripts/lean_route.py build >/dev/null 2>&1; s=$(date +%s); bash scripts/axiom_gate.sh > /tmp/ax.log 2>&1; r=$?; echo "MEASURE axiom-gate rc=$r secs=$(( $(date +%s) - s ))"; tail -2 /tmp/ax.log; s=$(date +%s); python3 scripts/check_claims.py > /tmp/cc.log 2>&1; r=$?; echo "MEASURE check-claims rc=$r secs=$(( $(date +%s) - s ))"; tail -1 /tmp/cc.log'
+      - name: The FULL differential inside the image, stage by stage
+        run: docker run --rm -e LEAN_NUM_THREADS=2 x86lean-artifact:stage1 bash artifact/measure-diff.sh
+      # The tarball carries the README's own name and the README's own tag: artifact/README.md says
+      # `docker load < x86lean-artifact.tar.gz` and then `docker run … x86lean-artifact`, which Docker reads as
+      # `:latest`. Until 2026-11-16 this step saved `image.tar.gz` with only the `:stage1` tag, so the README's
+      # run line would have found no image after the load (paper's read of the README found the missing source;
+      # the tag mismatch was found while fixing it).
+      - name: Image size, as a reviewer would download it
+        run: |
+          docker tag x86lean-artifact:stage1 x86lean-artifact:latest
+          docker save x86lean-artifact:latest | gzip -1 > x86lean-artifact.tar.gz
+          echo "MEASURE image-tar-gz bytes=$(stat -c %s x86lean-artifact.tar.gz)"
+          echo "MEASURE image-tar-gz sha256=$(sha256sum x86lean-artifact.tar.gz | cut -d' ' -f1)"
+      - name: docker load, as a reviewer would start (every image removed first), then the README's own run form
+        run: |
+          docker rmi -f x86lean-artifact:stage1 x86lean-artifact:latest > /dev/null
+          start=$(date +%s); docker load < x86lean-artifact.tar.gz > /tmp/load.log 2>&1; r=$?
+          echo "MEASURE docker-load rc=$r secs=$(( $(date +%s) - start ))"; cat /tmp/load.log
+          docker run --rm x86lean-artifact bash -c 'lean --version && test -x vendor/acl2/saved_acl2 && echo oracle-present'
+      # Kept 7 days as this run's artifact: the copy a pre-deposit read fetches. The archival copy is the Zenodo
+      # record (the Captain's deposit); the README names whichever exists, with this sha256.
+      - name: Keep the tarball as this run's artifact (7 days)
+        uses: actions/upload-artifact@v4
+        with:
+          name: x86lean-artifact
+          path: x86lean-artifact.tar.gz
+          retention-days: 7
+          compression-level: 0
+  # (a') the reviewer on an ARM laptop: the SAME linux/amd64 image under QEMU on an arm64 runner, the Lean build only.
+  # It measures the emulation penalty the README cannot otherwise state. A one-off measurement, not a gate.
+  emulated:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: amd64
+      - name: Build the amd64 image under emulation
+        run: |
+          start=$(date +%s)
+          docker build --progress=plain --platform linux/amd64 --target lean -f artifact/Dockerfile -t x86lean-artifact:emu . > /tmp/dbuild.log 2>&1; r=$?
+          echo "MEASURE emu-docker-build rc=$r secs=$(( $(date +%s) - start ))"; grep -a -F 'MEASURE' /tmp/dbuild.log | tail -2; exit $r
+      - name: Cold Lean build in the amd64 image under emulation, LEAN_NUM_THREADS=2
+        run: |
+          echo "MEASURE emu-runner arch=$(uname -m) nproc=$(nproc) mem_kb=$(awk '/MemTotal/{print $2}' /proc/meminfo)"
+          docker run --rm --platform linux/amd64 -e LEAN_NUM_THREADS=2 x86lean-artifact:emu
