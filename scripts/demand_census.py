@@ -1879,8 +1879,9 @@ def selftest():
         # MMX one, so its `%mm` spelling is unclaimed (it was credited to the XMM row on this tool's first D402 run)
         ("movq",   "MMX (mm)",           "movq"),
         ("movd",   "MMX (mm)",           "movd"),
-        ("paddw",  "MMX (mm)",           None),
-        ("pxor",   "MMX (mm)",           None),
+        # ⭐ D404 d1 gave paddw/pxor MMX rows; the examples of an XMM-only mnemonic are now the high unpack and the pack
+        ("punpckhbw", "MMX (mm)",        None),
+        ("packuswb", "MMX (mm)",         None),
         # ⭐ the form P2 batch 3 landed and nothing mapped
         ("movabsq", "mov imm64 / movabs (P2 addition 3)", "mov"),
         # ⛔ a VEX spelling the model does not name is still not a roster name
@@ -1914,7 +1915,7 @@ def selftest():
     # have — because that is the only shape in which the over-claim can occur.
     scope_arms = [
         ("paddw",   "SSE-legacy (xmm)",                       True),
-        ("paddw",   "MMX (mm)",                               False),
+        ("punpckhbw", "MMX (mm)",                             False),
         ("paddd",   "AVX2/AVX (ymm)",                         False),
         ("movdqa",  "AVX-512 (zmm/k)",                        False),
         ("movq",    "VEX-128 (v… xmm)",                       False),
@@ -1971,7 +1972,7 @@ def selftest():
     # `_split` the whole time, which is precisely why nobody looked at it.
     synth = collections.Counter()
     for key, k in [(("movdqa", "vector", "CC", "SSE-legacy (xmm)"), 100),
-                   (("paddw",  "vector", "CC", "MMX (mm)"),          40),
+                   (("punpckhbw", "vector", "CC", "MMX (mm)"),       40),
                    (("vpaddd", "vector", "AA", "AVX2/AVX (ymm)"),    25),
                    (("movq",   "segment","CC", "segment base %fs:/%gs: (P2 addition 1)"), 7),
                    (("addq",   "lock",   "CC", "LOCK prefix (P2 addition 2)"), 3),
@@ -1988,7 +1989,7 @@ def selftest():
           # ⛔ the per-mnemonic keying is the SAME residue, not a second count
           and sum(sum(v.values()) for v in by_ext.values())
               == sum(buckets.values())
-          and by_ext.get("paddw", {}).get("MMX (mm)") == 40)
+          and by_ext.get("punpckhbw", {}).get("MMX (mm)") == 40)
     print(("  ✔ " if ok else "  ⛔ ") +
           f"conservation: covered {c_cov} + uncovered {sum(buckets.values())} "
           f"== total {c_tot} (padding {_pad} excluded)" +
@@ -2157,7 +2158,7 @@ def selftest():
     fx = collections.Counter({("paddd",   "vector", "CC", "SSE-legacy (xmm)"): 50,
                               ("pmaddwd", "vector", "AA", "SSE-legacy (xmm)"): 30,
                               ("andnl",   "plain",  "CC", "BMI1"):             5,
-                              ("paddw",   "vector", "AA", "MMX (mm)"):         4,
+                              ("punpckhbw", "vector", "AA", "MMX (mm)"):       4,
                               ("phaddw",  "vector", "AA", "SSE-legacy (xmm)"): 2})  # D379: was pmulld
     ref = differential_reference(_M)
     with contextlib.redirect_stdout(io.StringIO()):

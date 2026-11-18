@@ -26063,3 +26063,23 @@ right on the low forms and wrong on every high form, in exactly the direction a 
 - **Not in either:** pmaxsw, psadbw, pshufw and pavgb. Their mm forms are unimplemented in x86isa (the price brief), so
   they are a silicon-referee wave.
 - **Kernel:** measured at each batch's K1, never predicted from D400.
+
+### 4. RESULTS, BATCH d1 (2026-11-17, yukon; `paris/mmx-arith`)
+- **Built:** `mmbin`/`mmbinm` over `VBinKind`, given a meaning only for `VBinKind.mmxTaken`: the 19 differential kinds
+  paddb/w/d, psubb/w/d, pxor, pand, por, pandn, pcmpeq{b,w,d}, pcmpgt{b,w,d} and punpckl{bw,wd,dq}. Every other kind is
+  REFUSED. 38 vectors (register and m64 source each); clang cross-check CLEAN over 1,551. Build EXIT=0.
+  ⛔ **Out of d1 by the census's class rule, not by the semantics:** pmullw, pmulhw, paddsw, psubsw, psubusb, psubusw and
+  pmaddwd are `siliconTable` mnemonics. The census classes per MNEMONIC, so a differential MMX form of one would be filed
+  silicon. Their batch needs a per-extension class rule first.
+- **Red arms**, all caught: a low unpack reading the high halves (192 in mm0), pandn complementing the source (84), an op
+  ignoring its destination (1,114). The load arm, widened to the packed forms, is caught 3,780 in fptag.
+- **The differential, against a line SEALED before it (23:46:24Z):**
+  ```
+    sealed: cases=136488 matched=112356 explained=34407 unexplained=0 oracle-divergence=1927 oracle-leaks=0 missing=0
+    read:   cases=136488 matched=112356 explained=34407 unexplained=0 oracle-divergence=1927 oracle-leaks=0 missing=0
+  ```
+  **Predictions 1 and 3 HELD:** every lane-wise kind and low unpack agrees through §1's rule, and no arithmetic vector
+  diverges in `fptag`/`fptop`. Prediction 2 (the high-unpack/pack reuse arm) belongs to d2.
+- **The census, against a figure derived from the JSON beforehand:** covered **+14,678** (ffmpeg 7,045 · x264 6,004 ·
+  vlc-video_chroma 1,505 · vpx 124), exactly the d1 mnemonics' MMX demand. The MMX miss falls 28,551 → 13,873, and the P2
+  gap 330,948 → 316,270. Prediction 4 HELD.
