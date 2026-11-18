@@ -4869,9 +4869,42 @@ def vexMovVectors : List Vec :=
     , bytes := "c57d116bf0", instr := ⟨.vex (.vexstore256 .upd { base := some .rbx, disp := -0x10 } .x13), 5⟩ }
   ]
 
+/-- ⭐⭐ D405 — the vectors of `X86.mmxTwinTable`, kept apart from `vectors` exactly as that table is kept apart from
+`tableP0` (the VEX precedent): the main table's figures do not move. -/
+def mmxTwinVectors : List Vec :=
+  [ { id := "mmx_pmullw_rr", mnemonic := "pmullw", asm := "pmullw %mm1, %mm0"
+    , bytes := "0fd5c1", instr := ⟨.mmbin .mullw .m0 .m1, 3⟩ }
+  , { id := "mmx_pmullw_rm", mnemonic := "pmullw", asm := "pmullw (%rbx), %mm2"
+    , bytes := "0fd513", instr := ⟨.mmbinm .mullw .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_pmulhw_rr", mnemonic := "pmulhw", asm := "pmulhw %mm1, %mm0"
+    , bytes := "0fe5c1", instr := ⟨.mmbin .mulhw .m0 .m1, 3⟩ }
+  , { id := "mmx_pmulhw_rm", mnemonic := "pmulhw", asm := "pmulhw (%rbx), %mm2"
+    , bytes := "0fe513", instr := ⟨.mmbinm .mulhw .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_paddsw_rr", mnemonic := "paddsw", asm := "paddsw %mm1, %mm0"
+    , bytes := "0fedc1", instr := ⟨.mmbin .addsw .m0 .m1, 3⟩ }
+  , { id := "mmx_paddsw_rm", mnemonic := "paddsw", asm := "paddsw (%rbx), %mm2"
+    , bytes := "0fed13", instr := ⟨.mmbinm .addsw .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_psubsw_rr", mnemonic := "psubsw", asm := "psubsw %mm1, %mm0"
+    , bytes := "0fe9c1", instr := ⟨.mmbin .subsw .m0 .m1, 3⟩ }
+  , { id := "mmx_psubsw_rm", mnemonic := "psubsw", asm := "psubsw (%rbx), %mm2"
+    , bytes := "0fe913", instr := ⟨.mmbinm .subsw .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_psubusb_rr", mnemonic := "psubusb", asm := "psubusb %mm1, %mm0"
+    , bytes := "0fd8c1", instr := ⟨.mmbin .subusb .m0 .m1, 3⟩ }
+  , { id := "mmx_psubusb_rm", mnemonic := "psubusb", asm := "psubusb (%rbx), %mm2"
+    , bytes := "0fd813", instr := ⟨.mmbinm .subusb .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_psubusw_rr", mnemonic := "psubusw", asm := "psubusw %mm1, %mm0"
+    , bytes := "0fd9c1", instr := ⟨.mmbin .subusw .m0 .m1, 3⟩ }
+  , { id := "mmx_psubusw_rm", mnemonic := "psubusw", asm := "psubusw (%rbx), %mm2"
+    , bytes := "0fd913", instr := ⟨.mmbinm .subusw .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_pmaddwd_rr", mnemonic := "pmaddwd", asm := "pmaddwd %mm1, %mm0"
+    , bytes := "0ff5c1", instr := ⟨.mmbin .maddwd .m0 .m1, 3⟩ }
+  , { id := "mmx_pmaddwd_rm", mnemonic := "pmaddwd", asm := "pmaddwd (%rbx), %mm2"
+    , bytes := "0ff513", instr := ⟨.mmbinm .maddwd .m2 { base := some .rbx }, 3⟩ } ]
+
 /-- Every differential vector: the main table's, then the VEX twins', then their VEX.256 twins', then the VEX memory twins' (V9a), then the VEX move memory forms' (V9b). What `emit`, `emit-acl2`
 and the encoding checks walk. -/
 def allVectors : List Vec := vectors ++ vexVectors ++ vex256Vectors ++ vexMemVectors ++ vexMovVectors
+  ++ mmxTwinVectors
 
 /-! ## Pre-states: adversarial first, then pseudo-random
 

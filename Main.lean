@@ -4409,6 +4409,19 @@ def wrongMmxAndnSource (i : Instr) (s : Cpu) : Cpu :=
   | .mmbin .andn dst src => (s.setMm dst ((s.getMm dst) &&& ~~~(s.getMm src))).setRip nr
   | _ => step i s
 
+/-- ⭐⭐ D405 ARM — an MMX SATURATING form that WRAPS instead (paddsw as paddw, psubsw as psubw, psubus{b,w} as
+psub{b,w}): the plausible wrong model for four of the seven twins. -/
+def wrongMmxSatWraps (i : Instr) (s : Cpu) : Cpu :=
+  let nr := s.rip + BitVec.ofNat 64 i.len
+  let wrapOf : VBinKind → Option VBinKind
+    | .addsw => some .addw | .subsw => some .subw | .subusb => some .subb | .subusw => some .subw | _ => none
+  match i.op with
+  | .mmbin k dst src =>
+      match wrapOf k with
+      | some w => (s.setMm dst (mmxApply w (s.getMm dst) (s.getMm src))).setRip nr
+      | none => step i s
+  | _ => step i s
+
 /-- ⭐⭐ D404 d2 ARM (D404 §2 prediction 2) — the high unpacks and the pack built by the REUSE rule that D404 §1 says does
 not reach them: low64(XMM(zext a, zext b)). It reads zeros as the high halves, and drops the source from the pack. -/
 def wrongMmxReuseXmm (i : Instr) (s : Cpu) : Cpu :=
@@ -5070,6 +5083,8 @@ def selftestArms : List (String × (Instr → Cpu → Cpu) × String) :=
   , ("MMX pandn complements the source", wrongMmxAndnSource, "mm0")
   -- ⭐⭐ D404 d2 — D404 §2 prediction 2: the reuse rule on the forms it does not reach.
   , ("the MMX high unpacks and pack reuse the XMM rule", wrongMmxReuseXmm, "mm0")
+  -- ⭐⭐ D405 — the MMX twins of processor-refereed rows.
+  , ("an MMX saturating twin wraps instead", wrongMmxSatWraps, "mm0")
   , ("a packed MMX operation ignores its destination", wrongMmxIgnoresDst, "mm0")
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFTS.  Four arms, and the
   -- first two are the batch: each is a model a careful reader would write, and
@@ -6178,6 +6193,13 @@ test them. Each is checked instead by `hwprobe/` — rows derived from the SDM's
 `hwprobe/mk_int_rows.py` and `hwprobe/mk_shuf_rows.py` (and, for the packed-integer arithmetic, `hwprobe/mk_simda_rows.py`; for SHA-NI, `hwprobe/mk_sha_rows.py`, whose known-answer rows come from a textbook FIPS 180-4 SHA-256; for AES-NI, VPCLMULQDQ and the VEX shuffles, `hwprobe/mk_aes_rows.py`, whose known-answer rows come from a textbook FIPS-197 AES-128 and a textbook carry-less product), run on a hosted runner's processor — and this model is checked against the same \
 rows by `decide` in `Tests/Anchors.lean` (D330), `Tests/AnchorsBmi.lean` (D334), `Tests/AnchorsShuf.lean` (D336), `Tests/AnchorsSimd.lean` (D335), `Tests/AnchorsSha.lean` (D338) and `Tests/AnchorsAes.lean` (D342). Where the SDM leaves a flag undefined, neither the processor nor the kernel compares it. The rows are CHOSEN, not swept over the 88 pre-states, \
 and they are not counted in the roster figure above.\n\n"
+      -- ⭐⭐ D405: the MMX twins of processor-refereed rows, published BETWEEN the processor section and the VEX one, so
+      -- the census's processor-section reader sees them (they are silicon mnemonics) and its VEX reader does not.
+      let mmxTwin := "\n## MMX register twins of processor-refereed rows, differentially tested (D405)\n\n" ++
+        toString mmxTwinTable.length ++ " mnemonics in " ++ toString mmxTwinVectors.length ++ " differentially \
+tested forms, NOT counted in the roster figure above. The XMM form of each is in the processor section, because the \
+reference model refuses it; the reference model implements the MMX form, so the MMX form is differentially tested. Each \
+row keeps one referee.\n\n"
       -- ⭐⭐⭐ V3 (D341): the VEX.128 twins, a THIRD population, published as their own table and
       -- their own count, never folded into the roster figure above.
       let vex := "\n## VEX.128 register twins, differentially tested (V3, D341)\n\n" ++
@@ -6206,7 +6228,7 @@ Each mnemonic below has at least one differentially tested vector whose form `Op
 credit LOCK-prefixed instructions; a mnemonic not listed stays in its residue.\n\n\
 Lockable: " ++ String.intercalate " " (lockMns.map (fun m => "`" ++ m ++ "`")) ++ "\n"
       IO.FS.writeFile out (hdr ++ renderTable tableP0 ++ trust ++ silicon ++ renderTable siliconTable
-        ++ vex ++ renderTable (vexTable.map (·.row)) ++ lock)
+        ++ mmxTwin ++ renderTable mmxTwinTable ++ vex ++ renderTable (vexTable.map (·.row)) ++ lock)
       IO.println s!"wrote coverage table ({tableP0.length} rows) → {out}"
       return 0
   -- ⭐⭐ P2 BATCH 12 (D105): THE RUN-INDEX CERTIFICATE.  `Tests/Coverage.lean`'s

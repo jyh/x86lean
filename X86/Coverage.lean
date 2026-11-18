@@ -1101,6 +1101,26 @@ structure VexRow where
   twin : String
   deriving Repr, Inhabited
 
+/-- ⭐⭐ D405 — THE MMX TWINS OF PROCESSOR-REFEREED ROWS, a population of their own (D341's VEX precedent). Each
+mnemonic's XMM form is a `siliconTable` row, because x86isa refuses it; x86isa IMPLEMENTS the MMX def-inst, so the MMX
+form is differentially tested, and each row keeps ONE referee. Published in its own COVERAGE.md section, never
+counted in the roster figure. -/
+def mmxTwinTable : List Row :=
+  [ { mnemonic := "pmullw", shapes := "mm,mm · mm,m", note := "the four low 16 bits of each word product; the MMX form, differential (D405)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULLW" }
+  , { mnemonic := "pmulhw", shapes := "mm,mm · mm,m", note := "the four high 16 bits of each signed word product; the MMX form, differential (D405)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULHW" }
+  , { mnemonic := "paddsw", shapes := "mm,mm · mm,m", note := "four words, signed saturating add; the MMX form, differential (D405)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDSW" }
+  , { mnemonic := "psubsw", shapes := "mm,mm · mm,m", note := "four words, signed saturating subtract; the MMX form, differential (D405)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBSW" }
+  , { mnemonic := "psubusb", shapes := "mm,mm · mm,m", note := "eight bytes, unsigned saturating subtract; the MMX form, differential (D405)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBUSB" }
+  , { mnemonic := "psubusw", shapes := "mm,mm · mm,m", note := "four words, unsigned saturating subtract; the MMX form, differential (D405)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBUSW" }
+  , { mnemonic := "pmaddwd", shapes := "mm,mm · mm,m", note := "two dwords, each the sum of two signed word products; the MMX form, differential (D405)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMADDWD" } ]
+
 /-- ⭐⭐⭐ V3 (D341): THE VEX.128 REGISTER TWINS — a THIRD population beside `tableP0` (the 199
 differentially tested mnemonics) and `siliconTable` (the forms only a processor referees).
 

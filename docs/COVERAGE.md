@@ -334,6 +334,20 @@ The reference model (ACL2 x86isa) refuses these forms at every pre-state, so no 
 | `vmovss` | x,x,x · x,m · m,x — VEX.128: x,x,x takes the low 32 bits from src and 127:32 from src1; m → x loads and zeroes 255:32; x → m writes 4 bytes; YMM 255:128 zeroed · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B MOVSS |
 | `vmovsd` | x,x,x · x,m · m,x — VEX.128: x,x,x takes the low 64 bits from src and 127:64 from src1; m → x loads and zeroes 255:64; x → m writes 8 bytes; YMM 255:128 zeroed · x86isa refuses it | T-exact | XED (trusted) | — | Vol. 2B MOVSD |
 
+## MMX register twins of processor-refereed rows, differentially tested (D405)
+
+7 mnemonics in 14 differentially tested forms, NOT counted in the roster figure above. The XMM form of each is in the processor section, because the reference model refuses it; the reference model implements the MMX form, so the MMX form is differentially tested. Each row keeps one referee.
+
+| mnemonic | operand shapes | tier | decode trust | undefined bits | SDM |
+|---|---|---|---|---|---|
+| `pmullw` | mm,mm · mm,m — the four low 16 bits of each word product; the MMX form, differential (D405) | T-exact | XED (trusted) | — | Vol. 2B PMULLW |
+| `pmulhw` | mm,mm · mm,m — the four high 16 bits of each signed word product; the MMX form, differential (D405) | T-exact | XED (trusted) | — | Vol. 2B PMULHW |
+| `paddsw` | mm,mm · mm,m — four words, signed saturating add; the MMX form, differential (D405) | T-exact | XED (trusted) | — | Vol. 2B PADDSW |
+| `psubsw` | mm,mm · mm,m — four words, signed saturating subtract; the MMX form, differential (D405) | T-exact | XED (trusted) | — | Vol. 2B PSUBSW |
+| `psubusb` | mm,mm · mm,m — eight bytes, unsigned saturating subtract; the MMX form, differential (D405) | T-exact | XED (trusted) | — | Vol. 2B PSUBUSB |
+| `psubusw` | mm,mm · mm,m — four words, unsigned saturating subtract; the MMX form, differential (D405) | T-exact | XED (trusted) | — | Vol. 2B PSUBUSW |
+| `pmaddwd` | mm,mm · mm,m — two dwords, each the sum of two signed word products; the MMX form, differential (D405) | T-exact | XED (trusted) | — | Vol. 2B PMADDWD |
+
 ## VEX.128 register twins, differentially tested (V3, D341)
 
 34 mnemonics in 44 differentially tested forms, NOT counted in the roster figure above. Each is the VEX.128 twin of a row of the main table and computes that row's 128-bit function with VEX.vvvv's first source in the legacy destination's place; it ZEROES bits 255:128 of the destination's YMM register, where the legacy form preserves them, and the differential record compares those bits on both sides. Every register form is also differentially tested at VEX.256 (VEX.L = 1, V6, D344): 41 more forms, each computing the 128-bit function in each lane and WRITING bits 255:128. The MEMORY twins (an m128 or m256 second source, with no alignment check) are differentially tested for the 26 packed binary kinds of `VBinKind.vexMemTaken`, at VEX.128 and VEX.256: `vpxor`'s VEX.128 one since D342, and the rest since V9a (D353), in 104 more forms, aligned and misaligned. The six packed MOVES' memory forms (loads and stores, VEX.128 and VEX.256, V9b, D354) are differentially tested in 72 more forms: every kind aligned, and the three unaligned kinds also misaligned. The aligned kinds' #GP (16 bytes at VEX.128, 32 at VEX.256) is NOT differentially tested, because x86isa executes the misaligned forms; it is carried by theorem (`Tests/CoverageVexMov.lean`); a silicon wave is V9b's next step. Decode trust here is LLVM `objdump`'s, which decodes a legacy 66/REX prefix before VEX as the plain VEX form where the SDM says #UD — no vector carries one (D341).

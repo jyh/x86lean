@@ -34,6 +34,7 @@ import Tests.CoverageVex
 import Tests.CoverageVex256
 import Tests.CoverageVexMem
 import Tests.CoverageVexMov
+import Tests.CoverageMmx
 import Tests.AnchorsVexSilD
 import Tests.Program
 import Tests.Logic

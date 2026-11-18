@@ -2492,6 +2492,8 @@ def VBinKind.mmxTaken : VBinKind → Bool
   | .unpcklb | .unpcklw | .unpckld => true
   -- ⭐ D404 d2: the high unpacks and the pack, through their own placement in `mmxApply`.
   | .unpckhb | .unpckhw | .unpckhd | .packuswb => true
+  -- ⭐ D405: the MMX twins of the processor-refereed rows (lane-wise, so `mmxApply`'s default rule).
+  | .mullw | .mulhw | .addsw | .subsw | .subusb | .subusw | .maddwd => true
   | _ => false
 
 /-- ⭐⭐ V3 (D341, D339) — the packed binary kinds whose VEX.128 register twin is TAKEN:

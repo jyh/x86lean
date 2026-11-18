@@ -26138,3 +26138,22 @@ A row in this repository states one tier and one referee, and the published per-
 and the processor section's count) are counted from rows. (B) makes one row both, which no column can express and no gate
 checks. (A) is reversible by deleting a table. **Default: (A), built on the branch, red-first:** an arm in which an MMX
 pmullw form lands in (a) while its XMM twin stays (b), and the plant (the rule removed) must red it.
+
+### 3. STEP 2 (the Lean half of (A)) — and a SEALED PREDICTION THAT FAILED
+- **Built:** `mmxTwinTable` (7 rows, its own COVERAGE.md section between the processor section and the VEX one), the seven
+  kinds admitted by `mmxTaken`, 14 vectors in `mmxTwinVectors` outside `vectors` (the main table's figures do not move),
+  and `Tests/CoverageMmx.lean` (size, distinct rows, each a silicon row and not a main row, rows ↔ vectors). Build EXIT=0;
+  clang CLEAN over 1,573; a saturating-twin-wraps arm is caught (154).
+- **The seal (00:46:46Z) said `unexplained=0`. The run read `unexplained=162`.** All 162 are MMX `pmaddwd`, 82 of 88
+  register cases and 80 of 88 memory cases. Every other field and vector is as sealed.
+- **THE MECHANISM, read at the pin:** `x86-pmaddwd-mmx` (instructions/pmadd.lisp:173) calls
+  `(simd-muladd-spec (* 8 operand-size) 16 src1 src2)`, chunk size **16**. That function's own documentation says *"for the
+  MMX form of PMADDWD, total-size is 64 and chunk-size is 32; each half-chunk is 16 bits."* At chunk 16 it multiplies 8-bit
+  halves into 16-bit sums. By hand at pre-state 0 (mm0 = all ones, mm1 = 0101010101010100): the chunk-16 reading gives
+  fffefffefffeffff, which is the oracle's value exactly, and the SDM's word rule gives fffffdfefffffdff, which is the model's.
+  This is the only `simd-muladd-spec` call site in x86isa, and its XMM PMADDWD is refused, so the defective path is the
+  reference model's ONLY PMADDWD. ⇒ **The second def-inst in this wave where x86isa contradicts its own documentation.**
+- **Not declared on either word.** Silicon decides: `hwprobe/pmaddwd_mm_probe.c` with rows GENERATED from the record
+  files (operands, model result, oracle result), paddw controls, and a plant that runs paddw in pmaddwd's place.
+  **PREDICTED, before the run: VERDICT model**, because the model's lane function is the XMM one D335's hwprobe rows already
+  referee on AMD and Intel. Wrong if silicon reads `oracle` or `mixed`.
