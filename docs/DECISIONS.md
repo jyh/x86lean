@@ -26083,3 +26083,19 @@ right on the low forms and wrong on every high form, in exactly the direction a 
 - **The census, against a figure derived from the JSON beforehand:** covered **+14,678** (ffmpeg 7,045 · x264 6,004 ·
   vlc-video_chroma 1,505 · vpx 124), exactly the d1 mnemonics' MMX demand. The MMX miss falls 28,551 → 13,873, and the P2
   gap 330,948 → 316,270. Prediction 4 HELD.
+
+### 5. BATCH d2 — THE HIGH UNPACKS AND THE PACK: their 64-bit definitions, and predictions, BEFORE any model work
+The four differential forms §1 says the reuse rule does NOT reach: punpckhbw (752), punpckhwd (536), punpckhdq (352) and
+packuswb (1,125), 2,765 instructions in all. (packssdw is a `siliconTable` mnemonic, and packsswb is not a model mnemonic.)
+Each is DERIVED from the XMM function, so no arithmetic is re-written, only the placement it got wrong:
+- **`punpckh{bw,wd,dq}` (MMX) = low64(punpckl{bw,wd,dq}(zext(a >>> 32), zext(b >>> 32)))**, because the high unpack of a
+  64-bit operand is the low unpack of its upper 32 bits.
+- **`packuswb` (MMX) = r[31:0] ‖ r[95:64] placed at 63:32, where r = packuswb_XMM(zext a, zext b)**. XMM writes the
+  destination's saturated words to bytes 0–7 and the source's to bytes 8–15, so with zero upper halves the MMX result's
+  bytes 0–3 are r's bytes 0–3 and its bytes 4–7 are r's bytes 8–11.
+**Predictions** (what would show each wrong):
+1. The four agree with x86isa in every key with no declaration (8 new vectors, 704 cases): unexplained 0, divergence
+   unchanged at 1,927. Wrong if any unexplained.
+2. D404 §2's reuse arm, which builds the four by low64(XMM(zext a, zext b)), is CAUGHT in `mm0` on every vector of the
+   four forms. Wrong if any vector of them reads 0 for that arm.
+3. The census credits exactly 2,765 more, and the MMX residue falls 13,873 → 11,108.
