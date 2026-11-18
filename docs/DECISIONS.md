@@ -26157,3 +26157,22 @@ pmullw form lands in (a) while its XMM twin stays (b), and the plant (the rule r
   files (operands, model result, oracle result), paddw controls, and a plant that runs paddw in pmaddwd's place.
   **PREDICTED, before the run: VERDICT model**, because the model's lane function is the XMM one D335's hwprobe rows already
   referee on AMD and Intel. Wrong if silicon reads `oracle` or `mixed`.
+
+### 4. SILICON DECIDES, THE DECLARATION, AND THE CENSUS SEAL THAT FAILED
+- **Silicon** (`hwprobe/pmaddwd_mm_probe.c`, run 44211387625, both legs green): AMD EPYC 7763 and Intel Core i7-8700B read
+  **VERDICT model, 6 of 6** on each. The paddw controls held, and the plant (paddw in pmaddwd's place) gave "mixed (model 0,
+  oracle 0)", rc 3, as required. **The prediction HELD.** x86isa's MMX PMADDWD is wrong and the model stays.
+- **Declared** (`knownDivergences`, D331's state lists derived from the records): `mmx_pmaddwd_rr`/mm0 at its 82 diverging
+  states and `mmx_pmaddwd_rm`/mm2 at its 80. The differential then equals a line sealed before it (00:54:55Z):
+  `cases=138424 matched=114130 explained=34407 unexplained=0 oracle-divergence=2089 oracle-leaks=0 missing=0`.
+- ⛔ **THE CENSUS DID NOT READ AS SEALED.** Sealed: covered +3,530. Read: covered **+0** and silicon **+3,530**. The twin
+  forms were filed in class (b). **The mechanism:** `report()` does not use `_decide`'s covered flag. It re-derives the
+  class from the ROSTER NAME aggregated across buckets (`covered = sum(k … if r in model)`, `silicon = sum(k … if r in
+  sil_set)`), and `pmullw` is silicon by name. That is the second implementation of the decision that `_decide`'s own
+  docstring warns about. **Step 1's arm tested `_decide` alone, which this path bypasses**: an arm on the function, not on
+  the figure. The shipped census files are left at their d2 state (record 48), so nothing misfiled is committed.
+  ⇒ **OWED, the next act:** make the census's UNIT honour one row, one referee, probably by giving an MMX twin its own
+  roster name (e.g. `mm:pmullw`) with the D337 reference carrying the twin set independently of the silicon split. Its arm
+  must be on `report()`'s figures (a fixture whose MMX pmullw lands in `covered`), not only on `_decide`. The selftest's
+  `class pmaddwd in MMX` arm now reads (True, mapped) at `_decide` while the figure misfiles: it is RED and left red, as
+  the record of that gap.

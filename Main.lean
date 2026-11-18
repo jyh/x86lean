@@ -358,7 +358,15 @@ structure KnownDivergence where
   deriving Repr, Inhabited
 
 def knownDivergences : List KnownDivergence :=
-  [ -- ⛔⛔ D403 — x86isa's MMX STORES LEAVE THE x87 STATE, against its own documented rule and against
+  [ -- ⛔⛔ D405 — x86isa's MMX PMADDWD multiplies 8-bit halves (chunk size 16 where its own doc says 32), and silicon on
+  -- two vendors reads the model's word-pair rule. Declared only at the derived diverging states (D331).
+  { vec := "mmx_pmaddwd_rr", field := "mm0", states := [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 66, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87]
+    , source := "x86isa instructions/pmadd.lisp:173: x86-pmaddwd-mmx calls (simd-muladd-spec (* 8 operand-size) 16 src1 src2), chunk 16, where simd-muladd-spec's own doc gives chunk 32 for the MMX form · processor: hwprobe pmaddwd_mm_probe (D405), AMD EPYC 7763 and Intel Core i7-8700B, run 44211387625: VERDICT model 6 of 6 on each"
+    , note := "D405" }
+  , { vec := "mmx_pmaddwd_rm", field := "mm2", states := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 54, 55, 56, 57, 58, 59, 64, 65, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87]
+    , source := "x86isa instructions/pmadd.lisp:173: x86-pmaddwd-mmx calls (simd-muladd-spec (* 8 operand-size) 16 src1 src2), chunk 16, where simd-muladd-spec's own doc gives chunk 32 for the MMX form · processor: hwprobe pmaddwd_mm_probe (D405), AMD EPYC 7763 and Intel Core i7-8700B, run 44211387625: VERDICT model 6 of 6 on each"
+    , note := "D405" }
+  , -- ⛔⛔ D403 — x86isa's MMX STORES LEAVE THE x87 STATE, against its own documented rule and against
   -- silicon on two vendors (`hwprobe/mmx87_probe.c`). The model applies the rule. `fptag` is declared at
   -- its one pair (x86lean 0000, oracle ffff); `fptop` only at the 53 pre-states whose TOP is non-zero
   -- (derived from the emitted records), so the entry FAILS if any of them stops diverging (D331).
