@@ -659,13 +659,13 @@ acc,imm · rh"
       shapes := "x,x · x,m", note := "interleaves the low 64-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKL*" }
   , { mnemonic := "punpckhbw",
-      shapes := "x,x · x,m", note := "interleaves the high 8-bit lanes, destination first",
+      shapes := "x,x · x,m · mm,mm · mm,m", note := "interleaves the high 8-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKH*" }
   , { mnemonic := "punpckhwd",
-      shapes := "x,x · x,m", note := "interleaves the high 16-bit lanes, destination first",
+      shapes := "x,x · x,m · mm,mm · mm,m", note := "interleaves the high 16-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKH*" }
   , { mnemonic := "punpckhdq",
-      shapes := "x,x · x,m", note := "interleaves the high 32-bit lanes, destination first",
+      shapes := "x,x · x,m · mm,mm · mm,m", note := "interleaves the high 32-bit lanes, destination first",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKH*" }
   , { mnemonic := "punpckhqdq",
       shapes := "x,x · x,m", note := "interleaves the high 64-bit lanes, destination first",
@@ -1006,7 +1006,7 @@ acc,imm · rh"
       note := "the source's four LOW words selected into the low quadword, its HIGH quadword copied through; m 16-byte aligned, else #GP(0) — proved, not vectored (D110)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSHUFLW" }
   , { mnemonic := "packuswb",
-      shapes := "x,x · x,m",
+      shapes := "x,x · x,m · mm,mm · mm,m",
       note := "eight SIGNED words from the destination and eight from the source, each saturated to an UNSIGNED byte, destination low; a negative word becomes 0 and one above 255 becomes 255 — the asymmetry is the instruction. Its signed siblings packsswb/packssdw REFUSE on the oracle (D115)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PACKUSWB" }
   , { mnemonic := "pcmpeqb",

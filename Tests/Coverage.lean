@@ -333,7 +333,8 @@ def vectorCount : Nat := vectors.length
 -- ⭐ D358 adds 3: `%xmm9` twins of the scalar stores whose `%xmm0` rows cannot see a dropped write.
 -- ⭐ D402 adds 11: the MMX `movd`/`movq` forms, both directions, a low and a high register.
 -- ⭐ D404 d1 adds 38: nineteen packed MMX binary operations, register and memory source.
-theorem vector_count_is_1290 : vectorCount = 1290 := by decide
+-- ⭐ D404 d2 adds 8: the three high unpacks and packuswb.
+theorem vector_count_is_1298 : vectorCount = 1298 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.

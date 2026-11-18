@@ -103,7 +103,7 @@ MUTATIONS = [
     # encoding must not be credited with them because the MNEMONIC matches.
     # ⭐ D402: MMX IS in scope now (the model has the file and its moves), so the over-claim to catch moved: an `%mm`
     # spelling credited to ANY name the model has, so that `paddw %mm0,%mm1` lands on the XMM `paddw` row.
-    ("the MMX mapping credits every implemented name — `punpckhbw %mm0,%mm1` counts as covered",
+    ("the MMX mapping credits every implemented name — `paddq %mm0,%mm1` counts as covered",
      "        return m if m in mmx_of(model) else None",
      "        return m if m in names_of(model) else None"),
     ("AVX2 is admitted into scope — a `%ymm` operand counts as covered",

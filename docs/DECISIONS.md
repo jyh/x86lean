@@ -26099,3 +26099,21 @@ Each is DERIVED from the XMM function, so no arithmetic is re-written, only the 
 2. D404 §2's reuse arm, which builds the four by low64(XMM(zext a, zext b)), is CAUGHT in `mm0` on every vector of the
    four forms. Wrong if any vector of them reads 0 for that arm.
 3. The census credits exactly 2,765 more, and the MMX residue falls 13,873 → 11,108.
+
+### 6. RESULTS, BATCH d2 (2026-11-18 UTC, yukon)
+- **Built:** `mmxApply`, the one place every MMX kind's 64-bit meaning lives. The d1 kinds go through it unchanged (the
+  same expression). `punpckh{bw,wd,dq}` and `packuswb` use §5's placements. `mmxTaken` admits the four. 8 vectors;
+  clang cross-check CLEAN over 1,559; build EXIT=0.
+- **Prediction 2, measured PER VECTOR** (a scratch audit that copies the arm's reuse model, because Main is an executable
+  and cannot be imported; a copy, declared as one): the reuse model differs from the model at punpckh{bw,wd,dq} 88 of 88
+  pre-states on all six vectors, at `packuswb` register 79 of 88, and at `packuswb` memory 53 of 88. The pack agrees with
+  reuse exactly where every source word saturates to 0. **No vector is blind. HELD.** The arm itself, in the selftest's
+  own population: caught, 627 disagreements.
+- **The differential, against a line sealed before it (00:25:09Z):**
+  `cases=137192 matched=113060 explained=34407 unexplained=0 oracle-divergence=1927 oracle-leaks=0 missing=0`, equal in
+  every count. **Prediction 1 HELD.**
+- **The census, against the figure derived beforehand:** covered **+2,765** (ffmpeg 1,184 · vlc-video_chroma 1,031 ·
+  x264 517 · vpx 33). The MMX residue falls 13,873 → **11,108**, and the P2 gap 316,270 → 313,505. **Prediction 3 HELD.**
+- **The census fixtures moved a second time.** d1 gave paddw/pxor MMX rows, and d2 gave punpckhbw/packuswb rows, the
+  replacements record 47 chose. The example of "an XMM row and no MMX row" is now paddq/psubq, whose MMX forms (SSE2) no
+  batch of this wave plans. ⇒ A fixture example chosen from the backlog is spent by the next batch.

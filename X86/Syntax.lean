@@ -2490,6 +2490,8 @@ def VBinKind.mmxTaken : VBinKind → Bool
   | .xor | .and | .or | .andn
   | .cmpeqb | .cmpeqw | .cmpeqd | .cmpgtb | .cmpgtw | .cmpgtd
   | .unpcklb | .unpcklw | .unpckld => true
+  -- ⭐ D404 d2: the high unpacks and the pack, through their own placement in `mmxApply`.
+  | .unpckhb | .unpckhw | .unpckhd | .packuswb => true
   | _ => false
 
 /-- ⭐⭐ V3 (D341, D339) — the packed binary kinds whose VEX.128 register twin is TAKEN:

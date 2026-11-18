@@ -3388,6 +3388,23 @@ def vectors : List Vec :=
     , bytes := "0f62c1", instr := ⟨.mmbin .unpckld .m0 .m1, 3⟩ }
   , { id := "mmx_punpckldq_rm", mnemonic := "punpckldq", asm := "punpckldq (%rbx), %mm2"
     , bytes := "0f6213", instr := ⟨.mmbinm .unpckld .m2 { base := some .rbx }, 3⟩ }
+  -- ⭐⭐ D404 d2 — the high unpacks and the pack, each with its own 64-bit placement (`mmxApply`).
+  , { id := "mmx_punpckhbw_rr", mnemonic := "punpckhbw", asm := "punpckhbw %mm1, %mm0"
+    , bytes := "0f68c1", instr := ⟨.mmbin .unpckhb .m0 .m1, 3⟩ }
+  , { id := "mmx_punpckhbw_rm", mnemonic := "punpckhbw", asm := "punpckhbw (%rbx), %mm2"
+    , bytes := "0f6813", instr := ⟨.mmbinm .unpckhb .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_punpckhwd_rr", mnemonic := "punpckhwd", asm := "punpckhwd %mm1, %mm0"
+    , bytes := "0f69c1", instr := ⟨.mmbin .unpckhw .m0 .m1, 3⟩ }
+  , { id := "mmx_punpckhwd_rm", mnemonic := "punpckhwd", asm := "punpckhwd (%rbx), %mm2"
+    , bytes := "0f6913", instr := ⟨.mmbinm .unpckhw .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_punpckhdq_rr", mnemonic := "punpckhdq", asm := "punpckhdq %mm1, %mm0"
+    , bytes := "0f6ac1", instr := ⟨.mmbin .unpckhd .m0 .m1, 3⟩ }
+  , { id := "mmx_punpckhdq_rm", mnemonic := "punpckhdq", asm := "punpckhdq (%rbx), %mm2"
+    , bytes := "0f6a13", instr := ⟨.mmbinm .unpckhd .m2 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_packuswb_rr", mnemonic := "packuswb", asm := "packuswb %mm1, %mm0"
+    , bytes := "0f67c1", instr := ⟨.mmbin .packuswb .m0 .m1, 3⟩ }
+  , { id := "mmx_packuswb_rm", mnemonic := "packuswb", asm := "packuswb (%rbx), %mm2"
+    , bytes := "0f6713", instr := ⟨.mmbinm .packuswb .m2 { base := some .rbx }, 3⟩ }
 
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 7 — THE UNPACK (INTERLEAVE) GROUP.  The first
   -- vector operations here that are a PERMUTATION rather than lane-wise

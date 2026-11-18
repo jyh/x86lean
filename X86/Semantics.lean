@@ -919,6 +919,22 @@ def vbinApply (k : VBinKind) (a b : BitVec 128) : BitVec 128 :=
   | .avgw     => vlanes 16 (fun x y => (x.setWidth 17 + y.setWidth 17 + 1).extractLsb' 1 16) a b
   | .muldq    => vlanes 64 (fun x y => (x.setWidth 32).signExtend 64 * (y.setWidth 32).signExtend 64) a b
 
+/-- ⭐⭐ D404 — THE 64-BIT MEANING OF A PACKED MMX KIND, in one place. For the lane-wise kinds and the low unpacks it is
+the XMM function on zero-extended operands, low 64 bits kept (D404 §1). ⛔ For the high unpacks and the pack that rule
+reads or writes the WRONG HALF, so each has its own placement (D404 §5), and the arithmetic is still `vbinApply`'s:
+* `punpckh*` is the low unpack of each operand's upper 32 bits;
+* `packuswb` keeps the destination's four saturated bytes (r[31:0]) and moves the source's (r[95:64]) to 63:32. -/
+def mmxApply (k : VBinKind) (a b : BitVec 64) : BitVec 64 :=
+  let z (v : BitVec 64) : BitVec 128 := v.setWidth 128
+  match k with
+  | .unpckhb => (vbinApply .unpcklb (z (a >>> 32)) (z (b >>> 32))).setWidth 64
+  | .unpckhw => (vbinApply .unpcklw (z (a >>> 32)) (z (b >>> 32))).setWidth 64
+  | .unpckhd => (vbinApply .unpckld (z (a >>> 32)) (z (b >>> 32))).setWidth 64
+  | .packuswb =>
+      let r := vbinApply .packuswb (z a) (z b)
+      ((r.setWidth 32).setWidth 64) ||| (((r >>> 64).setWidth 32).setWidth 64 <<< 32)
+  | _ => (vbinApply k (z a) (z b)).setWidth 64
+
 /-- ⭐⭐ P2 BATCH 38 — THE SCALAR MIN/MAX WRITE (SDM Vol. 2B, MINSS/MINSD/MAXSS/
 MAXSD): the destination's low lane becomes `fmin`/`fmax` of `d`'s low lane and
 `b`, and every bit above the lane is KEPT.  ONE function for both operand shapes,
@@ -1798,12 +1814,12 @@ def step (i : Instr) (s : Cpu) : Cpu :=
   -- all lie in bits 63:0) and WRONG for `punpckh*`/`pack*`, which are therefore refused here, not computed.
   | .mmbin k dst src =>
       if !k.mmxTaken then s.halt (.illegalOperands s!"mmx {k.mnemonic}")
-      else (s.setMm dst ((vbinApply k ((s.getMm dst).setWidth 128) ((s.getMm src).setWidth 128)).setWidth 64)).setRip nr
+      else (s.setMm dst (mmxApply k (s.getMm dst) (s.getMm src))).setRip nr
   | .mmbinm k dst ea =>
       if !k.mmxTaken then s.halt (.illegalOperands s!"mmx {k.mnemonic}")
       else
         let a := ea.addr s nr
-        (s.setMm dst ((vbinApply k ((s.getMm dst).setWidth 128) ((s.readMem .q a).setWidth 128)).setWidth 64)).setRip nr
+        (s.setMm dst (mmxApply k (s.getMm dst) (s.readMem .q a))).setRip nr
 
   -- ⭐⭐⭐ THE PACKED SHIFTS (SDM Vol. 2B), all three count shapes.  DEST is
   -- shifted lane-wise by ONE count; "Flags Affected: None".
