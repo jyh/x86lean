@@ -52,3 +52,18 @@ store readings on each**: after every store no x87 register is empty and TOP is 
 - **`README.md`** no longer lists MMX as unmodelled without qualification: "MMX beyond `movd`/`movq`".
 - **NOT vectored, stated**: REX.R on an MMX register field (no assembler emits it, and the table's bytes come from one), and
   the REX.W `0f 6e`/`0f 7e` memory spellings (clang spells those `0f 6f`/`0f 7f`).
+
+## 5. K1 — THE KERNEL READING (`ku_delta.py --arm a-prime`, 3fcb7ee → 4553422, yukon.lan)
+```
+  X86.Theorems    142,815 → 150,885   +8,070  (+5.7%)     D400's bare field alone: +2,847
+  X86.Basic        15,861 →  17,882   +2,021              MmReg, Mmxs.get/set/touch and their lemmas
+  X86.Syntax       52,271 →  54,121   +1,850  (+3.5%)     six Op constructors
+  X86.Effects      64,389 →  64,863     +474
+  Tests.Coverage   11,789,788 → 11,871,887   +82,099  (+0.7%)
+  26 of 56 modules grew, none shrank; every Δku inside its budget
+  verdict: FAILED, 1 finding: the ms ceiling X86.Syntax 893 ms against 879 on yukon.lan
+```
+⚠️ **The one finding is a pre-existing condition (the seat's queue row 79), not a measurement of this batch.** Master's own X86.Syntax read 928 ms
+against the same 879 in D400's run. Here the base read 725 and the head 893, one pass a side, under fleet load. A′'s ms half
+has no repeats, so it cannot attribute 168 ms to a +3.5% Δku. The PR's CI `ku-delta` job judges on the runner's ceiling
+(1,668), and the landing's K2 (`kernel_delta.py --repeats 6` on a quiet box, D356's precedent) is the ms verdict.
