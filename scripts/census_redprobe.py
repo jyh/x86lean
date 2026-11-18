@@ -35,6 +35,10 @@ TARGET = os.path.join(HERE, "demand_census.py")
 
 # (label, needle, replacement) — each breaks exactly one rule
 MUTATIONS = [
+    # ⭐⭐ D405: the MMX-twin rule removed, so an `%mm` form of a siliconTable mnemonic falls to the silicon class.
+    ("an MMX twin of a processor-refereed row is filed silicon (the D405 rule removed)",
+     '    if ext == "MMX (mm)" and r in mmx_of(model):\n        return r, True, "mapped"\n',
+     ''),
     ("MMX is no longer excluded (the over-claim this class found)",
      r'%[xyz]mm|%mm[0-7]\b|%k[0-7]\b|%st', r'%[xyz]mm|%k[0-7]\b|%st'),
     ("a shipped symlink counts as a second binary",

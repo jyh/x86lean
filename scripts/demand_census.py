@@ -123,7 +123,10 @@ class Model(frozenset):
         self.lockable = frozenset(lockable) & (frozenset(names) - sil)
         # ⭐ D402: the mnemonics with an MMX (`mm`) shape in COVERAGE.md. ONLY these map an `%mm` spelling to
         # themselves; `paddw` has an XMM row and no MMX one, so `paddw %mm1, %mm0` is NOT credited to it.
-        self.mmx = frozenset(mmx) & frozenset(names)
+        # ⭐ D405: NOT cut to `names`. The MMX set is read from COVERAGE.md's rows, so every member is implemented by
+        # construction, and the D337 reference's `names` EXCLUDE the silicon mnemonics: a cut there would drop an MMX
+        # twin of a processor-refereed row from the reference, and the reference would read every credited one as pooled.
+        self.mmx = frozenset(mmx)
         return self
 
 
@@ -1333,6 +1336,11 @@ def _decide(m, ext, model):
         if ext == YMM and r in silicon256_of(model):
             return r, False, "silicon-vex"
         return r, False, "outscope"
+    # ⭐⭐ D405: an `%mm` form of a mnemonic with an MMX row is DIFFERENTIAL, class (a), even when the mnemonic's XMM
+    # form is a processor-refereed `siliconTable` row: x86isa implements the MMX def-insts it refuses at XMM. Decided
+    # BEFORE the silicon check and only for the MMX bucket, so the XMM twin stays (b).
+    if ext == "MMX (mm)" and r in mmx_of(model):
+        return r, True, "mapped"
     # ⚖️ D337: (b) is NOT covered — it is its own class, counted beside (a)
     if r in silicon_of(model):
         return r, False, "silicon"
@@ -2059,6 +2067,13 @@ def selftest():
         arm((cov, cls) == want, f"class {m:8s} in {ext:18s} -> covered={cov} {cls}"
             + ("" if (cov, cls) == want else f"   EXPECTED {want}"), "class:" + m)
         d337 += 1
+    # ⭐⭐ D405: an MMX twin of a processor-refereed row is class (a), and its XMM form stays (b). A synthetic model whose
+    # MMX set also holds `pmullw` (a siliconTable mnemonic), because the shipped tree may not have the twin yet.
+    _Mx = Model(_M.names, _M.silicon, _M.vex, _M.silicon256, _M.lockable, set(mmx_of(_M)) | {"pmullw"})
+    _dm, _dx = _decide("pmullw", "MMX (mm)", _Mx), _decide("pmullw", "SSE-legacy (xmm)", _Mx)
+    arm(_dm[1:] == (True, "mapped") and _dx[1:] == (False, "silicon"),
+        f"D405: an MMX twin of a silicon row is (a) ({_dm[1:]}) while its XMM form stays (b) ({_dx[1:]})", "D405:twin")
+    d337 += 1
     # ⭐ STATUS 7c — the operand-shape split, derived from synthetic objdump lines by the one loop and the one rule:
     # two silicon-VEX ymm forms (one register, one memory), three differential `mov`s (register, base+disp, and a
     # `%fs:` address with no parenthesis), and a `lea` (an addressing mode that reads no memory: SHAPE m, by design)
