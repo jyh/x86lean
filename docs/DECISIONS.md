@@ -26117,3 +26117,24 @@ Each is DERIVED from the XMM function, so no arithmetic is re-written, only the 
 - **The census fixtures moved a second time.** d1 gave paddw/pxor MMX rows, and d2 gave punpckhbw/packuswb rows, the
   replacements record 47 chose. The example of "an XMM row and no MMX row" is now paddq/psubq, whose MMX forms (SSE2) no
   batch of this wave plans. ⇒ A fixture example chosen from the backlog is spent by the next batch.
+
+## D405 — Row 80: where the MMX forms of the seven processor-refereed mnemonics live, and how the census classes them
+
+⚖️ The seat's queue row 80, written by D404 d1. pmullw 966 · paddsw 786 · pmulhw 610 · psubusb 481 · pmaddwd 454 ·
+psubsw 196 · psubusw 37 (MMX demand at record 48, 3,530 in all) are `siliconTable` mnemonics: x86isa refuses their XMM
+forms, so `hwprobe` referees them. x86isa IMPLEMENTS all seven MMX def-insts (each calls the x87 update once, D404 §2), so
+their MMX forms can be differential. The census classes silicon PER MNEMONIC (`_decide`: `r in silicon_of(model)` →
+"silicon"), so an MMX differential form of one would be filed (b).
+
+### 1. THE FORK
+- **(A) A separate table of MMX twins** for processor-refereed mnemonics, in its own COVERAGE.md section ("MMX register
+  twins of processor-refereed rows, differentially tested"), read by the census into `Model.mmx`. `_decide` gets one rule,
+  placed BEFORE the silicon check: an `%mm` form of a mnemonic in the MMX set is class (a). Every row keeps ONE referee.
+  This is D341's precedent: the VEX.128 twins became a population of their own rather than a second class inside a row.
+- **(B) MMX shapes on the `siliconTable` rows themselves**, with the class decided per (mnemonic, ext) inside a row that
+  then has two referees.
+### 2. RECOMMENDATION: (A)
+A row in this repository states one tier and one referee, and the published per-row figures (the "(a) mnemonics" count
+and the processor section's count) are counted from rows. (B) makes one row both, which no column can express and no gate
+checks. (A) is reversible by deleting a table. **Default: (A), built on the branch, red-first:** an arm in which an MMX
+pmullw form lands in (a) while its XMM twin stays (b), and the plant (the rule removed) must red it.
