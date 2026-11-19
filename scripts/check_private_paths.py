@@ -1181,7 +1181,7 @@ def self_test() -> int:
     #    ⇒ A PREDICATE ARM TESTS THE PREDICATE; ONLY A LOADER ARM TESTS THE LOADER.
     _saved_baseline = BASELINE
     try:
-        globals()["BASELINE"] = os.path.join(tempfile.mkdtemp(), "no-such-baseline.tsv")
+        globals()["BASELINE"] = os.path.join(tempfile.mkdtemp(prefix="x86lean-"), "no-such-baseline.tsv")
         if load_baseline() is not None:
             failures.append("load_baseline must return None when the baseline file is MISSING, "
                             "never set() -- None and empty are different verdicts")
