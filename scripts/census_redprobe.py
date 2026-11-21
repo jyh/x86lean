@@ -35,10 +35,11 @@ TARGET = os.path.join(HERE, "demand_census.py")
 
 # (label, needle, replacement) — each breaks exactly one rule
 MUTATIONS = [
-    # ⭐⭐ D405: the MMX-twin rule removed, so an `%mm` form of a siliconTable mnemonic falls to the silicon class.
-    ("an MMX twin of a processor-refereed row is filed silicon (the D405 rule removed)",
-     '    if ext == "MMX (mm)" and r in mmx_of(model):\n        return r, True, "mapped"\n',
-     ''),
+    # ⭐⭐ D405: the twin NAME removed, so an `%mm` form of a siliconTable mnemonic keys by the bare name and
+    # every set test in `report` files it silicon (the census half's defect, as it stood at record 48).
+    ("an MMX twin of a processor-refereed row keys by its bare name and is filed silicon (the D405 name removed)",
+     "        return mm_twin(m) if mm_twin(m) in mmx_twins_of(model) else m",
+     "        return m"),
     ("MMX is no longer excluded (the over-claim this class found)",
      r'%[xyz]mm|%mm[0-7]\b|%k[0-7]\b|%st', r'%[xyz]mm|%k[0-7]\b|%st'),
     ("a shipped symlink counts as a second binary",
@@ -108,8 +109,8 @@ MUTATIONS = [
     # ⭐ D402: MMX IS in scope now (the model has the file and its moves), so the over-claim to catch moved: an `%mm`
     # spelling credited to ANY name the model has, so that `paddw %mm0,%mm1` lands on the XMM `paddw` row.
     ("the MMX mapping credits every implemented name — `paddq %mm0,%mm1` counts as covered",
-     "        return m if m in mmx_of(model) else None",
-     "        return m if m in names_of(model) else None"),
+     "        if m not in mmx_of(model):\n            return None",
+     "        if m not in names_of(model):\n            return None"),
     ("AVX2 is admitted into scope — a `%ymm` operand counts as covered",
      '    "AVX2/AVX (ymm)":                         False,',
      '    "AVX2/AVX (ymm)":                         True,'),
@@ -169,7 +170,8 @@ MUTATIONS = [
      "    ref = ref if isinstance(ref, Model) and not silicon_of(ref) else frozenset(ref)",
      "    return None"),
     ("the no-pooling reference is the model under test, so a pooled model referees itself",
-     "    return Model(frozenset(names_of(model)) - silicon_mnemonics(), lockable=lockable_mnemonics(),\n                 mmx=mmx_rows(cov))",
+     "    return Model(frozenset(names_of(model)) - _si, lockable=lockable_mnemonics(),\n"
+     "                 mmx=_mx, mmx_twins={mm_twin(m) for m in _mx & _si})",  # ⭐ D405: re-anchored (the twin names)
      "    return frozenset(model)"),
     ("the silicon split is dropped — every implemented mnemonic reads as differential",
      "    return Model(ms, sil, vex, silicon256_mnemonics(), lockable, mmx_rows(text))",

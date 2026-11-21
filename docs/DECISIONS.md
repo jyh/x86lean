@@ -26176,3 +26176,22 @@ pmullw form lands in (a) while its XMM twin stays (b), and the plant (the rule r
   must be on `report()`'s figures (a fixture whose MMX pmullw lands in `covered`), not only on `_decide`. The selftest's
   `class pmaddwd in MMX` arm now reads (True, mapped) at `_decide` while the figure misfiles: it is RED and left red, as
   the record of that gap.
+
+### 5. THE CENSUS HALF (record 49): the twin gets its own roster name, and the seal holds
+- **The unit.** An MMX row whose mnemonic is a `siliconTable` row is a TWIN, and `to_roster` maps its `%mm` spelling to
+  its own roster name `mm:<m>` (`mm_twin`). The twin names are IN the `Model`'s differential set (`Model.mmx_twins`,
+  derived as `mmx & silicon`), so every set test `report`, `shape_split` and `modelled_mem` make by roster name classes
+  the twin (a) and the bare name (the XMM row) stays (b). No second class decision exists: `_decide`'s D405 rule was
+  dead once the name existed (the twin name is in the model and in no silicon set) and is removed. The D337 reference
+  (`differential_reference`) carries the twin names READ FRESH (COVERAGE.md's MMX rows ∩ `siliconTable`), never the
+  model's own set. `model_forms` accepts a twin vector whose bytes map to `mm:<m>` under its declared `<m>`.
+- **The arm is on the figure.** The no-pooling fixture gains 7 `pmaddwd %mm` instructions, and the `honest` arm reads
+  `report()`'s own `covered` and `silicon`: 57 and 35. **Red backwards** (the twin name removed, `to_roster` returning the
+  bare name): `honest` reads **covered 50, silicon 42**, the 7 filed silicon, which is §4's defect at fixture scale; the
+  `D405:twin` and `class pmaddwd in MMX` arms red with it. The `class pmaddwd in MMX (mm)` arm now expects (True,
+  mapped) and is GREEN, and a silicon mnemonic with no MMX row (`pmulhuw`) is a new arm that stays unmapped at `%mm`.
+  The red probe's twin mutation now removes the name (the old one removed a rule that no longer exists), and the
+  over-claim mutation and the no-pooling reference's needle are re-anchored: **38 of 38 caught**.
+- **The seal, read.** Sealed (§4): covered +3,530. Read: **covered +3,530, silicon +0** (ffmpeg +1,409, vlc-video_chroma
+  +1,536, x264 +520, vpx +65). The MMX residue falls **11,108 → 7,578**; P2-ROSTER's gap falls 313,505 → **309,975**.
+  Selftest 260 arms PASS. Record 49 (`docs/DIFFERENTIAL-P2-BATCH49.md`).
