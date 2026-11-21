@@ -344,6 +344,11 @@ _NASHOME = ("vol" + "ume1" + _SEPCLASS + "git" + _SEPCLASS + "Salt" + "works")
 # time of writing were 4 (salt), 3 (saltworks), 0 (jas), all pre-ruling
 # residue, all baselined in the same act that landed the shape.
 _ROOTLESS = ["bri" + "efs", "fle" + "et"]
+# desk AHE (2026-11-18): the private record's top-level directories, audited one by one. A directory is a rootless
+#   root only if its NAME is distinctive: an ordinary word (docs, tools, papers, memory, sources, watch, ...) would fire
+#   on ordinary public content, so of the record's 21 top-level directories these five join the two above. A PR body
+#   naming one of them passed every mode of check_pr_descriptions, the required --open arm included (measured 11-18).
+_ROOTLESS += ["mem" + "ory-seats", "salt-" + "memory", "salt-" + "memory-archive-0815", "h2c-" + "desk", "helm-" + "desk"]
 _ROOTLESS_ALT = "|".join(_ROOTLESS)
 _ROOTLESS_INTO = ("(?<![A-Za-z0-9_./" + _BS + _BS + "-])(?:"
                   + _ROOTLESS_ALT + ")" + _SEPCLASS + "[A-Za-z0-9_.-]+")
@@ -854,7 +859,11 @@ def self_test() -> int:
         ("r-rl-b", "ruled in " + _ROOTLESS[0] + "/2026-08-30-x.md"),
         ("r-rl-f", "the row in " + _ROOTLESS[1] + "/RULING-x.md"),
         ("r-rl-bs", "see " + _ROOTLESS[1] + chr(92) + "DESK.tsv"),
+        # desk AHE: one planted path PER MEMBER, generated, so a member added later is armed by construction.
+        *[(f"r-rl-each-{i}", "see " + w + "/x-1.md for the run") for i, w in enumerate(_ROOTLESS)],
     ]
+    if len(_ROOTLESS) != 7:
+        failures.append(f"the rootless list has {len(_ROOTLESS)} members, expected 7 (desk AHE): a change to it is a change to this arm")
     for ident, text in planted:
         if not scan([(ident, text)]):
             failures.append(f"planted shape {ident} must be caught")
@@ -914,6 +923,9 @@ def self_test() -> int:
         ("c-rl-bare", "the " + _ROOTLESS[0] + " directory holds the record"),
         ("c-rl-mid", "docs/" + _ROOTLESS[0] + "/x.md nests a PUBLIC dir"),
         ("c-rl-word", "a " + _ROOTLESS[1] + " of seats sailed at dawn"),
+        # desk AHE: the left guard, per member: a mid-path component and a bare name stay clean.
+        *[(f"c-rl-mid-{i}", "docs/" + w + "/x.md nests a PUBLIC dir") for i, w in enumerate(_ROOTLESS)],
+        *[(f"c-rl-bare-{i}", "the " + w + " directory holds the record") for i, w in enumerate(_ROOTLESS)],
     ]
     for ident, text in clean:
         got = scan([(ident, text)])
@@ -1154,6 +1166,27 @@ def self_test() -> int:
         failures.append("an EMPTY baseline is armed; its findings red as NEW, not as unarmed")
     if _msg_unarmed_fatal(None, 0):
         failures.append("a missing baseline over a clean history is not fatal")
+    # The same distinction on the TREE side, which carried set() for both states
+    # until 2026-09-21: an EMPTY-but-present baseline read as "never armed".
+    if not _tree_unarmed_fatal(None, 1):
+        failures.append("a MISSING tree baseline with findings must be fatal-unarmed")
+    if _tree_unarmed_fatal(set(), 1):
+        failures.append("an EMPTY tree baseline is armed; its findings red as NEW, not as unarmed")
+    if _tree_unarmed_fatal(None, 0):
+        failures.append("a missing tree baseline over a clean tree is not fatal")
+    # ⛔ AND THE ARM THAT ACTUALLY COVERS THE CHANGE. The three above exercise the pure
+    #    predicate, which takes the baseline as an ARGUMENT -- so reverting load_baseline to
+    #    `return set()` leaves them ALL GREEN and silently restores the defect. Driven: a mutant
+    #    that did exactly that passed the suite rc 0 before this arm existed.
+    #    ⇒ A PREDICATE ARM TESTS THE PREDICATE; ONLY A LOADER ARM TESTS THE LOADER.
+    _saved_baseline = BASELINE
+    try:
+        globals()["BASELINE"] = os.path.join(tempfile.mkdtemp(prefix="x86lean-"), "no-such-baseline.tsv")
+        if load_baseline() is not None:
+            failures.append("load_baseline must return None when the baseline file is MISSING, "
+                            "never set() -- None and empty are different verdicts")
+    finally:
+        globals()["BASELINE"] = _saved_baseline
 
     # 8. EVERY FAIL PATH NAMES ITS FINDINGS (row I(c)). The formatter is shared
     #    by construction — armed and unarmed paths all print finding_lines() —
@@ -1604,13 +1637,33 @@ def tree_rows(exclude_self: bool = True) -> list[tuple[str, str]]:
     return rows
 
 
-def load_baseline() -> set[tuple[str, str]]:
+def load_baseline():
+    """set of accepted (path, line-sha) pairs, or None when no baseline file exists.
+
+    None and empty are DIFFERENT verdicts, exactly as in load_msg_baseline and
+    load_history_baseline: a MISSING file plus findings means the ratchet was
+    never armed here (arm it deliberately); an EMPTY one plus findings falls
+    through to the verdict, where the finding reds as NEW.
+    """
     try:
         with open(BASELINE, encoding="utf-8") as fh:
             return {tuple(l.rstrip("\n").split("\t")[:2])
                     for l in fh if l.strip() and not l.startswith("#")}
     except FileNotFoundError:
-        return set()
+        return None
+
+
+def _tree_unarmed_fatal(baseline, finding_count: int) -> bool:
+    """The tree twin of _msg_unarmed_fatal. None is not the empty set.
+
+    Until this existed, load_baseline() returned set() for BOTH a missing file
+    and an armed-and-clean one, so `if not base and found:` printed "--tree has
+    NO BASELINE" over a baseline that was PRESENT, ARMED and deliberately EMPTY
+    -- and prescribed `--tree --write-baseline`, which would have accepted the
+    very findings the gate had just caught. The message was wrong and the
+    remedy it printed was the one act that must not be taken.
+    """
+    return baseline is None and finding_count > 0
 
 
 def merge_write_baseline(path: str, header: str, key_of, rows: list, shrink: bool) -> tuple:
@@ -1684,12 +1737,14 @@ def tree_mode(write: bool) -> int:
             print(f"  dropped (paid): {d}")
         return 0
     base = load_baseline()
-    if not base and found:
+    if _tree_unarmed_fatal(base, len(found)):
         print(f"FAIL [gate {self_id()}]: --tree has NO BASELINE and the tree carries "
               f"{len(found)} finding(s), NAMED below. Write the baseline deliberately "
               f"with --tree --write-baseline (a reviewed act, not a fix).\n")
         print("\n".join(finding_lines(found)))
         return 1
+    if base is None:      # missing AND clean: not unarmed-fatal, and the set ops below need a set
+        base = set()
     new = [f for f in found if (f[0], line_sha(f[2])) not in base]
     paid = base - keys
     if new:
