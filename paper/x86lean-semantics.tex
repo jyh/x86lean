@@ -220,6 +220,7 @@ structure Cpu where
   gsBase : BitVec 64 := 0
   xmm : Xmms := \{\}
   mxcsr : BitVec 32 := 0x1F80
+  mmx : Mmxs := \{\}
   oracle : Oracle := Oracle.zero
   ms : Option MsErr := none
 \end{alltt}
