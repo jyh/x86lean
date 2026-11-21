@@ -1050,10 +1050,15 @@ reproduced as stated, at least one time in three in each of the three samples we
 \section*{Data Availability}
 % The category is ruled: case-study track, not double-blind (docs/TACAS-PRICING.md 3a, ruled 2026-09-13), so
 % nothing here is anonymized. The submission commit is not yet fixed. The archive is the repository's Zenodo record
-% (release v2026.10.02, 2026-10-02); the CONCEPT DOI is cited so it resolves to the latest version.
+% (release v2026.10.02, 2026-10-02); the CONCEPT DOI is cited so it resolves to the latest version. The artifact image
+% has its own record (deposited 2026-11-21), a supplement to the release v2026.11.21 version record.
 The model, its Lean sources, the differential harness and every record cited here are public at
 \url{https://github.com/jyh/x86lean} under the Apache-2.0 licence, and archived on Zenodo at
-\url{https://doi.org/10.5281/zenodo.23105272}. Every figure this paper quotes from
+\url{https://doi.org/10.5281/zenodo.23105272}. The artifact, a Docker image holding the repository with the Lean
+toolchain and the reference model already built, is archived at
+\url{https://doi.org/10.5281/zenodo.24424612}, as a supplement to the repository's release v2026.11.21
+(\url{https://doi.org/10.5281/zenodo.24424184}); \texttt{artifact/README.md} gives its SHA-256, the commands that
+reproduce the paper's claims, and the two it cannot (the processor probe and the timing figures). Every figure this paper quotes from
 the manifest \texttt{docs/CLAIMS.tsv} names the commit it is pinned at and the command that re-derives
 it, and \texttt{python3 scripts/\allowbreak check\_\allowbreak claims.py} re-derives all of them and checks the paper's text
 against them. The Lean toolchain is pinned by \texttt{lean-toolchain}; the reference model is ACL2
