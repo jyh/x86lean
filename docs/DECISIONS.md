@@ -25775,3 +25775,248 @@ same 9 ceilings (the runner, not the change). Kent's rule allows no third rerun,
 the 24 passes, read from the log's pass lines). `kernel_delta` rc 0, "delta gate: CLEAN" (`Tests.Vectors` 17.6 → 14.1 ms, ok). `ku_delta` A′ rc 0,
 CLEAN (`Tests.Vectors` 197 → 197, Δku 0). Recorded with `--record --readings --a-prime`: ms rc 0 and A′ rc 0, so the row lands on
 the ms verdict (D251). As predicted before the run: this PR changes no `.lean`, so neither arm moved.
+
+## D400 — Row 77 step (a) measured: one nested `Mmxs` field on `Cpu` costs `X86.Theorems` +2.0% ku and breaks nothing
+
+⚖️ The seat's queue row 77, the MMX wave, step (a). The seat's MMX price brief (2026-11-17) predicted the
+state field's cost from D263's MXCSR field and said the figure was a prediction from a different field. This is the
+measurement it was waiting for.
+
+### 1. THE SUBJECT
+Branch `paris/mmx-draft` `10a85a5` on master `3fcb7ee`. It adds `structure Mmxs` (mm0–mm7 `BitVec 64`, `fpTag : BitVec 16 :=
+0xFFFF`, `fpTop : BitVec 3 := 0`) to `X86/Basic.lean`, and one field `mmx : Mmxs := {}` to `Cpu`, after `mxcsr`. **Nothing reads
+it.** That is D71's and D263's shape: any cost is the record's.
+- fpTag's default is 0xFFFF (all empty, the FNINIT value a Linux process starts with). x86isa's stobj field reads
+  `:initially 0` (machine/state.lisp:496), so the driver must SET it in every case, as it does MXCSR (D265 §4). That is step (b).
+
+### 2. THE KU READING (`ku_delta.py --arm a-prime --base 3fcb7ee --head 10a85a5`, yukon.lan, load 5.8–7.6, rc 0)
+```
+  X86.Theorems   142,815 → 145,662   +2,847   (+2.0%)          D263's MXCSR field: +2,250 (+2.6%) on an 86,982 base
+  X86.Effects     64,389 →  64,623     +234   (+0.4%)
+  X86.Basic       15,861 →  15,911      +50   (the new structure's own derived instances)
+  X86.Program     62,961 →  62,975      +14
+  Tests.*         12 modules +4 … +41 each (Logic*, AnchorsVex*, CoverageVexMov)
+  every other module (40 of 56, X86.State and X86.Syntax included)   +0
+  16 of 56 modules grew, none shrank; whole tree +3,373 of 60,169,716
+  ku-delta gate (a-prime): CLEAN
+```
+⇒ **The prediction held in shape and in size:** the cost is again concentrated in `X86.Theorems`, about one projection per
+whole-record proof, and nothing is near a limit. The absolute figure is larger than D263's (+2,847 vs +2,250) and the relative one
+smaller (2.0% vs 2.6%), because `X86.Theorems` has grown 64% since D263.
+
+### 3. THE MS HALF — ONE PASS, AND A FINDING THAT IS NOT ABOUT THIS DRAFT
+A′'s ms half is one pass a side. Under this load the head read FASTER than the base in every gated module (`X86.Theorems` 2,080 →
+1,800, `Tests.Coverage` 44,100 → 42,900), so these are not a delta and none is quoted as one. No `kernel_delta.py --repeats` was
+bought, for D263's reason: a draft is not a landing, and the step that lands the field re-measures it.
+- ⛔ **`X86.Syntax` on yukon: the BASE read 928 ms against its 879 ceiling (106%).** The head read 837 (95%), and the head passed
+  only because the verdict judges the head alone. The ceiling was registered 2026-09-13 at 293 × 3 (`scripts/ku_delta_budget.txt:81`).
+  This draft did not touch the module (Δku 0). ⇒ **Master's own `X86.Syntax` is now at or over its yukon ceiling, so a yukon A′ run
+  on any change is one slow pass away from FAILED.** That is the tripwire doing its job (it catches SIZE, and the module has grown
+  about 3×), but a tripwire that has already fired on master gates nothing. The CI runner's ceiling (1,668, line 136) is unaffected.
+  It is filed as its own queue row (re-measure on a quiet box, then re-register or explain the growth); it is not repaired here.
+
+### 4. WHAT STEP (a) DOES AND DOES NOT SETTLE
+- **Settled:** the MMX state field is cheap in the record proofs, as predicted.
+- **Not settled, and it is step (b):** the CHANNEL. `x86l-post` reports no MMX, so a field nobody compares reports agreement
+  (D27). Owed: the driver dumps mm0–7, fp-tag and TOS and sets them per case; `Cpu.render` and the format check carry the same
+  keys; `undefinedLeakedBy` compares `a.mmx == b.mmx`; and a planted difference in each new key is red.
+- The 80-bit exponent alias (bits 79:64, which x86isa's `!mmx` sets to 0xFFFF) stays a DECLARED LIMIT: no roster form reads it.
+
+## D401 — Row 77 step (b): the MMX channel is in the record, both models report it, they agree, and a planted difference in each new key is caught
+
+⚖️ The seat's queue row 77, step (b), the Xmms batch-0 precedent (D27): the channel lands BEFORE any MMX instruction. No
+form in the roster writes the MMX file, so by D27 the channel watches a constant per case. Of the batch's four claims (the
+channel exists, both models report it, they agree, a planted difference is caught), only the last has teeth, and it is the
+one this entry proves first.
+
+### 1. WHAT IS IN THE RECORD
+- **Lean** (`Cpu.renderMmx`): `mm0=`…`mm7=` (16 hex digits each, from `Mmxs.regs`), `fptag=` (the full 16-bit tag word,
+  4 hex digits) and `fptop=` (TOP, 1 hex digit), after the MXCSR keys. `undefinedLeakedBy` compares `a.mmx == b.mmx`
+  absolutely, with no declaration channel, for the reason the XMM conjunct gives.
+- **The driver** (`x86l-mmxs`): the same keys from x86isa's `mmx` (bits 63:0 of fp-data), `fp-tag` and
+  `fp-statusBits->top`.
+- **The pre-state crosses the other way** as `:mmxs`, `:fptag` and `:fptop`, and the driver loads all three on EVERY case.
+  ⛔ This is not optional. x86isa's `fp-tag` stobj field starts at 0 (machine/state.lisp:496), and `init-x86-state-64`
+  resets none of the three. Without the load, one case's values are the next case's pre-state (D265 §4, the MXCSR lesson).
+  The driver writes the WHOLE status word (TOP at bits 13:11, every other bit 0), so no x87 bit a previous case left survives.
+- **The pattern** (`mmxPattern`, in `mkPre`): `mmI = ~~~c + I · 0x0101010101010101`. No two registers are equal, each
+  moves with the pre-state, and none equals an XMM half, so a model that read an XMM register for an MM one would differ.
+  The tag word is 0xFFFF (all empty, the state a process starts in). TOP sweeps as `fseed % 8`, because every MMX form
+  writes TOP := 0, and a TOP that was already 0 would hide a model that forgot to.
+- **The format gate** `scripts/check_mmx_format.py` (CI, beside the MXCSR gate; preflight): the register count, each key's
+  width on both sides, that each side CALLS its renderer, the leak conjunct, the emitter's three keywords, the driver's
+  three loads, and that the driver's tag default equals Lean's. Its selftest mutates each side separately, a WIDTH as well
+  as a name: **12 of 12 arms**.
+
+### 2. THE RED ARMS (`x86lean-diff selftest <pattern>`, yukon)
+```
+  ✔ an XMM register is clobbered (the existing arm, the control)   caught — 124,252 in `xmm3`
+  ✔ an MMX register is clobbered                                    caught — 124,268 in `mm3`
+  ✔ the x87 tag word is written as all-valid                        caught — 124,268 in `fptag`
+  ✔ the x87 TOP is forced to 0                                      caught —  72,562 in `fptop`
+  shard partition gate: CLEAN — shards 1..20 name all 211 arms exactly once
+```
+`fptop` is caught in fewer cases by construction: it can show only where the pre-state's TOP (`fseed % 8`) is non-zero.
+⚠️ The selftest's population (124,268 per arm) is not the differential run's (132,176), so its counts are not compared with §3's.
+
+### 3. BOTH MODELS REPORT IT AND AGREE, AND THE CHANNEL MOVED NOTHING ELSE (`run_differential.sh`, yukon)
+The branch and a CONTROL on master `3fcb7ee` (the same script, the same pin, no MMX channel), each run once:
+```
+  reference-model: acl2@c8897a34d3efc37eb466d7ee50a2e3861c6e82db                     (both)
+  branch:  cases=132176 matched=108396 explained=34407 unexplained=0 oracle-divergence=1363 oracle-leaks=0 missing=0
+  master:  cases=132176 matched=108396 explained=34407 unexplained=0 oracle-divergence=1363 oracle-leaks=0 missing=0
+  mm3= keys in the oracle's output:   branch 132,176 (one per case) · master 0
+```
+- **Every count is identical**, so the new keys agree in every case and added no disagreement, explained or not. Every
+  declared divergence is keyed on a field the channel does not touch.
+- **The keys are present on both sides and are not one constant**: `mm3` takes 33 distinct values in each file, and `fptop`
+  has the same distribution of all eight values on both sides (oracle: TOP 0 in 52,570 cases, 7 in 36,048, 5 in 31,542).
+  `fptag` is `ffff` in every case on both sides, because no roster form writes it. That constant is exactly what the
+  `fptag` red arm exists for.
+- The axiom gate is CLEAN over 6,273 declarations.
+
+### 4. WHAT IS NOT SETTLED
+- **No MMX instruction exists yet.** "They agree" here is agreement on a transported constant. The teeth are §2's arms.
+  Batch 1 (movq/movd, 14,495 instructions of demand) is the first test of x86isa's MMX semantics.
+- **`hwprobe/run_case_mx.lisp` does not load the MMX keys.** It prints them, through `x86l-post`, and it reads only named
+  xmm and MXCSR keys (`rows_on_x86isa.py`), so its MMX values are unread. A silicon MMX row would have to add the loads.
+- **Bits 79:64 of each register** (which x86isa's `!mmx` sets to 0xFFFF) stay a declared limit: nothing in the roster reads them.
+- **The ku of the pattern in `mkPre`** was not read on this step. It lands in the PR's K1 reading, beside D400's field cost.
+
+## D402 — Row 77 step (c), the MMX moves: predictions and price BEFORE any model work, and one predicted oracle divergence
+
+⚖️ The seat's queue row 77, step (c): `movd`/`movq` with an MMX operand, batch 1 of the MMX wave (14,495 instructions of
+demand: movq mm 11,109 · movd mm 3,386, by the 11-17 census re-run at 3fcb7ee). Written before any model work, on D400's
+field and D401's channel.
+
+### 1. THE FORMS, AND WHAT THE REFEREE DOES WITH EACH (vendored x86isa at the pin c8897a34, `instructions/move-mmx.lisp`)
+```
+  NP 0F 6F /r          movq mm, mm/m64      x86-movq-from-mmx/mem   calls mmx-instruction-updates (:183)
+  NP 0F 6E /r          movd mm, r/m32       x86-movd/movq-to-mmx    calls it (:264); zero-extends (:262 comment)
+  NP REX.W 0F 6E /r    movq mm, r/m64       x86-movd/movq-to-mmx    calls it (:264)
+  NP 0F 7F /r          movq mm/m64, mm      x86-movq-to-mmx/mem     does NOT call it
+  NP 0F 7E /r          movd r/m32, mm       x86-movd/movq-from-mmx  does NOT call it; keeps the low 32 bits
+  NP REX.W 0F 7E /r    movq r/m64, mm       x86-movd/movq-from-mmx  does NOT call it
+```
+Four `def-inst`s are in the file, and the two that READ an MMX register as their source never touch the x87 state.
+`mmx-instruction-updates`'s own documentation (register-readers-and-writers.lisp) says it accounts for *"the effects of all
+MMX instructions except EMMS"*, citing SDM Vol. 1 §9.5.1 (the tags) and Vol. 3 §15.2 (TOP). ⇒ **The referee is
+inconsistent with its own stated rule on exactly the store direction.** I have not read the SDM table this session, so the
+SDM reading is OWED and is not quoted here as a fact.
+
+### 2. PREDICTIONS (each with what would show it wrong)
+1. **The to-MMX forms (6F, 6E, REX.W 6E) agree in every key with no declaration**: the mm destination, `fptag` 0 and
+   `fptop` 0. Wrong if any of them reads `unexplained > 0`.
+2. **The from-MMX forms (7F, 7E, REX.W 7E) DISAGREE with the oracle in `fptag` in every executed case, and in `fptop`
+   exactly where the pre-state's TOP is non-zero**, if the model follows the documented rule (tag 0, TOP 0). That is
+   because the pre-state tag is 0xFFFF and x86isa leaves it there. Wrong if either count differs from that derivation.
+   ⛔ **It is NOT declared on the oracle's word or on mine.** The third source decides (D-class "the third source turns a
+   disagreement into a finding"): a silicon row that reads the tag word and TOP after a `movq mm, m64` store (FNSTENV or
+   FXSAVE on two vendors, the D330 hwprobe mechanism). If silicon agrees with x86isa, the MODEL is wrong and changes. If
+   it agrees with the documented rule, the divergence is declared in exactly the derived states (D93's class), and the
+   model keeps the rule.
+3. **`movd mm, r/m32` zero-extends** (bits 63:32 of mm := 0). A red arm that MERGES is caught in `mmN`, because
+   `mmxPattern`'s registers are non-zero in their upper halves.
+4. **`movd r/m32, mm` to a GPR writes 32 bits under the GPR rule** (zero-extending into the 64-bit register). An arm that
+   merges is caught in the GPR key. `rdx := ~~~a` (D26) is non-zero there.
+5. **REX.R does not select an MMX register** (x86isa: *"Since there are only 8 MMX registers, the REX byte is not used"*).
+   One vector carries REX.R = 1 and names mm(reg & 7). An arm that indexes mm by REX.R:reg refuses to decode or names the
+   wrong register, and is caught.
+6. **The census credits exactly the mm-operand rows of `movq`/`movd`**, the amount derived from the census JSON after the
+   build, never typed here (D-class: an expectation written from intent).
+
+### 3. PRICE
+- **Semantics:** six forms, three AST constructors' worth (`mmovq` register/load/store, `mmovgld`/`mmovgst` for the GPR and
+  m32 legs). Each writes `mmx` through one setter that also applies tag := 0 and TOP := 0 (the documented rule, pending §2.2).
+- **State:** none new (D400). **Channel:** none new (D401).
+- **Oracle:** implemented for all six (§1), with the store-side x87 divergence of §2.2 to be decided by silicon.
+- **Silicon:** one hwprobe row family (tag word and TOP after each store form), and the runners' cost. This is the part
+  of the batch not yet priced in minutes, and it decides prediction 2.
+- **Kernel:** measured at the batch's K1, never predicted from D263 or D400.
+
+### 4. RESULTS (2026-11-17, yukon; the model on `paris/mmx-draft`, the oracle at the pin)
+- **Built:** six `Op` constructors (`mmovg`, `mmovgld`, `mmovgst`, `mmovq`, `mmovqld`, `mmovqst`), `MmReg`, `Mmxs.get/set/touch`,
+  `Cpu.getMm/setMm/mmxTouch`. **Every MMX write goes through `setMm`, which applies the x87 side effect**, so no form can
+  forget it. Eleven vectors (clang cross-check CLEAN over 1,513). Build EXIT=0, 0 errors. Five red arms, all caught:
+  ```
+    movd into mm merges                    caught  78 in mm0
+    movd out of mm merges into the GPR     caught  36 in rcx
+    an MMX load leaves the tag word        caught 588 in fptag
+    an MMX store leaves the tag word       caught 336 in fptag   (x86isa's behaviour, as an arm)
+    movq mm, mm copies its destination     caught  84 in mm0
+  ```
+- **The differential, against a prediction SEALED before the comparison was read** (scratch file, 22:45:34Z):
+  ```
+    cases=133144 matched=109012 explained=34407 unexplained=564 oracle-divergence=1363 oracle-leaks=0 missing=0
+    sealed: fptag 352 (4 from-MMX vectors × 88) + fptop 212 (4 × 53, TOP ≠ 0 in 53 of 88 pre-states) = 564
+    read:   fptag 352 + fptop 212 = 564; per vector 88 + 53 on each of mmx_movd_from, mmx_movq_from, mmx_movd_st,
+            mmx_movq_st; nothing else; 0 refused on either side
+  ```
+  **Prediction 1 HELD:** matched rose by 616 = 7 to-MMX vectors × 88, so every to-MMX case agreed in every key.
+  **Prediction 2 HELD exactly**, in its count and in its location. Predictions 3 and 4 are carried by the arms above.
+- **NOT DONE, stated:**
+  - **Prediction 5 (REX.R)** is not vectored. This table's bytes come from an assembler, and no assembler emits a redundant
+    REX.R. No vector in the repository is a `.byte` spelling, and `check_encodings.py` has no arm for one. A new mechanism
+    is owed, not a vector.
+  - **The REX.W `0f 6e`/`0f 7e` MEMORY spellings** have no vector: clang spells them `0f 6f`/`0f 7f`.
+  - **The batch does not land with `unexplained=564`.** The 564 are the question §2.2 put to SILICON. The next act is a
+    hwprobe row that reads the tag word and TOP after each store form, on two vendors. If silicon agrees with x86isa, the
+    model's stores lose `mmxTouch`. If it agrees with the documented rule, the 564 are declared in exactly these states,
+    and the declaration FAILS if they stop diverging (D95).
+  - The census delta and the K1 reading belong to the landing step.
+
+## D403 — Silicon decides D402 §2.2: an MMX store sets the x87 tags to non-empty and TOP to 0, so x86isa's two store moves are wrong and the 564 are declared
+
+⚖️ D402 predicted, before any model work, that the four from-MMX vectors would disagree with x86isa in `fptag` in every case
+and in `fptop` where TOP ≠ 0, and it left the question to silicon. The differential read exactly the prediction (564 = 352 +
+212, D402 §4). This is the silicon reading and the declaration that follows from it.
+
+### 1. THE PROBE (`hwprobe/mmx87_probe.c`, wired into `hwprobe.yml`)
+Each row runs one instruction from a known x87 state and reads the tag word and TOP with FNSTENV. The states are P0 (after
+FNINIT: all empty, TOP 0) and P7 (after FNINIT; FLD1: register 7 full, TOP 7). The four store forms are the question.
+Controls must hold or the probe REFUSES (rc 2): a load and `movq mm, mm` (both models agree), a non-MMX `add` (unchanged)
+and EMMS (all empty). A PLANT build turns the load control into a NOP and must refuse.
+
+### 2. THE FIRST RUN REFUSED, AND THE REFUSAL WAS ABOUT THE INSTRUMENT (run 44194153626)
+Every load control failed on both processors: a load read FTW `5556`, not `0000`. **FNSTENV does not report the internal
+tag. It recomputes a full tag per register from its contents** (00 valid, 01 zero, 10 special, 11 empty). After a load, mm0
+is "special" (`!mmx` sets its exponent to all ones) and the others are "zero". What the MMX rule fixes is EMPTY vs NOT
+EMPTY. The probe now judges the EMPTY MASK and TOP. Re-judged on the first run's printed readings, every control passes and
+the plant still fails. Nothing about the stores was read before that repair.
+
+### 3. THE VERDICT (run 44194743241, both legs green)
+```
+  AMD EPYC 7763 (ubuntu-latest)      plant rc 2 (DIFF ld_movd_p0)   controls 8/8   VERDICT rule (8 of 8 store readings)
+  Intel Core i7-8700B (macos-15-intel)  plant rc 2 (DIFF ld_movd_p0)   controls 8/8   VERDICT rule (8 of 8 store readings)
+  every store, from P0 and from P7:  empty mask 00, TOP 0   (P7's pre-state: empty 7f, TOP 7)
+```
+⇒ **On two vendors, an MMX store does what x86isa's own documentation says and what its store `def-inst`s do not.** The
+model's `mmxTouch` on stores is right and stays.
+
+### 4. THE DECLARATION (Main.lean `knownDivergences`, eight entries, D95's rule that an entry FAILS if it stops diverging)
+- `fptag` on each of the four store vectors, at its one pair: x86lean `0000`, oracle `ffff`.
+- `fptop` on each of the four, only at the **53 pre-states whose TOP is non-zero**, derived from the emitted records (identical
+  for all four vectors), never typed. Under D331 the run FAILS if any listed state stops diverging.
+
+### 5. LIMITS, STATED
+- **The record's `fptag` is x86isa's 16-bit internal tag, not an architected observable.** The model writes 0 ("all valid"),
+  where FNSTENV would show a per-content classification (`1556` after these stores). The comparison between the two models
+  is exact. What silicon was asked about is empty vs not empty, and that is what §3 measures.
+- **EMMS from P7 read TOP 0 on both processors.** That was not judged, nothing in the roster depends on it, and the model
+  has no EMMS yet. When EMMS is modelled, this reading is its first question.
+- **An upstream report to x86isa** (its two MMX store moves skip `mmx-instruction-updates`) is outward, so it is offered,
+  not sent.
+
+### 6. THE DECLARED RUN, AGAINST A LINE SEALED BEFORE IT (22:59:36Z)
+```
+  sealed: cases=133144 matched=109012 explained=34407 unexplained=0 oracle-divergence=1927 (1363 + 564) oracle-leaks=0 missing=0
+  read:   cases=133144 matched=109012 explained=34407 unexplained=0 oracle-divergence=1927                oracle-leaks=0 missing=0
+```
+Equal in every count. The staleness half of the eight entries (a listed state that stops diverging FAILS the run) is D331's
+mechanism, and it was not re-driven by a plant here.
+
+### 7. D402 ADDENDUM — THE CHARACTERIZATION THEOREMS (X86/Theorems.lean), AND ONE RED BACKWARDS
+Four statements: `mmovg_to_mm_zero_extends`, `mmovq_copies`, `mmovg_to_mm_touches_x87`, and `mmovqst_touches_x87`, the
+model's side of D403's eight declarations. **Red backwards:** a mutant that drops `mmxTouch` from the `movq` store (x86isa's
+behaviour) broke exactly one declaration, `mmovqst_touches_x87` (Theorems.lean:845, unsolved goals). The restored tree builds
+EXIT=0, and the axiom gate is CLEAN over 6,541 declarations.

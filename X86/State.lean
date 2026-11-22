@@ -110,6 +110,10 @@ structure Cpu where
   (`withSimd`). Every pre-state masks every exception and clears DAZ and FZ, and that
   is a declared limit: this model does not state what either does. -/
   mxcsr : BitVec 32 := 0x1F80
+  /-- ⭐⭐ MMX AND ITS x87 ALIAS (row 77; D400 priced it, D401 puts it in the record). One
+  nested field by D71's lesson. No instruction in the roster writes it yet, so by D27 it is a
+  constant per case, and the channel's teeth are the planted red (D401). -/
+  mmx : Mmxs := {}
   oracle : Oracle := Oracle.zero
   ms : Option MsErr := none
 
@@ -165,6 +169,23 @@ def setReg (s : Cpu) (sz : Size) (r : GPR) (v : Val) (high8 : Bool := false) : C
     (s.setReg sz r v h8).ms = s.ms := rfl
 @[simp] theorem setReg_oracle (s : Cpu) (sz : Size) (r : GPR) (v : Val) (h8 : Bool) :
     (s.setReg sz r v h8).oracle = s.oracle := rfl
+
+/-! ### The MMX registers (D402) -/
+
+/-- Read one MMX register. -/
+def getMm (s : Cpu) (r : MmReg) : BitVec 64 := s.mmx.get r
+
+/-- ⭐⭐ WRITE one MMX register, WITH the x87 side effect every MMX instruction but EMMS has
+(tag := 0, TOP := 0; `Mmxs.touch`). There is no setter that writes an MMX register without it,
+so no MMX form can forget it. -/
+def setMm (s : Cpu) (r : MmReg) (v : BitVec 64) : Cpu :=
+  { s with mmx := (s.mmx.set r v).touch }
+
+/-- The x87 side effect alone, for an MMX form that only READS an MMX register (the stores). -/
+def mmxTouch (s : Cpu) : Cpu := { s with mmx := s.mmx.touch }
+
+@[simp] theorem getMm_setMm_same (s : Cpu) (r : MmReg) (v : BitVec 64) :
+    (s.setMm r v).getMm r = v := by simp [getMm, setMm]
 
 /-! ### The vector registers -/
 

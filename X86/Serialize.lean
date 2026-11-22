@@ -118,6 +118,19 @@ def Cpu.renderMxcsr (s : Cpu) : String :=
     ((mxcsrFlagNames.map fun (n, i) => s!"mxcsr.{n}={if s.mxcsr.getLsbD i then "1" else "0"}")
       ++ [s!"mxcsr.ctl={hexPad ((s.mxcsr &&& 0xFFC0).setWidth 64) 4}"])
 
+/-- ⭐⭐ THE MMX CHANNEL (row 77 step b, D401): `mm0=`…`mm7=` (16 hex digits each), then
+`fptag=` (the full 16-bit x87 tag word, 4 hex) and `fptop=` (TOP, 1 hex digit). The driver prints
+the same keys from x86isa's `mmx`, `fp-tag` and `fp-status` (`x86l-mmxs`), and
+`scripts/check_mmx_format.py` holds the two together.
+⛔ The tag word and TOP are in the record because every MMX form WRITES them (tag 0, TOP 0) and
+EMMS writes tag 0xFFFF: without the keys the x87 alias is an unobserved region, which reports
+agreement (D27). Bits 79:64 of each register are a declared limit: nothing in the roster reads them. -/
+def Cpu.renderMmx (s : Cpu) : String :=
+  String.intercalate " "
+    ((s.mmx.regs.zipIdx.map fun (v, i) => s!"mm{i}={hex64 v}")
+      ++ [s!"fptag={hexPad (s.mmx.fpTag.setWidth 64) 4}",
+          s!"fptop={hexPad (s.mmx.fpTop.setWidth 64) 1}"])
+
 def MsErr.render : MsErr → String
   | .illegalOperands w => s!"illegal-operands:{w}"
   | .unimplemented w => s!"unimplemented:{w}"
@@ -136,7 +149,7 @@ is what the record carries; the reason stays in `Cpu.ms` for a human reading a
 single case. -/
 def Cpu.render (s : Cpu) (ws : List Window) : String :=
   String.intercalate " "
-    ([s.renderRegs, s.renderXmms, s.renderYmmHis, s!"rip={hex64 s.rip}", s.flags.render, s.renderMxcsr,
+    ([s.renderRegs, s.renderXmms, s.renderYmmHis, s!"rip={hex64 s.rip}", s.flags.render, s.renderMxcsr, s.renderMmx,
       s!"refused={if s.ms.isSome then "1" else "0"}"]
       ++ ws.map (renderWindow s.mem))
 
@@ -273,6 +286,7 @@ def undefinedLeakedBy (stepFn : Instr → Cpu → Cpu) (i : Instr) (s : Cpu)
   -- conjunct cannot see it.  Every other field is still compared as below.
   !(a.xmm == b.xmm
     && a.mxcsr == b.mxcsr
+    && a.mmx == b.mmx
     && movedRegs a b == declaredUndefRegs i s
     && a.rip == b.rip
     && a.oracle.cursor == b.oracle.cursor

@@ -1042,6 +1042,30 @@ jobs:
           echo "vexsilf rc=$rc"
           test "$rc" = 0
 
+      # ⭐⭐ D402 §2.2 — WHAT AN MMX STORE DOES TO THE x87 TAG WORD AND TOP. x86isa applies the x87 update on
+      # its to-MMX moves and not on its from-MMX ones; the model follows x86isa's documented rule. The processor
+      # decides. Controls (a load, movq mm,mm, a non-MMX add, EMMS) must hold or the probe REFUSES (rc 2); the
+      # plant turns the load control into a NOP and must refuse. rc 0 prints "VERDICT rule" or "VERDICT x86isa";
+      # rc 3 is "VERDICT mixed", and it reds this step, because a split answer decides nothing.
+      - name: D402 MMX-store x87 state (controls, plant, verdict)
+        if: ${{ !cancelled() }}
+        working-directory: hwprobe
+        run: |
+          gcc -O0 -Wall -o mmx87_probe mmx87_probe.c
+          gcc -O0 -Wall -DPLANT -o mmx87_probe_plant mmx87_probe.c
+          ./mmx87_probe --cpuid
+          set +e
+          ./mmx87_probe_plant > mmx87_plant.out; rc_plant=$?
+          ./mmx87_probe > mmx87.out; rc=$?
+          set -e
+          cat mmx87_plant.out
+          cat mmx87.out
+          echo "mmx87 plant rc=$rc_plant (want 2) · probe rc=$rc (want 0)"
+          test "$rc_plant" = 2
+          grep -q '^DIFF ld_movd_p0 ' mmx87_plant.out
+          test "$rc" = 0
+          grep -E '^VERDICT (rule|x86isa) ' mmx87.out
+
       - name: Bit-string rows, full listing (artifact)
         if: always()
         uses: actions/upload-artifact@v4

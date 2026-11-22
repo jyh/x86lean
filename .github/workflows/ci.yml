@@ -566,6 +566,14 @@ jobs:
           python3 scripts/check_mxcsr_format.py --selftest
           python3 scripts/check_mxcsr_format.py
 
+      # ⭐⭐ ROW 77 STEP b (D401). The MMX file and its x87 alias (tag word, TOP) joined the record as
+      # mm0..mm7, fptag and fptop, printed on both sides, and the pre-state crosses the other way as
+      # :mmxs/:fptag/:fptop, loaded on every case. The selftest mutates a WIDTH as well as a name.
+      - name: MMX record format agrees across the Lean/ACL2 boundary
+        run: |
+          python3 scripts/check_mmx_format.py --selftest
+          python3 scripts/check_mmx_format.py
+
       # B0's kernel pins are GENERATED from hwprobe/mk_rows.py, the rows the x86-64 referee runs.
       # Transport only: this proves Tests/Anchors.lean carries the generator's block; the kernel
       # checks the model against it and the hwprobe job checks the rows against a processor.

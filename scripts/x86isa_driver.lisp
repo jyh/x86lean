@@ -203,6 +203,33 @@
 ; window is a test that passes by construction.
 (defconst *x86l-windows* '((#x1fe0 . 64) (#x7fe0 . 48)))
 
+;; ⭐⭐ THE MMX CHANNEL (row 77 step b, D401): mm0..mm7 from x86isa's `mmx` (bits 63:0 of fp-data),
+;; then the full 16-bit tag word and TOP (bits 13:11 of the status word). `Cpu.renderMmx` builds
+;; the identical string, and `scripts/check_mmx_format.py` holds the two together.
+(defun x86l-mmxs (i acc x86)
+  (declare (xargs :stobjs x86))
+  (if (or (not (natp i)) (>= i 8))
+      (concatenate 'string acc
+                   " fptag=" (x86l-hex (fp-tag x86) 4)
+                   " fptop=" (x86l-hex (fp-statusBits->top (fp-status x86)) 1))
+    (x86l-mmxs (1+ i)
+               (concatenate 'string acc " mm"
+                            (coerce (explode-atom i 10) 'string) "="
+                            (x86l-hex (mmx i x86) 16))
+               x86)))
+
+;; Loads the case's MMX registers through `!mmx` (which also sets bits 79:64 to #xFFFF).
+(defun x86l-set-mmxs (alist x86)
+  (declare (xargs :stobjs x86))
+  (if (or (atom alist) (not (consp (car alist))))
+      x86
+    (let* ((idx (caar alist))
+           (val (cdar alist))
+           (x86 (if (and (natp idx) (< idx 8) (unsigned-byte-p 64 val))
+                    (!mmx idx val x86)
+                  x86)))
+      (x86l-set-mmxs (cdr alist) x86))))
+
 (defun x86l-post (x86)
   (declare (xargs :stobjs x86))
   (b* (((mv wins x86) (x86l-windows *x86l-windows* "" x86)))
@@ -213,6 +240,7 @@
           " rip=" (x86l-hex (n64 (rip x86)) 16)
           " " (x86l-flags x86)
           (x86l-mxcsr x86)
+          (x86l-mmxs 0 "" x86)
           ; ⚠️ BOTH FIELDS.  x86isa records a #GP(0) in `fault`, NOT in `ms` —
           ; and the first differential run read only `ms`, so eighty
           ; non-canonical branches came back as "x86isa did nothing, and its rip
@@ -292,6 +320,9 @@
        (xmms   (cadr (assoc-keyword :xmms c)))
        (ymmhis (cadr (assoc-keyword :ymmhis c)))
        (mx     (cadr (assoc-keyword :mxcsr c)))
+       (mmxs   (cadr (assoc-keyword :mmxs c)))
+       (ftag   (cadr (assoc-keyword :fptag c)))
+       (ftop   (cadr (assoc-keyword :fptop c)))
        (x86 (!app-view t x86))
        ((mv flg x86)
         (init-x86-state-64 nil rip0 gprs *x86l-ctrs* msrs nil nil nil nil rflags mem x86))
@@ -309,6 +340,16 @@
        ;; does NOT reset MXCSR (D265 §4), so without this a sticky flag raised by one case
        ;; is read as the next case's pre-state.
        (x86 (!mxcsr (if (natp mx) mx #x1f80) x86))
+       ;; ⭐⭐ D401: THE MMX FILE, THE TAG WORD AND TOP, ON EVERY CASE. `init-x86-state-64` resets
+       ;; none of them and the stobj's `fp-tag` starts at 0, so without these one case's values are
+       ;; the next case's pre-state. A case that omits them gets zero registers, tag #xFFFF (all
+       ;; empty) and a status word of 0 — the Lean defaults. The WHOLE status word is written (TOP
+       ;; at bits 13:11, everything else 0), so no x87 bit a previous case left can survive.
+       (x86 (x86l-set-mmxs (if (consp mmxs) mmxs (list (cons 0 0) (cons 1 0) (cons 2 0) (cons 3 0)
+                                                       (cons 4 0) (cons 5 0) (cons 6 0) (cons 7 0)))
+                           x86))
+       (x86 (!fp-tag (if (natp ftag) ftag #xffff) x86))
+       (x86 (!fp-status (if (and (natp ftop) (< ftop 8)) (ash ftop 11) 0) x86))
        (x86 (x86-fetch-decode-execute x86))
        ((mv post x86) (x86l-post x86)))
     (prog2$ (cw "CASE id=~s0 len=~x1~%~s2~%" id len post)

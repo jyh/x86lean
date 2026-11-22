@@ -2255,6 +2255,21 @@ inductive Op where
   `sz` bytes are stored and no register is written — `vmovsst`'s meaning. Split from the load
   for D91's reason: no type can then spell a memory-to-memory move. -/
   | vmovgst (sz : Size) (ea : Ea) (src : XmmReg)
+  /-- ⭐⭐ D402 — THE MMX MOVES (row 77 batch 1). `movd`/`movq` between an MMX register and a GPR
+  (`NP 0F 6E /r` into MMX, `NP 0F 7E /r` out of it; REX.W selects `movq`). Into MMX, `.d` ZEROES
+  bits 63:32 (SDM Vol. 2B MOVD; x86isa move-mmx.lisp:262). Out of MMX, an ordinary GPR write. -/
+  | mmovg (toMm : Bool) (sz : Size) (m : MmReg) (r : GPR)
+  /-- D402 — `movd`/`movq` from memory into MMX (`NP 0F 6E /r`, REX.W for `movq`): `sz` bytes,
+  zero-extended to 64. -/
+  | mmovgld (sz : Size) (dst : MmReg) (ea : Ea)
+  /-- D402 — `movd`/`movq` from MMX to memory (`NP 0F 7E /r`): the low `sz` bytes are stored. -/
+  | mmovgst (sz : Size) (ea : Ea) (src : MmReg)
+  /-- D402 — `movq mm, mm` (`NP 0F 6F /r`, mod = 11): the whole register. -/
+  | mmovq (dst src : MmReg)
+  /-- D402 — `movq m64, mm` → `movq mm, m64` (`NP 0F 6F /r`): a quadword load. -/
+  | mmovqld (dst : MmReg) (ea : Ea)
+  /-- D402 — `movq mm, m64` (`NP 0F 7F /r`): a quadword store. -/
+  | mmovqst (ea : Ea) (src : MmReg)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFTS AT AN IMMEDIATE COUNT
   (`66 0F 71/72/73 /r ib`), and the first operation in this model whose RESULT
   IS NOT A FUNCTION OF ITS OPERANDS LANE BY LANE: one count is applied to every
@@ -2658,6 +2673,10 @@ def opOperands : Op → List Operand
   -- ⭐ The GPR half IS an `Operand`; the XMM half is not. Reporting what can be
   -- reported keeps the lock and segment walks exact.
   | .vmovg _ _ _ r => [.reg r]
+  -- D402: the MMX moves name their GPR or their address, as the XMM ones do.
+  | .mmovg _ _ _ r => [.reg r]
+  | .mmovgld _ _ ea | .mmovgst _ ea _ | .mmovqld _ ea | .mmovqst ea _ => [.mem ea]
+  | .mmovq .. => []
   | .vmovq .. => []
   | .vmovs .. => []
   -- ⭐ P2 BATCH 13.  The immediate and register count shapes name no `Operand`
@@ -2846,6 +2865,8 @@ def Op.anyLocked : Op → Bool
   | .vmovmsk .. => false
   | .vmovsld _ _ ea | .vmovsst _ ea _ => ea.lock
   | .vmovgld _ _ ea | .vmovgst _ ea _ => ea.lock
+  | .mmovgld _ _ ea | .mmovgst _ ea _ | .mmovqld _ ea | .mmovqst ea _ => ea.lock
+  | .mmovg .. | .mmovq .. => false
   | .vmovg .. | .vmovq .. | .vmovs .. => false
   -- P2 BATCH 13: `lock psrad` is not a form the SDM lists, so `lockable`
   -- refusing it is what makes it #UD — the memory shape reports its `Ea` here
@@ -3095,6 +3116,8 @@ def Op.mnemonic : Op → String
   | .vmovs sz .. | .vmovsld sz .. | .vmovsst sz .. =>
       match sz with | .q => "movsd" | _ => "movss"
   | .vmovg _ sz .. | .vmovgld sz .. | .vmovgst sz .. => match sz with | .q => "movq" | _ => "movd"
+  | .mmovg _ sz .. | .mmovgld sz .. | .mmovgst sz .. => match sz with | .q => "movq" | _ => "movd"
+  | .mmovq .. | .mmovqld .. | .mmovqst .. => "movq"
   -- ⭐ P2 BATCH 13.  All three count shapes print the SAME mnemonic — `psrad`
   -- names the operation and the lane, and the count's provenance is in the
   -- operands, not in the name.  That is the opposite of `movss`/`movsd`, where

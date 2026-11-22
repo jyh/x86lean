@@ -107,7 +107,7 @@ class Model(frozenset):
     `.silicon` the `siliconTable` mnemonics (class (b)).  ⛔ A plain set passed
     where a `Model` is expected behaves as a model with no silicon rows, which
     is exactly the reference pass `check_no_pooling` needs."""
-    def __new__(cls, names, silicon=(), vex=(), silicon256=(), lockable=()):
+    def __new__(cls, names, silicon=(), vex=(), silicon256=(), lockable=(), mmx=()):
         sil = frozenset(silicon)
         self = super().__new__(cls, frozenset(names) - sil)
         self.names = frozenset(names)
@@ -121,12 +121,32 @@ class Model(frozenset):
         # ⭐ D367: the mnemonics `x86lean-diff coverage` DERIVES from `Op.lockable` over the vectors
         # (COVERAGE.md's "Lockable" line). Only a differential mnemonic can be credited, so it is cut to (a).
         self.lockable = frozenset(lockable) & (frozenset(names) - sil)
+        # ⭐ D402: the mnemonics with an MMX (`mm`) shape in COVERAGE.md. ONLY these map an `%mm` spelling to
+        # themselves; `paddw` has an XMM row and no MMX one, so `paddw %mm1, %mm0` is NOT credited to it.
+        self.mmx = frozenset(mmx) & frozenset(names)
         return self
 
 
 def names_of(model):
     """Every mnemonic a model can be MAPPED to (its `.names`, or the set itself)."""
     return getattr(model, "names", model)
+
+
+def mmx_of(model):
+    """⭐ D402: the mnemonics modelled with an MMX operand, or nothing for a plain set."""
+    return getattr(model, "mmx", frozenset())
+
+
+def mmx_rows(text):
+    """⭐ D402: the COVERAGE.md rows whose SHAPES cell (before the ` — ` note) names an `mm` operand.
+    Read from the generated table, never a hand list: a row that gains an MMX shape joins by regeneration."""
+    out = set()
+    for m, cell in re.findall(r'^\| `([a-z0-9]+)` \| ([^|]*)\|', text, re.M):
+        shapes = cell.split(" — ", 1)[0]
+        for shp in shapes.split("·"):
+            if "mm" in [o.strip() for o in shp.strip().split(",")]:
+                out.add(m)
+    return out
 
 
 def silicon_of(model):
@@ -228,7 +248,7 @@ def model_mnemonics():
               f"disagree — only in COVERAGE.md: {sorted(sect - sil)}; only in "
               f"siliconTable: {sorted(set(sil) - sect)}. Regenerate COVERAGE.md.")
         sys.exit(2)
-    return Model(ms, sil, vex, silicon256_mnemonics(), lockable)
+    return Model(ms, sil, vex, silicon256_mnemonics(), lockable, mmx_rows(text))
 
 # ── objdump mnemonic -> roster name ────────────────────────────────────────
 CC = ("o no b c nae ae nb nc e z ne nz be na a nbe s ns p pe np po l nge "
@@ -307,6 +327,14 @@ def to_roster(m, ext=None, model=None):
     # COVERED is `_decide`'s question, and it asks the differential set alone.
     if model is not None and ext in XMM_EXT and (m in names_of(model) or m in vex_of(model)):
         return m
+    # ⭐ D402: the MMX register file joined the model, so an `%mm` spelling of a name the model has maps to
+    # itself. Without this rule `movq %mm1, %mm0` fell to the suffix rule below and mapped to `mov`, the GPR
+    # move: the docstring's two-instruction `movq` collision, with a third member.
+    # ⛔ AND ONLY these: for an `%mm` spelling the MMX set is the WHOLE answer. The identity rule further down
+    # would map `paddw %mm1, %mm0` to the XMM `paddw` row, which has no MMX form; it is unclaimed (None), so it
+    # is counted in scope and NOT covered.
+    if model is not None and ext == "MMX (mm)":
+        return m if m in mmx_of(model) else None
     # ⭐ D344 (V6): every VEX-table row is also modelled at VEX.256, so a `%ymm` spelling that IS a VEX-table
     # row maps to itself. A legacy name never does: no legacy SSE form names a YMM register.
     if model is not None and ext == YMM and m in vex_of(model):
@@ -701,7 +729,9 @@ EXT_SCOPE.update({
     "AVX-512 (zmm/k)":                        False,
     "AVX2/AVX (ymm)":                         False,
     "VEX-128 (v… xmm)":                       False,
-    "MMX (mm)":                               False,
+    # ⭐ D402: IN SCOPE since the MMX file joined `Cpu` (D400) and its moves joined the model. The other MMX
+    # forms are in scope and NOT covered, which is the honest denominator for the wave that follows.
+    "MMX (mm)":                               True,
     "x87 (st)":                               False,
     # ⭐ the one vector register file it DOES have (P2 batches 4-9)
     "SSE-legacy (xmm)":                       True,
@@ -1762,7 +1792,11 @@ def differential_reference(model):
     `Model` the report used: a model that pooled would then be its own referee.
     ⭐ D367: it carries the lockable line (read fresh, like the silicon list), because a LOCK credit is class
     (a), differential, and a reference without it would read every credited locked form as pooled silicon."""
-    return Model(frozenset(names_of(model)) - silicon_mnemonics(), lockable=lockable_mnemonics())
+    # ⭐ D402: and the MMX line, read fresh from COVERAGE.md by D367's rule. An MMX move is class (a), differential;
+    # a reference without the line read every credited `%mm` form as pooled (ffmpeg 6,797 on the first run).
+    cov = open(os.path.join(root, "docs", "COVERAGE.md"), encoding="utf-8").read()
+    return Model(frozenset(names_of(model)) - silicon_mnemonics(), lockable=lockable_mnemonics(),
+                 mmx=mmx_rows(cov))
 
 
 def check_no_pooling(counts, ref, reported):
@@ -1841,6 +1875,12 @@ def selftest():
         ("movq",   "SSE-legacy (xmm)",   "movq"),
         ("movq",   "GPR/other (unclassified)", "mov"),
         ("movd",   "SSE-legacy (xmm)",   "movd"),
+        # ⭐ D402: an MMX spelling maps to itself ONLY for a mnemonic with an MMX row; `paddw` has an XMM row and no
+        # MMX one, so its `%mm` spelling is unclaimed (it was credited to the XMM row on this tool's first D402 run)
+        ("movq",   "MMX (mm)",           "movq"),
+        ("movd",   "MMX (mm)",           "movd"),
+        ("paddw",  "MMX (mm)",           None),
+        ("pxor",   "MMX (mm)",           None),
         # ⭐ the form P2 batch 3 landed and nothing mapped
         ("movabsq", "mov imm64 / movabs (P2 addition 3)", "mov"),
         # ⛔ a VEX spelling the model does not name is still not a roster name
@@ -1989,7 +2029,10 @@ def selftest():
     # three classes, one decision each
     for m, ext, want in (("paddd",   "SSE-legacy (xmm)", (True,  "mapped")),
                          ("pmaddwd", "SSE-legacy (xmm)", (False, "silicon")),
-                         ("pmaddwd", "MMX (mm)",         (False, "outscope")),
+                         # ⭐ D402: MMX is IN SCOPE, so `pmaddwd %mm` is in scope and UNMAPPED: the silicon XMM row
+                         # must not credit it. The out-of-scope half of this arm moves to a file still out of scope.
+                         ("pmaddwd", "MMX (mm)",         (False, "unmapped")),
+                         ("pmaddwd", "AVX-512 (zmm/k)",  (False, "outscope")),
                          ("andnl",   "BMI1",             (False, "silicon")),
                          ("adcxq",   "ADX",              (True,  "mapped")),
                          # ⚠️ D379 moved `pmulld` from this arm's "unmapped" example into the silicon class; the
@@ -2155,7 +2198,9 @@ def selftest():
     # ⭐ THE STAMP'S SECOND HALF MOVES WHEN THE MAPPING DOES AND THE MODEL DOES NOT
     _n0, _h0, _r0 = model_stamp(_M)
     _saved = EXT_SCOPE["MMX (mm)"]
-    EXT_SCOPE["MMX (mm)"] = True
+    # ⭐ D402: the mutation is the OPPOSITE of the shipped value. It read `= True` until MMX went in scope, and then
+    # it mutated nothing: an arm whose fixture had become the default.
+    EXT_SCOPE["MMX (mm)"] = not _saved
     _n1, _h1, _r1 = model_stamp(_M)
     EXT_SCOPE["MMX (mm)"] = _saved
     _n2, _h2, _r2 = model_stamp(_M)

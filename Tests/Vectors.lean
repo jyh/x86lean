@@ -3286,6 +3286,31 @@ def vectors : List Vec :=
     , bytes := "660fd603", instr := ⟨.vmovgst .q { base := some .rbx } .x0, 4⟩ }
   , { id := "movq_st_x9", mnemonic := "movq", asm := "movq %xmm9, (%rbx)"
     , bytes := "66440fd60b", instr := ⟨.vmovgst .q { base := some .rbx } .x9, 5⟩ }
+  -- ⭐⭐ D402 — THE MMX MOVES (row 77 batch 1), both directions, a low and a high register.
+  -- ⛔ The REX.W `0f 6e`/`0f 7e` MEMORY spellings have no vector: clang spells `movq` between MMX
+  -- and memory as `0f 6f`/`0f 7f`, and this table's bytes come from an assembler.
+  , { id := "mmx_movd_to", mnemonic := "movd", asm := "movd %ecx, %mm0"
+    , bytes := "0f6ec1", instr := ⟨.mmovg true .d .m0 .rcx, 3⟩ }
+  , { id := "mmx_movd_to_m7", mnemonic := "movd", asm := "movd %ecx, %mm7"
+    , bytes := "0f6ef9", instr := ⟨.mmovg true .d .m7 .rcx, 3⟩ }
+  , { id := "mmx_movq_to", mnemonic := "movq", asm := "movq %rcx, %mm0"
+    , bytes := "480f6ec1", instr := ⟨.mmovg true .q .m0 .rcx, 4⟩ }
+  , { id := "mmx_movd_from", mnemonic := "movd", asm := "movd %mm0, %ecx"
+    , bytes := "0f7ec1", instr := ⟨.mmovg false .d .m0 .rcx, 3⟩ }
+  , { id := "mmx_movq_from", mnemonic := "movq", asm := "movq %mm0, %rax"
+    , bytes := "480f7ec0", instr := ⟨.mmovg false .q .m0 .rax, 4⟩ }
+  , { id := "mmx_movd_ld", mnemonic := "movd", asm := "movd (%rbx), %mm0"
+    , bytes := "0f6e03", instr := ⟨.mmovgld .d .m0 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_movd_st", mnemonic := "movd", asm := "movd %mm0, (%rbx)"
+    , bytes := "0f7e03", instr := ⟨.mmovgst .d { base := some .rbx } .m0, 3⟩ }
+  , { id := "mmx_movq_ld", mnemonic := "movq", asm := "movq (%rbx), %mm5"
+    , bytes := "0f6f2b", instr := ⟨.mmovqld .m5 { base := some .rbx }, 3⟩ }
+  , { id := "mmx_movq_st", mnemonic := "movq", asm := "movq %mm3, (%rbx)"
+    , bytes := "0f7f1b", instr := ⟨.mmovqst { base := some .rbx } .m3, 3⟩ }
+  , { id := "mmx_movq_mm", mnemonic := "movq", asm := "movq %mm1, %mm0"
+    , bytes := "0f6fc1", instr := ⟨.mmovq .m0 .m1, 3⟩ }
+  , { id := "mmx_movq_mm_hi", mnemonic := "movq", asm := "movq %mm6, %mm2"
+    , bytes := "0f6fd6", instr := ⟨.mmovq .m2 .m6, 3⟩ }
 
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 7 — THE UNPACK (INTERLEAVE) GROUP.  The first
   -- vector operations here that are a PERMUTATION rather than lane-wise
@@ -4847,6 +4872,19 @@ def xmmPattern (a c : BitVec 64) : Xmms :=
     let lo : BitVec 64 := c ^^^ (i * 0x1111111111111111)
     xs.set r ((hi.setWidth 128) <<< 64 ||| lo.setWidth 128)) {}
 
+/-- ⭐⭐ THE MMX PATTERN (row 77 step b, D401), built from the swept values like `xmmPattern`
+and for its reason: eight zero registers on both sides would agree with a model that read the
+wrong register, a constant, or nothing. `mmI = ~~~c + I * 0x0101010101010101`, so no two
+registers are equal, each moves with the pre-state, and none equals an XMM half (those are
+`a + i` and `c XOR (i * 0x1111…)`), so a model that read an XMM register for an MM one differs.
+The tag word is 0xFFFF (all empty, the state a process starts in) and TOP sweeps with the flag
+seed, because every MMX form writes TOP := 0 and a TOP that was already 0 would hide a model
+that forgot to. -/
+def mmxPattern (c : BitVec 64) (fseed : Nat) : Mmxs :=
+  let r (i : Nat) : BitVec 64 := ~~~c + BitVec.ofNat 64 i * 0x0101010101010101
+  { mm0 := r 0, mm1 := r 1, mm2 := r 2, mm3 := r 3, mm4 := r 4, mm5 := r 5, mm6 := r 6, mm7 := r 7
+    fpTag := 0xFFFF, fpTop := BitVec.ofNat 3 (fseed % 8) }
+
 /-- A pre-state built from two operand values and a flag seed.  RBX and RSP are
 fixed so the memory windows mean the same thing in every vector; RAX/RCX carry
 the values under test. -/
@@ -4957,6 +4995,8 @@ def mkPre (a c : BitVec 64) (fseed : Nat) : Cpu :=
     -- buys is that the constant is a DIFFERENT constant in every register and
     -- every case, which is what a wrong reading has to survive.
     xmm := xmmPattern a c
+    -- ⭐⭐ THE MMX FILE AND ITS x87 ALIAS (D401): see `mmxPattern`.
+    mmx := mmxPattern c fseed
     oracle := zeroOracle }
 
 /-- ⭐ THE CARRY BOUNDARY, added by P1 BATCH 2 — and it is the same finding P0's

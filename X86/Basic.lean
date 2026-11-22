@@ -308,6 +308,87 @@ def set (xs : Xmms) : XmmReg → BitVec 128 → Xmms
 
 end Xmms
 
+/-- ⭐⭐ The MMX register file and its x87 alias (row 77; D400, D401).
+Eight 64-bit registers (mm0–mm7 alias bits 63:0 of ST/R0–R7, SDM Vol. 1 §9.5) and the
+two x87 fields every MMX form writes: the tag word (x86isa `mmx-instruction-updates`
+writes 0 on every MMX form and EMMS writes 0xFFFF) and TOP (written 0).  Bits 79:64
+are a DECLARED LIMIT (nothing in the roster can read them).  One nested field on
+`Cpu`, by D71's lesson.  The default tag 0xFFFF is the all-empty state a process starts
+in (x86isa's stobj starts at 0, so the driver loads it on every case, D401). -/
+structure Mmxs where
+  mm0 : BitVec 64 := 0
+  mm1 : BitVec 64 := 0
+  mm2 : BitVec 64 := 0
+  mm3 : BitVec 64 := 0
+  mm4 : BitVec 64 := 0
+  mm5 : BitVec 64 := 0
+  mm6 : BitVec 64 := 0
+  mm7 : BitVec 64 := 0
+  fpTag : BitVec 16 := 0xFFFF
+  fpTop : BitVec 3 := 0
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+/-- The eight MMX registers in index order (mm0 first): the record's `mmN=` keys and the
+emitter's `:mmxs` alist both walk this list, so neither can skip or reorder one. -/
+def Mmxs.regs (m : Mmxs) : List (BitVec 64) :=
+  [m.mm0, m.mm1, m.mm2, m.mm3, m.mm4, m.mm5, m.mm6, m.mm7]
+
+/-- The eight MMX registers, by their ModRM encoding number (D402). ⛔ There is no REX extension:
+x86isa (*"Since there are only 8 MMX registers, the REX byte is not used"*) and the encoding agree,
+so the type has eight constructors and REX.R cannot name a ninth. -/
+inductive MmReg where
+  | m0 | m1 | m2 | m3 | m4 | m5 | m6 | m7
+  deriving DecidableEq, Repr, Inhabited, BEq
+
+namespace MmReg
+
+def index : MmReg → Fin 8
+  | .m0 => 0 | .m1 => 1 | .m2 => 2 | .m3 => 3 | .m4 => 4 | .m5 => 5 | .m6 => 6 | .m7 => 7
+
+def all : List MmReg := [.m0, .m1, .m2, .m3, .m4, .m5, .m6, .m7]
+
+def name (r : MmReg) : String := s!"mm{r.index.val}"
+
+instance : ToString MmReg := ⟨MmReg.name⟩
+
+end MmReg
+
+namespace Mmxs
+
+/-- Read one MMX register (bits 63:0 of the aliased x87 register). -/
+def get (m : Mmxs) : MmReg → BitVec 64
+  | .m0 => m.mm0 | .m1 => m.mm1 | .m2 => m.mm2 | .m3 => m.mm3
+  | .m4 => m.mm4 | .m5 => m.mm5 | .m6 => m.mm6 | .m7 => m.mm7
+
+/-- Write one MMX register, and nothing else. -/
+def set (m : Mmxs) : MmReg → BitVec 64 → Mmxs
+  | .m0, v => { m with mm0 := v } | .m1, v => { m with mm1 := v }
+  | .m2, v => { m with mm2 := v } | .m3, v => { m with mm3 := v }
+  | .m4, v => { m with mm4 := v } | .m5, v => { m with mm5 := v }
+  | .m6, v => { m with mm6 := v } | .m7, v => { m with mm7 := v }
+
+/-- ⭐⭐ THE x87 SIDE EFFECT OF AN MMX INSTRUCTION (D402 §1): the tag word := 0 (all valid) and
+TOP := 0. x86isa's `mmx-instruction-updates` states this for *"all MMX instructions except EMMS"*.
+⛔ Its two store-direction moves do not call it, and that disagreement is decided by silicon (D402 §2.2). -/
+def touch (m : Mmxs) : Mmxs := { m with fpTag := 0, fpTop := 0 }
+
+@[simp] theorem get_set_same (m : Mmxs) (r : MmReg) (v : BitVec 64) :
+    (m.set r v).get r = v := by cases r <;> rfl
+
+@[simp] theorem get_set_ne (m : Mmxs) (r r' : MmReg) (v : BitVec 64) (h : r ≠ r') :
+    (m.set r v).get r' = m.get r' := by
+  cases r <;> cases r' <;> first | rfl | exact absurd rfl h
+
+@[simp] theorem touch_get (m : Mmxs) (r : MmReg) : m.touch.get r = m.get r := by cases r <;> rfl
+
+@[simp] theorem set_fpTag (m : Mmxs) (r : MmReg) (v : BitVec 64) : (m.set r v).fpTag = m.fpTag := by
+  cases r <;> rfl
+
+@[simp] theorem set_fpTop (m : Mmxs) (r : MmReg) (v : BitVec 64) : (m.set r v).fpTop = m.fpTop := by
+  cases r <;> rfl
+
+end Mmxs
+
 namespace Regs
 
 /-- Read the full 64-bit register. -/

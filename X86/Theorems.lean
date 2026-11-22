@@ -820,6 +820,31 @@ theorem vmovgld_zeroes_upper (sz : Size) (d : XmmReg) (ea : Ea) (h : Live s)
     (step ⟨.vmovgst sz ea x, len⟩ s).flags = s.flags := by
   simp [step, h, hl, Cpu.setRip, Op.lockIllegal, Op.anyLocked, Op.lockable]
 
+/-! ### ⭐⭐ D402 — the MMX moves -/
+
+/-- ⭐ D402 — `movd`/`movq` INTO an MMX register ZERO-EXTENDS the GPR value to 64 bits (SDM Vol. 2B MOVD). The
+red arm that merges bits 63:32 is the plausible wrong model this statement pins. -/
+theorem mmovg_to_mm_zero_extends (sz : Size) (m : MmReg) (r : GPR) (h : Live s) :
+    (step ⟨.mmovg true sz m r, len⟩ s).getMm m = (s.getReg sz r).setWidth 64 := by
+  simp [step, h, Cpu.setMm, Cpu.setRip, Cpu.getMm, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+/-- ⭐ D402 — `movq mm, mm` copies the whole source register. -/
+theorem mmovq_copies (d s' : MmReg) (h : Live s) :
+    (step ⟨.mmovq d s', len⟩ s).getMm d = s.getMm s' := by
+  simp [step, h, Cpu.setMm, Cpu.setRip, Cpu.getMm, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+/-- ⭐ D402 — a LOAD into an MMX register leaves the x87 tag word all-valid and TOP at 0. -/
+theorem mmovg_to_mm_touches_x87 (sz : Size) (m : MmReg) (r : GPR) (h : Live s) :
+    (step ⟨.mmovg true sz m r, len⟩ s).mmx.fpTag = 0 ∧ (step ⟨.mmovg true sz m r, len⟩ s).mmx.fpTop = 0 := by
+  simp [step, h, Cpu.setMm, Cpu.setRip, Mmxs.touch, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
+/-- ⭐⭐ D403 — a `movq` STORE from an MMX register ALSO leaves the tag word all-valid and TOP at 0. This is the
+statement x86isa's `0F 7F` def-inst disagrees with and silicon on two vendors agrees with (D403 §3); it is the
+model's side of the eight declared divergences, stated so a refactor cannot drop the touch from a store. -/
+theorem mmovqst_touches_x87 (ea : Ea) (m : MmReg) (h : Live s) (hl : ea.lock = false) :
+    (step ⟨.mmovqst ea m, len⟩ s).mmx.fpTag = 0 ∧ (step ⟨.mmovqst ea m, len⟩ s).mmx.fpTop = 0 := by
+  simp [step, h, hl, Cpu.mmxTouch, Cpu.setRip, Mmxs.touch, Op.lockIllegal, Op.anyLocked, Op.lockable]
+
 /-- ⭐ D357 — `withSimd` leaves the general registers alone whenever its continuation does, on both of
 its branches (the #XM halt and the continuation). -/
 theorem withSimd_regs (s : Cpu) (fl : BitVec 32) (k : Cpu → Cpu) (hk : ∀ t, (k t).regs = t.regs) :
