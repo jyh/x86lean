@@ -234,3 +234,5 @@ Tests.AnchorsVexSilL @ku 2059194
 Tests.AnchorsVexSilM @ku 1043936
 # D395: the NEW unit, the count ku_delta printed on refusing it at K1b (1d48ff7 → 97036fc, katmai), copied.
 X86.Effects @ku 64389
+# D405 §6: the NEW unit, the count ku_delta printed on refusing it at K1b (75c41df → fb329b9, katmai), copied.
+Tests.CoverageMmx @ku 809625

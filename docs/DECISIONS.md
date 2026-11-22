@@ -26224,3 +26224,10 @@ pmullw form lands in (a) while its XMM twin stays (b), and the plant (the rule r
 - **Owed:** K1b on katmai at the restructured tree. The prediction: `memDestSweep` returns to within its budget of the base,
   `Tests.CoverageMmx` is the ONLY refusal, and its two printed lines (`@on katmai`, `@ku`) are copied into
   `scripts/kernel_ceilings.txt` and `scripts/ku_delta_budget.txt`, as D393's and D353's were.
+- **K1b, read** (katmai, `75c41df` → `fb329b9`, `--repeats 6`, both arms, 2026-11-22 03:40Z): **the prediction HELD.**
+  `Tests.Coverage @decl memDestSweep` 7,150 → 7,170 ms, +20 (±68.1) against 614.9, `ok` (it read +1,280 at K1).
+  `Tests.CoverageMmx` is the only refusal on each arm, as NEW: head 4,175 ms (407 at K1: the rows ↔ vectors theorems are
+  priced here, as D353's NEW unit priced its ids), and 809,625 unfoldings. `Tests.Vectors` reads UNMEASURABLE again (+8.1
+  against 10.9, band ±5.4), the shape it had at K1. Registered from the printed lines, copied, not retyped:
+  `Tests.CoverageMmx 12525 @on katmai` and `Tests.CoverageMmx @ku 809625`. The runner's line comes from the PR's own
+  kernel-delta refusal, in a follow-up, as D393's did. Then K2 on the registered commit against master, and the ledger row.
