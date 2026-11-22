@@ -332,7 +332,9 @@ def vectorCount : Nat := vectors.length
 -- ⭐ D357 adds 8: `comis*`/`ucomis*` with a memory source, at `%xmm1` and `%xmm9`.
 -- ⭐ D358 adds 3: `%xmm9` twins of the scalar stores whose `%xmm0` rows cannot see a dropped write.
 -- ⭐ D402 adds 11: the MMX `movd`/`movq` forms, both directions, a low and a high register.
-theorem vector_count_is_1252 : vectorCount = 1252 := by decide
+-- ⭐ D404 d1 adds 38: nineteen packed MMX binary operations, register and memory source.
+-- ⭐ D404 d2 adds 8: the three high unpacks and packuswb.
+theorem vector_count_is_1298 : vectorCount = 1298 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
@@ -1261,6 +1263,8 @@ def isMemDestVector (v : Vec) : Bool :=
     -- the register forms and the loads are not.
     | .mmovg .. | .mmovgld .. | .mmovq .. | .mmovqld .. => false
     | .mmovgst .. | .mmovqst .. => true
+    -- D404 d1: a packed MMX operation writes an MMX register at both shapes.
+    | .mmbin .. | .mmbinm .. => false
     -- P2 BATCH 38, in the same commit as the constructors: a scalar min/max
     -- writes an XMM register at both shapes; the memory operand is its SOURCE.
     | .vminmax .. | .vminmaxm .. => false

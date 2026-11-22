@@ -590,3 +590,6 @@ X86.Effects 840 @on katmai
 # 43750572855, job 132923380913, head 977bb26: X86.Effects head 273.5 ms on runnervmccnms, max(x 3, 50)), copied,
 # not retyped. The first NEW-unit runner line in D396's pool form, so it releases on every hosted VM.
 X86.Effects 820 @on runner-pool
+# D405 §6: the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1b (75c41df → fb329b9,
+# katmai, --repeats 6), copied, not retyped: Tests.CoverageMmx head 4175.0 ms ⇒ max(4175.0 × 3, 50).
+Tests.CoverageMmx 12525 @on katmai

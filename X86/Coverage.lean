@@ -1101,6 +1101,80 @@ structure VexRow where
   twin : String
   deriving Repr, Inhabited
 
+/-- ⭐⭐ D405 — THE MMX TWINS OF PROCESSOR-REFEREED ROWS, a population of their own (D341's VEX precedent). Each
+mnemonic's XMM form is a `siliconTable` row, because x86isa refuses it; x86isa IMPLEMENTS the MMX def-inst, so the MMX
+form is differentially tested, and each row keeps ONE referee. Published in its own COVERAGE.md section, never
+counted in the roster figure. -/
+def mmxTwinTable : List Row :=
+  [ { mnemonic := "pmullw", shapes := "mm,mm · mm,m", note := "the four low 16 bits of each word product; the MMX form, differential (D405)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULLW" }
+  , { mnemonic := "pmulhw", shapes := "mm,mm · mm,m", note := "the four high 16 bits of each signed word product; the MMX form, differential (D405)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULHW" }
+  , { mnemonic := "paddsw", shapes := "mm,mm · mm,m", note := "four words, signed saturating add; the MMX form, differential (D405)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDSW" }
+  , { mnemonic := "psubsw", shapes := "mm,mm · mm,m", note := "four words, signed saturating subtract; the MMX form, differential (D405)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBSW" }
+  , { mnemonic := "psubusb", shapes := "mm,mm · mm,m", note := "eight bytes, unsigned saturating subtract; the MMX form, differential (D405)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBUSB" }
+  , { mnemonic := "psubusw", shapes := "mm,mm · mm,m", note := "four words, unsigned saturating subtract; the MMX form, differential (D405)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBUSW" }
+  , { mnemonic := "pmaddwd", shapes := "mm,mm · mm,m", note := "two dwords, each the sum of two signed word products; the MMX form, differential (D405)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMADDWD" } ]
+
+/-- ⭐⭐ D405 §6 — THE MMX FORMS OF MAIN-TABLE MNEMONICS, a table of their own (D341's and D353's repair). D404 d1 and d2
+wrote ` · mm,mm · mm,m` into 23 `tableP0` shapes cells, and `Tests.Coverage`'s `memDestSweep` reads that column character
+by character in the kernel (D38), so the 345 characters cost it +1,280 ms against a 616 ms budget (the D405 K1 on
+katmai). The cells return to their XMM-only text and the MMX forms are published here, in their own COVERAGE.md
+section, checked by `Tests.CoverageMmx`. Each row's mnemonic is a `tableP0` row; its vectors are in `vectors` (the
+differential's figures do not move), and the published roster figure is unchanged. -/
+def mmxTable : List Row :=
+  [ { mnemonic := "paddb", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands; differential (D404 d1)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDB/PADDW/PADDD/PADDQ" }
+  , { mnemonic := "paddw", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands; differential (D404 d1)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDB/PADDW/PADDD/PADDQ" }
+  , { mnemonic := "paddd", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands; differential (D404 d1)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PADDB/PADDW/PADDD/PADDQ" }
+  , { mnemonic := "psubb", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands; differential (D404 d1)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ" }
+  , { mnemonic := "psubw", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands; differential (D404 d1)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ" }
+  , { mnemonic := "psubd", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands; differential (D404 d1)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSUBB/PSUBW/PSUBD/PSUBQ" }
+  , { mnemonic := "pxor", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands; differential (D404 d1)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PXOR" }
+  , { mnemonic := "pand", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands; differential (D404 d1)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PAND" }
+  , { mnemonic := "por", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands; differential (D404 d1)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B POR" }
+  , { mnemonic := "punpcklbw", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands; differential (D404 d1)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKL*" }
+  , { mnemonic := "punpcklwd", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands; differential (D404 d1)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKL*" }
+  , { mnemonic := "punpckldq", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands; differential (D404 d1)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKL*" }
+  , { mnemonic := "punpckhbw", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands, with its own 64-bit placement; differential (D404 d2)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKH*" }
+  , { mnemonic := "punpckhwd", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands, with its own 64-bit placement; differential (D404 d2)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKH*" }
+  , { mnemonic := "punpckhdq", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands, with its own 64-bit placement; differential (D404 d2)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PUNPCKH*" }
+  , { mnemonic := "packuswb", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands, with its own 64-bit placement; differential (D404 d2)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PACKUSWB" }
+  , { mnemonic := "pcmpeqb", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands; differential (D404 d1)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPEQB" }
+  , { mnemonic := "pcmpeqw", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands; differential (D404 d1)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPEQW" }
+  , { mnemonic := "pcmpeqd", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands; differential (D404 d1)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPEQD" }
+  , { mnemonic := "pcmpgtb", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands; differential (D404 d1)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPGTB" }
+  , { mnemonic := "pcmpgtw", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands; differential (D404 d1)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPGTW" }
+  , { mnemonic := "pcmpgtd", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands; differential (D404 d1)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPGTD" }
+  , { mnemonic := "pandn", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands; differential (D404 d1)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PANDN" } ]
+
 /-- ⭐⭐⭐ V3 (D341): THE VEX.128 REGISTER TWINS — a THIRD population beside `tableP0` (the 199
 differentially tested mnemonics) and `siliconTable` (the forms only a processor referees).
 

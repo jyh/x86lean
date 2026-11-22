@@ -107,9 +107,17 @@ class Model(frozenset):
     `.silicon` the `siliconTable` mnemonics (class (b)).  ⛔ A plain set passed
     where a `Model` is expected behaves as a model with no silicon rows, which
     is exactly the reference pass `check_no_pooling` needs."""
-    def __new__(cls, names, silicon=(), vex=(), silicon256=(), lockable=(), mmx=()):
+    def __new__(cls, names, silicon=(), vex=(), silicon256=(), lockable=(), mmx=(), mmx_twins=None):
         sil = frozenset(silicon)
-        self = super().__new__(cls, frozenset(names) - sil)
+        # ⭐⭐ D405 (the census half): an MMX row whose mnemonic is a `siliconTable` row is a TWIN, and it gets its own
+        # roster name `mm:<m>` (`mm_twin`). The name is IN the differential set, so every `r in model` / `r in sil_set`
+        # test in `report`, `shape_split` and `modelled_mem` classes it (a) without a second class decision: before
+        # this, `_decide` said (a) and `report` keyed by the bare name said (b), so the twins landed in silicon.
+        # Derived from `mmx & silicon` unless given: the D337 reference has no silicon and passes them read fresh.
+        twins = (frozenset(mm_twin(m) for m in frozenset(mmx) & sil) if mmx_twins is None
+                 else frozenset(mmx_twins))
+        self = super().__new__(cls, (frozenset(names) - sil) | twins)
+        self.mmx_twins = twins
         self.names = frozenset(names)
         self.silicon = sil
         # ⭐ D342 (a): the VEX table's mnemonics (COVERAGE.md's VEX section, D341) — a THIRD population,
@@ -123,7 +131,10 @@ class Model(frozenset):
         self.lockable = frozenset(lockable) & (frozenset(names) - sil)
         # ⭐ D402: the mnemonics with an MMX (`mm`) shape in COVERAGE.md. ONLY these map an `%mm` spelling to
         # themselves; `paddw` has an XMM row and no MMX one, so `paddw %mm1, %mm0` is NOT credited to it.
-        self.mmx = frozenset(mmx) & frozenset(names)
+        # ⭐ D405: NOT cut to `names`. The MMX set is read from COVERAGE.md's rows, so every member is implemented by
+        # construction, and the D337 reference's `names` EXCLUDE the silicon mnemonics: a cut there would drop an MMX
+        # twin of a processor-refereed row from the reference, and the reference would read every credited one as pooled.
+        self.mmx = frozenset(mmx)
         return self
 
 
@@ -135,6 +146,19 @@ def names_of(model):
 def mmx_of(model):
     """⭐ D402: the mnemonics modelled with an MMX operand, or nothing for a plain set."""
     return getattr(model, "mmx", frozenset())
+
+
+MM_TWIN = "mm:"
+
+
+def mm_twin(m):
+    """⭐ D405: the roster name of the MMX twin of a processor-refereed mnemonic (`pmullw` -> `mm:pmullw`)."""
+    return MM_TWIN + m
+
+
+def mmx_twins_of(model):
+    """⭐ D405: the twin roster names a model carries in its differential set, or nothing for a plain set."""
+    return getattr(model, "mmx_twins", frozenset())
 
 
 def mmx_rows(text):
@@ -333,8 +357,11 @@ def to_roster(m, ext=None, model=None):
     # ⛔ AND ONLY these: for an `%mm` spelling the MMX set is the WHOLE answer. The identity rule further down
     # would map `paddw %mm1, %mm0` to the XMM `paddw` row, which has no MMX form; it is unclaimed (None), so it
     # is counted in scope and NOT covered.
+    # ⭐ D405: and a TWIN (an MMX row of a `siliconTable` mnemonic) maps to its own name, never the bare one.
     if model is not None and ext == "MMX (mm)":
-        return m if m in mmx_of(model) else None
+        if m not in mmx_of(model):
+            return None
+        return mm_twin(m) if mm_twin(m) in mmx_twins_of(model) else m
     # ⭐ D344 (V6): every VEX-table row is also modelled at VEX.256, so a `%ymm` spelling that IS a VEX-table
     # row maps to itself. A legacy name never does: no legacy SSE form names a YMM register.
     if model is not None and ext == YMM and m in vex_of(model):
@@ -1333,6 +1360,10 @@ def _decide(m, ext, model):
         if ext == YMM and r in silicon256_of(model):
             return r, False, "silicon-vex"
         return r, False, "outscope"
+    # ⭐⭐ D405: an `%mm` form of a `siliconTable` mnemonic with an MMX row is DIFFERENTIAL, class (a): x86isa implements
+    # the MMX def-insts it refuses at XMM. No rule here decides it: `to_roster` names it `mm:<m>`, which is in the
+    # model and in no silicon set, so the last line covers it and the XMM twin (the bare name) stays (b). The rule
+    # that used to sit here decided (a) for `_decide` alone, while `report` keyed by the bare name filed it (b).
     # ⚖️ D337: (b) is NOT covered — it is its own class, counted beside (a)
     if r in silicon_of(model):
         return r, False, "silicon"
@@ -1630,7 +1661,8 @@ def model_forms(root_dir, model, tmp):
     exempt, wrong = collections.Counter(), []
     for i, (vid, mn, _b) in enumerate(vecs):
         keys = _classify(syms[f"_v{i}"], None, None, collections.Counter())
-        if any(to_roster(k[0], k[3], model) == mn for k in keys):
+        # ⭐ D405: a twin vector declares the bare mnemonic (`pmullw`) and its `%mm` bytes map to the twin name
+        if any(to_roster(k[0], k[3], model) in (mn, mm_twin(mn)) for k in keys):
             continue
         objm = {k[0] for k in keys}
         if objm and objm <= FORMS_PREFIX_SPELLINGS:
@@ -1794,9 +1826,11 @@ def differential_reference(model):
     (a), differential, and a reference without it would read every credited locked form as pooled silicon."""
     # ⭐ D402: and the MMX line, read fresh from COVERAGE.md by D367's rule. An MMX move is class (a), differential;
     # a reference without the line read every credited `%mm` form as pooled (ffmpeg 6,797 on the first run).
+    # ⭐ D405: and the twin names, read fresh (COVERAGE.md's MMX rows ∩ `siliconTable`), never the model's own set.
     cov = open(os.path.join(root, "docs", "COVERAGE.md"), encoding="utf-8").read()
-    return Model(frozenset(names_of(model)) - silicon_mnemonics(), lockable=lockable_mnemonics(),
-                 mmx=mmx_rows(cov))
+    _mx, _si = mmx_rows(cov), silicon_mnemonics()
+    return Model(frozenset(names_of(model)) - _si, lockable=lockable_mnemonics(),
+                 mmx=_mx, mmx_twins={mm_twin(m) for m in _mx & _si})
 
 
 def check_no_pooling(counts, ref, reported):
@@ -1879,8 +1913,10 @@ def selftest():
         # MMX one, so its `%mm` spelling is unclaimed (it was credited to the XMM row on this tool's first D402 run)
         ("movq",   "MMX (mm)",           "movq"),
         ("movd",   "MMX (mm)",           "movd"),
-        ("paddw",  "MMX (mm)",           None),
-        ("pxor",   "MMX (mm)",           None),
+        # ⭐ D404 gave paddw/pxor (d1) and punpckhbw/packuswb (d2) MMX rows; the example of a mnemonic with an XMM row and
+        # no MMX row is now paddq/psubq (SSE2's MMX forms), which no batch of the MMX wave plans
+        ("paddq",  "MMX (mm)",           None),
+        ("psubq",  "MMX (mm)",           None),
         # ⭐ the form P2 batch 3 landed and nothing mapped
         ("movabsq", "mov imm64 / movabs (P2 addition 3)", "mov"),
         # ⛔ a VEX spelling the model does not name is still not a roster name
@@ -1914,7 +1950,7 @@ def selftest():
     # have — because that is the only shape in which the over-claim can occur.
     scope_arms = [
         ("paddw",   "SSE-legacy (xmm)",                       True),
-        ("paddw",   "MMX (mm)",                               False),
+        ("paddq",   "MMX (mm)",                               False),
         ("paddd",   "AVX2/AVX (ymm)",                         False),
         ("movdqa",  "AVX-512 (zmm/k)",                        False),
         ("movq",    "VEX-128 (v… xmm)",                       False),
@@ -1971,7 +2007,7 @@ def selftest():
     # `_split` the whole time, which is precisely why nobody looked at it.
     synth = collections.Counter()
     for key, k in [(("movdqa", "vector", "CC", "SSE-legacy (xmm)"), 100),
-                   (("paddw",  "vector", "CC", "MMX (mm)"),          40),
+                   (("paddq",  "vector", "CC", "MMX (mm)"),          40),
                    (("vpaddd", "vector", "AA", "AVX2/AVX (ymm)"),    25),
                    (("movq",   "segment","CC", "segment base %fs:/%gs: (P2 addition 1)"), 7),
                    (("addq",   "lock",   "CC", "LOCK prefix (P2 addition 2)"), 3),
@@ -1988,7 +2024,7 @@ def selftest():
           # ⛔ the per-mnemonic keying is the SAME residue, not a second count
           and sum(sum(v.values()) for v in by_ext.values())
               == sum(buckets.values())
-          and by_ext.get("paddw", {}).get("MMX (mm)") == 40)
+          and by_ext.get("paddq", {}).get("MMX (mm)") == 40)
     print(("  ✔ " if ok else "  ⛔ ") +
           f"conservation: covered {c_cov} + uncovered {sum(buckets.values())} "
           f"== total {c_tot} (padding {_pad} excluded)" +
@@ -2022,16 +2058,19 @@ def selftest():
     arm(_pc == _sil, f"siliconTable read here ({len(_sil)}) == primitive_census's reader", "reader")
     arm({"mulx", "pmaddwd", "andn"} <= _sil and not ({"paddd", "adcx", "mov"} & _sil),
         "siliconTable holds mulx/pmaddwd/andn and no differential row (paddd, adcx, mov)", "content")
-    arm(_M.silicon == _sil and not (_M & _sil) and set(_M) | _sil == set(_M.names),
-        f"Model: {len(_M)} differential + {len(_sil)} silicon == {len(_M.names)} implemented, disjoint",
-        "model-split")
+    _tw = mmx_twins_of(_M)
+    arm(_M.silicon == _sil and not (_M & _sil) and (set(_M) - _tw) | _sil == set(_M.names)
+        and _tw == {mm_twin(m) for m in mmx_of(_M) & _sil},
+        f"Model: {len(_M) - len(_tw)} differential + {len(_tw)} MMX twins + {len(_sil)} silicon; "
+        f"{len(_M.names)} implemented, disjoint", "model-split")
     d337 += 3
     # three classes, one decision each
     for m, ext, want in (("paddd",   "SSE-legacy (xmm)", (True,  "mapped")),
                          ("pmaddwd", "SSE-legacy (xmm)", (False, "silicon")),
-                         # ⭐ D402: MMX is IN SCOPE, so `pmaddwd %mm` is in scope and UNMAPPED: the silicon XMM row
-                         # must not credit it. The out-of-scope half of this arm moves to a file still out of scope.
-                         ("pmaddwd", "MMX (mm)",         (False, "unmapped")),
+                         # ⭐ D402: MMX is IN SCOPE. ⭐ D405: `pmaddwd %mm` is a shipped TWIN, so it is (a) under its
+                         # own name; a silicon mnemonic with no MMX row (`pmulhuw`, below) stays unmapped at `%mm`.
+                         ("pmaddwd", "MMX (mm)",         (True,  "mapped")),
+                         ("pmulhuw", "MMX (mm)",         (False, "unmapped")),
                          ("pmaddwd", "AVX-512 (zmm/k)",  (False, "outscope")),
                          ("andnl",   "BMI1",             (False, "silicon")),
                          ("adcxq",   "ADX",              (True,  "mapped")),
@@ -2057,6 +2096,13 @@ def selftest():
         arm((cov, cls) == want, f"class {m:8s} in {ext:18s} -> covered={cov} {cls}"
             + ("" if (cov, cls) == want else f"   EXPECTED {want}"), "class:" + m)
         d337 += 1
+    # ⭐⭐ D405: an MMX twin of a processor-refereed row is class (a), and its XMM form stays (b). A synthetic model whose
+    # MMX set also holds `pmullw` (a siliconTable mnemonic), because the shipped tree may not have the twin yet.
+    _Mx = Model(_M.names, _M.silicon, _M.vex, _M.silicon256, _M.lockable, set(mmx_of(_M)) | {"pmullw"})
+    _dm, _dx = _decide("pmullw", "MMX (mm)", _Mx), _decide("pmullw", "SSE-legacy (xmm)", _Mx)
+    arm(_dm == ("mm:pmullw", True, "mapped") and _dx == ("pmullw", False, "silicon"),
+        f"D405: an MMX twin of a silicon row is (a) as {_dm} while its XMM form stays (b) as {_dx}", "D405:twin")
+    d337 += 1
     # ⭐ STATUS 7c — the operand-shape split, derived from synthetic objdump lines by the one loop and the one rule:
     # two silicon-VEX ymm forms (one register, one memory), three differential `mov`s (register, base+disp, and a
     # `%fs:` address with no parenthesis), and a `lea` (an addressing mode that reads no memory: SHAPE m, by design)
@@ -2157,8 +2203,10 @@ def selftest():
     fx = collections.Counter({("paddd",   "vector", "CC", "SSE-legacy (xmm)"): 50,
                               ("pmaddwd", "vector", "AA", "SSE-legacy (xmm)"): 30,
                               ("andnl",   "plain",  "CC", "BMI1"):             5,
-                              ("paddw",   "vector", "AA", "MMX (mm)"):         4,
-                              ("phaddw",  "vector", "AA", "SSE-legacy (xmm)"): 2})  # D379: was pmulld
+                              ("paddq",   "vector", "AA", "MMX (mm)"):         4,
+                              ("phaddw",  "vector", "AA", "SSE-legacy (xmm)"): 2,  # D379: was pmulld
+                              # ⭐ D405: a shipped MMX twin, (a) in report()'s OWN figures, not only in `_decide`'s
+                              ("pmaddwd", "vector", "AA", "MMX (mm)"):         7})
     ref = differential_reference(_M)
     with contextlib.redirect_stdout(io.StringIO()):
         honest = report("fixture", fx, _M, io.StringIO(), {}, 1, 1)
@@ -2166,9 +2214,10 @@ def selftest():
         # the silicon rows (the census as it stood from D335 to D337)
         pooled = report("fixture", fx, Model(_M.names, ()), io.StringIO(), {}, 1, 1)
     why_h = check_no_pooling(fx, ref, honest)
-    arm(why_h is None and honest["covered"] == 50 and honest["silicon"] == 35
-        and honest["total"] == 91 and sum(honest["miss_all"].values()) == 41,
-        f"honest: covered 50, silicon 35 beside it, not-covered 41 of 91 — no-pooling passes ({why_h})",
+    arm(why_h is None and honest["covered"] == 57 and honest["silicon"] == 35
+        and honest["total"] == 98 and sum(honest["miss_all"].values()) == 41,
+        f"honest: covered 57 (the 7 MMX twins in it), silicon 35 beside it, not-covered 41 of 98 — "
+        f"no-pooling passes ({why_h}; got covered {honest['covered']}, silicon {honest['silicon']})",
         "honest")
     why_p = check_no_pooling(fx, ref, pooled)
     arm(why_p is not None and pooled["covered"] == 85,

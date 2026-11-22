@@ -26020,3 +26020,226 @@ Four statements: `mmovg_to_mm_zero_extends`, `mmovq_copies`, `mmovg_to_mm_touche
 model's side of D403's eight declarations. **Red backwards:** a mutant that drops `mmxTouch` from the `movq` store (x86isa's
 behaviour) broke exactly one declaration, `mmovqst_touches_x87` (Theorems.lean:845, unsolved goals). The restored tree builds
 EXIT=0, and the axiom gate is CLEAN over 6,541 declarations.
+
+## D404 — Row 77 step (d), the MMX arithmetic family: predictions and price BEFORE any model work, and the half of the family a width parameter does NOT reach
+
+⚖️ The seat's queue row 77, step (d), stacked on D400–D403 (branch `paris/mmx-arith` on `paris/mmx-draft`). The residue after
+record 46 is 28,551 MMX instructions, led by paddw 4,166 · psubw 2,932 · punpcklbw 2,381 · pxor 2,069 · packuswb 1,125 ·
+pmullw 966. The price brief said most forms are *"a width parameter, not new arithmetic"*. That is a category claim, and it is
+checked here per member, from `vbinApply`'s definitions (X86/Semantics.lean:820), before it is built on.
+
+### 1. THE CLAIM, PER MEMBER: is MMX(a, b) = low64(XMM(zext a, zext b))?
+- **YES, by construction, for every LANE-WISE kind** (`vlanes w` with w ≤ 64: add/sub at b/w/d/q, the bitwise four, the
+  compares, the multiplies, the saturating and averaging forms). No lane crosses bit 64, and zero upper operands only
+  feed upper lanes, which are discarded.
+- **YES for `punpckl*`.** `vunpack w false` interleaves from the bottom, so the 128-bit result's low 64 bits are the pairs
+  built from each operand's low 32 bits, which is exactly MMX's PUNPCKL (SDM Vol. 2B: the low halves of 64-bit operands).
+- **NO for `punpckh*`.** XMM consumes bits 127:64 of each operand. MMX consumes bits 63:32. Zero-extended, the XMM form
+  reads the zeros.
+- **NO for `pack*`.** XMM writes the source's saturated lanes to bits 127:64. MMX writes them to bits 63:32. Truncated, the
+  XMM form loses the source entirely.
+⇒ **Half of the unpack/pack group needs its own 64-bit definition.** A batch that reused the XMM function by width would be
+right on the low forms and wrong on every high form, in exactly the direction a green run on low-form vectors would not show.
+
+### 2. PREDICTIONS (each with what would show it wrong)
+1. Lane-wise kinds and `punpckl*` through the zero-extend-and-truncate rule agree with x86isa with no declaration.
+   Wrong if any reads `unexplained > 0`.
+2. A red arm that builds `punpckhbw` and `packuswb` by that same rule is CAUGHT in `mmN` on every vector of those forms.
+   That is the reuse model §1 says is wrong. If it is NOT caught, the vectors cannot see the defect, and the pattern is the
+   finding.
+3. Every form applies the x87 touch through `setMm` (D402), so `fptag`/`fptop` agree with x86isa on all of them, because
+   these are to-MMX writes and x86isa's arithmetic def-insts call `mmx-instruction-updates`. ⛔ Measured PER DEF-INST,
+   not per file (D402's lesson: move-mmx.lisp named it and two of its four def-insts never called it): every MMX
+   def-inst in padd, psub, logical, punpck, pack, pmul, pcmp and pmadd calls it exactly once (17 def-insts), and
+   pshift's two macro templates for mm (`mm/m64`, `imm`) call it once each. Wrong if one arithmetic vector diverges in
+   `fptag`.
+4. The census credits exactly the demand of the forms built, derived from the JSON after the build, never typed here.
+
+### 3. PRICE AND ORDER
+- **Batch d1:** the lane-wise kinds the census ranks highest (paddw, psubw, pxor, pand, por, paddd, pmullw, paddsw) plus
+  `punpckl{bw,wd,dq}`. One constructor over `VBinKind` with an MMX destination, reusing `vbinApply` by §1's rule for the
+  kinds §1 says it reaches, and REFUSING (`illegalOperands`) the kinds it does not.
+- **Batch d2:** `punpckh*` and `pack*` with their own 64-bit definitions, each with its own red arm.
+- **Not in either:** pmaxsw, psadbw, pshufw and pavgb. Their mm forms are unimplemented in x86isa (the price brief), so
+  they are a silicon-referee wave.
+- **Kernel:** measured at each batch's K1, never predicted from D400.
+
+### 4. RESULTS, BATCH d1 (2026-11-17, yukon; `paris/mmx-arith`)
+- **Built:** `mmbin`/`mmbinm` over `VBinKind`, given a meaning only for `VBinKind.mmxTaken`: the 19 differential kinds
+  paddb/w/d, psubb/w/d, pxor, pand, por, pandn, pcmpeq{b,w,d}, pcmpgt{b,w,d} and punpckl{bw,wd,dq}. Every other kind is
+  REFUSED. 38 vectors (register and m64 source each); clang cross-check CLEAN over 1,551. Build EXIT=0.
+  ⛔ **Out of d1 by the census's class rule, not by the semantics:** pmullw, pmulhw, paddsw, psubsw, psubusb, psubusw and
+  pmaddwd are `siliconTable` mnemonics. The census classes per MNEMONIC, so a differential MMX form of one would be filed
+  silicon. Their batch needs a per-extension class rule first.
+- **Red arms**, all caught: a low unpack reading the high halves (192 in mm0), pandn complementing the source (84), an op
+  ignoring its destination (1,114). The load arm, widened to the packed forms, is caught 3,780 in fptag.
+- **The differential, against a line SEALED before it (23:46:24Z):**
+  ```
+    sealed: cases=136488 matched=112356 explained=34407 unexplained=0 oracle-divergence=1927 oracle-leaks=0 missing=0
+    read:   cases=136488 matched=112356 explained=34407 unexplained=0 oracle-divergence=1927 oracle-leaks=0 missing=0
+  ```
+  **Predictions 1 and 3 HELD:** every lane-wise kind and low unpack agrees through §1's rule, and no arithmetic vector
+  diverges in `fptag`/`fptop`. Prediction 2 (the high-unpack/pack reuse arm) belongs to d2.
+- **The census, against a figure derived from the JSON beforehand:** covered **+14,678** (ffmpeg 7,045 · x264 6,004 ·
+  vlc-video_chroma 1,505 · vpx 124), exactly the d1 mnemonics' MMX demand. The MMX miss falls 28,551 → 13,873, and the P2
+  gap 330,948 → 316,270. Prediction 4 HELD.
+
+### 5. BATCH d2 — THE HIGH UNPACKS AND THE PACK: their 64-bit definitions, and predictions, BEFORE any model work
+The four differential forms §1 says the reuse rule does NOT reach: punpckhbw (752), punpckhwd (536), punpckhdq (352) and
+packuswb (1,125), 2,765 instructions in all. (packssdw is a `siliconTable` mnemonic, and packsswb is not a model mnemonic.)
+Each is DERIVED from the XMM function, so no arithmetic is re-written, only the placement it got wrong:
+- **`punpckh{bw,wd,dq}` (MMX) = low64(punpckl{bw,wd,dq}(zext(a >>> 32), zext(b >>> 32)))**, because the high unpack of a
+  64-bit operand is the low unpack of its upper 32 bits.
+- **`packuswb` (MMX) = r[31:0] ‖ r[95:64] placed at 63:32, where r = packuswb_XMM(zext a, zext b)**. XMM writes the
+  destination's saturated words to bytes 0–7 and the source's to bytes 8–15, so with zero upper halves the MMX result's
+  bytes 0–3 are r's bytes 0–3 and its bytes 4–7 are r's bytes 8–11.
+**Predictions** (what would show each wrong):
+1. The four agree with x86isa in every key with no declaration (8 new vectors, 704 cases): unexplained 0, divergence
+   unchanged at 1,927. Wrong if any unexplained.
+2. D404 §2's reuse arm, which builds the four by low64(XMM(zext a, zext b)), is CAUGHT in `mm0` on every vector of the
+   four forms. Wrong if any vector of them reads 0 for that arm.
+3. The census credits exactly 2,765 more, and the MMX residue falls 13,873 → 11,108.
+
+### 6. RESULTS, BATCH d2 (2026-11-18 UTC, yukon)
+- **Built:** `mmxApply`, the one place every MMX kind's 64-bit meaning lives. The d1 kinds go through it unchanged (the
+  same expression). `punpckh{bw,wd,dq}` and `packuswb` use §5's placements. `mmxTaken` admits the four. 8 vectors;
+  clang cross-check CLEAN over 1,559; build EXIT=0.
+- **Prediction 2, measured PER VECTOR** (a scratch audit that copies the arm's reuse model, because Main is an executable
+  and cannot be imported; a copy, declared as one): the reuse model differs from the model at punpckh{bw,wd,dq} 88 of 88
+  pre-states on all six vectors, at `packuswb` register 79 of 88, and at `packuswb` memory 53 of 88. The pack agrees with
+  reuse exactly where every source word saturates to 0. **No vector is blind. HELD.** The arm itself, in the selftest's
+  own population: caught, 627 disagreements.
+- **The differential, against a line sealed before it (00:25:09Z):**
+  `cases=137192 matched=113060 explained=34407 unexplained=0 oracle-divergence=1927 oracle-leaks=0 missing=0`, equal in
+  every count. **Prediction 1 HELD.**
+- **The census, against the figure derived beforehand:** covered **+2,765** (ffmpeg 1,184 · vlc-video_chroma 1,031 ·
+  x264 517 · vpx 33). The MMX residue falls 13,873 → **11,108**, and the P2 gap 316,270 → 313,505. **Prediction 3 HELD.**
+- **The census fixtures moved a second time.** d1 gave paddw/pxor MMX rows, and d2 gave punpckhbw/packuswb rows, the
+  replacements record 47 chose. The example of "an XMM row and no MMX row" is now paddq/psubq, whose MMX forms (SSE2) no
+  batch of this wave plans. ⇒ A fixture example chosen from the backlog is spent by the next batch.
+
+## D405 — Row 80: where the MMX forms of the seven processor-refereed mnemonics live, and how the census classes them
+
+⚖️ The seat's queue row 80, written by D404 d1. pmullw 966 · paddsw 786 · pmulhw 610 · psubusb 481 · pmaddwd 454 ·
+psubsw 196 · psubusw 37 (MMX demand at record 48, 3,530 in all) are `siliconTable` mnemonics: x86isa refuses their XMM
+forms, so `hwprobe` referees them. x86isa IMPLEMENTS all seven MMX def-insts (each calls the x87 update once, D404 §2), so
+their MMX forms can be differential. The census classes silicon PER MNEMONIC (`_decide`: `r in silicon_of(model)` →
+"silicon"), so an MMX differential form of one would be filed (b).
+
+### 1. THE FORK
+- **(A) A separate table of MMX twins** for processor-refereed mnemonics, in its own COVERAGE.md section ("MMX register
+  twins of processor-refereed rows, differentially tested"), read by the census into `Model.mmx`. `_decide` gets one rule,
+  placed BEFORE the silicon check: an `%mm` form of a mnemonic in the MMX set is class (a). Every row keeps ONE referee.
+  This is D341's precedent: the VEX.128 twins became a population of their own rather than a second class inside a row.
+- **(B) MMX shapes on the `siliconTable` rows themselves**, with the class decided per (mnemonic, ext) inside a row that
+  then has two referees.
+### 2. RECOMMENDATION: (A)
+A row in this repository states one tier and one referee, and the published per-row figures (the "(a) mnemonics" count
+and the processor section's count) are counted from rows. (B) makes one row both, which no column can express and no gate
+checks. (A) is reversible by deleting a table. **Default: (A), built on the branch, red-first:** an arm in which an MMX
+pmullw form lands in (a) while its XMM twin stays (b), and the plant (the rule removed) must red it.
+
+### 3. STEP 2 (the Lean half of (A)) — and a SEALED PREDICTION THAT FAILED
+- **Built:** `mmxTwinTable` (7 rows, its own COVERAGE.md section between the processor section and the VEX one), the seven
+  kinds admitted by `mmxTaken`, 14 vectors in `mmxTwinVectors` outside `vectors` (the main table's figures do not move),
+  and `Tests/CoverageMmx.lean` (size, distinct rows, each a silicon row and not a main row, rows ↔ vectors). Build EXIT=0;
+  clang CLEAN over 1,573; a saturating-twin-wraps arm is caught (154).
+- **The seal (00:46:46Z) said `unexplained=0`. The run read `unexplained=162`.** All 162 are MMX `pmaddwd`, 82 of 88
+  register cases and 80 of 88 memory cases. Every other field and vector is as sealed.
+- **THE MECHANISM, read at the pin:** `x86-pmaddwd-mmx` (instructions/pmadd.lisp:173) calls
+  `(simd-muladd-spec (* 8 operand-size) 16 src1 src2)`, chunk size **16**. That function's own documentation says *"for the
+  MMX form of PMADDWD, total-size is 64 and chunk-size is 32; each half-chunk is 16 bits."* At chunk 16 it multiplies 8-bit
+  halves into 16-bit sums. By hand at pre-state 0 (mm0 = all ones, mm1 = 0101010101010100): the chunk-16 reading gives
+  fffefffefffeffff, which is the oracle's value exactly, and the SDM's word rule gives fffffdfefffffdff, which is the model's.
+  This is the only `simd-muladd-spec` call site in x86isa, and its XMM PMADDWD is refused, so the defective path is the
+  reference model's ONLY PMADDWD. ⇒ **The second def-inst in this wave where x86isa contradicts its own documentation.**
+- **Not declared on either word.** Silicon decides: `hwprobe/pmaddwd_mm_probe.c` with rows GENERATED from the record
+  files (operands, model result, oracle result), paddw controls, and a plant that runs paddw in pmaddwd's place.
+  **PREDICTED, before the run: VERDICT model**, because the model's lane function is the XMM one D335's hwprobe rows already
+  referee on AMD and Intel. Wrong if silicon reads `oracle` or `mixed`.
+
+### 4. SILICON DECIDES, THE DECLARATION, AND THE CENSUS SEAL THAT FAILED
+- **Silicon** (`hwprobe/pmaddwd_mm_probe.c`, run 44211387625, both legs green): AMD EPYC 7763 and Intel Core i7-8700B read
+  **VERDICT model, 6 of 6** on each. The paddw controls held, and the plant (paddw in pmaddwd's place) gave "mixed (model 0,
+  oracle 0)", rc 3, as required. **The prediction HELD.** x86isa's MMX PMADDWD is wrong and the model stays.
+- **Declared** (`knownDivergences`, D331's state lists derived from the records): `mmx_pmaddwd_rr`/mm0 at its 82 diverging
+  states and `mmx_pmaddwd_rm`/mm2 at its 80. The differential then equals a line sealed before it (00:54:55Z):
+  `cases=138424 matched=114130 explained=34407 unexplained=0 oracle-divergence=2089 oracle-leaks=0 missing=0`.
+- ⛔ **THE CENSUS DID NOT READ AS SEALED.** Sealed: covered +3,530. Read: covered **+0** and silicon **+3,530**. The twin
+  forms were filed in class (b). **The mechanism:** `report()` does not use `_decide`'s covered flag. It re-derives the
+  class from the ROSTER NAME aggregated across buckets (`covered = sum(k … if r in model)`, `silicon = sum(k … if r in
+  sil_set)`), and `pmullw` is silicon by name. That is the second implementation of the decision that `_decide`'s own
+  docstring warns about. **Step 1's arm tested `_decide` alone, which this path bypasses**: an arm on the function, not on
+  the figure. The shipped census files are left at their d2 state (record 48), so nothing misfiled is committed.
+  ⇒ **OWED, the next act:** make the census's UNIT honour one row, one referee, probably by giving an MMX twin its own
+  roster name (e.g. `mm:pmullw`) with the D337 reference carrying the twin set independently of the silicon split. Its arm
+  must be on `report()`'s figures (a fixture whose MMX pmullw lands in `covered`), not only on `_decide`. The selftest's
+  `class pmaddwd in MMX` arm now reads (True, mapped) at `_decide` while the figure misfiles: it is RED and left red, as
+  the record of that gap.
+
+### 5. THE CENSUS HALF (record 49): the twin gets its own roster name, and the seal holds
+- **The unit.** An MMX row whose mnemonic is a `siliconTable` row is a TWIN, and `to_roster` maps its `%mm` spelling to
+  its own roster name `mm:<m>` (`mm_twin`). The twin names are IN the `Model`'s differential set (`Model.mmx_twins`,
+  derived as `mmx & silicon`), so every set test `report`, `shape_split` and `modelled_mem` make by roster name classes
+  the twin (a) and the bare name (the XMM row) stays (b). No second class decision exists: `_decide`'s D405 rule was
+  dead once the name existed (the twin name is in the model and in no silicon set) and is removed. The D337 reference
+  (`differential_reference`) carries the twin names READ FRESH (COVERAGE.md's MMX rows ∩ `siliconTable`), never the
+  model's own set. `model_forms` accepts a twin vector whose bytes map to `mm:<m>` under its declared `<m>`.
+- **The arm is on the figure.** The no-pooling fixture gains 7 `pmaddwd %mm` instructions, and the `honest` arm reads
+  `report()`'s own `covered` and `silicon`: 57 and 35. **Red backwards** (the twin name removed, `to_roster` returning the
+  bare name): `honest` reads **covered 50, silicon 42**, the 7 filed silicon, which is §4's defect at fixture scale; the
+  `D405:twin` and `class pmaddwd in MMX` arms red with it. The `class pmaddwd in MMX (mm)` arm now expects (True,
+  mapped) and is GREEN, and a silicon mnemonic with no MMX row (`pmulhuw`) is a new arm that stays unmapped at `%mm`.
+  The red probe's twin mutation now removes the name (the old one removed a rule that no longer exists), and the
+  over-claim mutation and the no-pooling reference's needle are re-anchored: **38 of 38 caught**.
+- **The seal, read.** Sealed (§4): covered +3,530. Read: **covered +3,530, silicon +0** (ffmpeg +1,409, vlc-video_chroma
+  +1,536, x264 +520, vpx +65). The MMX residue falls **11,108 → 7,578**; P2-ROSTER's gap falls 313,505 → **309,975**.
+  Selftest 260 arms PASS. Record 49 (`docs/DIFFERENTIAL-P2-BATCH49.md`).
+
+### 6. THE K1, AND THE MMX FORMS LEAVE THE MAIN TABLE'S SHAPES COLUMN
+- **The K1** (katmai, `kernel_delta --base 75c41df --head d452411 --repeats 6`, then `ku_delta --arm a-prime`, 2026-11-21
+  23:05Z): the NEW unit `Tests.CoverageMmx` is REFUSED on both arms as designed (`Tests.CoverageMmx 1221 @on katmai`, head
+  407.0 ms; 138,227 unfoldings unregistered). `Tests.Vectors` reads UNMEASURABLE (+9.2 against 10.9, band ±5.6), the
+  #178/#180 shape, with no ku finding. ⛔ **And `Tests.Coverage @decl memDestSweep` is OVER BUDGET: 7,165 → 8,445 ms, +1,280
+  (±70) against 616.2**, decided beyond the run's noise; the ku arm has no finding there.
+- **The mechanism, read before any build.** `memDestSweep` reads `tableP0`'s shapes column character by character (D38). The
+  column's total length: `2bee803` 2,430 → `75c41df` 2,494 (row 77, +64, whose K2 read memDestSweep +330, ok) → D404 d1
+  2,779 (+285: ` · mm,mm · mm,m` on 19 rows) → d2 2,839 (+60, 4 rows) → D405 +0. About 5.2 ms per character across row 77
+  and 3.7 across d1+d2, the same axis on both sides. The text is the shape declaration, not prose, so it cannot be trimmed.
+- **The fork, posted to the helm with the recommendation and taken on it.** (A) D341's and D353's repair, a table of its
+  own. (B) land as is and ask for the budget, refused by the gate's own text ("DO NOT WIDEN THE BUDGET … make the commit
+  cheaper"), and every later MMX batch would pay the same per-character price in the same unit.
+- **(A), built.** `X86.mmxTable` holds the 23 MMX forms (each row's tier and SDM reference copied from its main-table row);
+  the 23 `tableP0` cells return to their XMM-only text byte for byte. COVERAGE.md publishes the table in its own section
+  AFTER the main table and BEFORE the processor section, because the census's processor-section reader requires that
+  section to be exactly `siliconTable`, and its MMX reader takes every row before the VEX section. `Tests.CoverageMmx`
+  gains the bookkeeping: size 23, distinct, each row a main-table and not a processor-refereed mnemonic, and the rows and
+  the packed MMX vectors (`mmbin`/`mmbinm`) of `vectors` naming each other. ⚠️ A `filter`-then-`map` statement of the last
+  exceeded the elaborator's recursion depth on 1,300 vectors; it is written as `vectors.all` over a `match`, the shape
+  `Tests.Coverage` uses, with that file's `maxRecDepth 40000` scoped to the two theorems.
+- **Red backwards** (a scratch file, no source edited): the table without `pandn` is refused by the vectors theorem
+  ("`decide` proved that the proposition … is false"), and the shipped table passes the same statement in the same file.
+- **Unchanged, as predicted:** the differential (main table = record 48's line; whole run = §4's sealed line) and the census
+  (byte-identical to §5's, stamps included). Record 49 §1 and §3b.
+- **Owed:** K1b on katmai at the restructured tree. The prediction: `memDestSweep` returns to within its budget of the base,
+  `Tests.CoverageMmx` is the ONLY refusal, and its two printed lines (`@on katmai`, `@ku`) are copied into
+  `scripts/kernel_ceilings.txt` and `scripts/ku_delta_budget.txt`, as D393's and D353's were.
+- **K1b, read** (katmai, `75c41df` → `fb329b9`, `--repeats 6`, both arms, 2026-11-22 03:40Z): **the prediction HELD.**
+  `Tests.Coverage @decl memDestSweep` 7,150 → 7,170 ms, +20 (±68.1) against 614.9, `ok` (it read +1,280 at K1).
+  `Tests.CoverageMmx` is the only refusal on each arm, as NEW: head 4,175 ms (407 at K1: the rows ↔ vectors theorems are
+  priced here, as D353's NEW unit priced its ids), and 809,625 unfoldings. `Tests.Vectors` reads UNMEASURABLE again (+8.1
+  against 10.9, band ±5.4), the shape it had at K1. Registered from the printed lines, copied, not retyped:
+  `Tests.CoverageMmx 12525 @on katmai` and `Tests.CoverageMmx @ku 809625`. The runner's line comes from the PR's own
+  kernel-delta refusal, in a follow-up, as D393's did. Then K2 on the registered commit against master, and the ledger row.
+
+### 7. THE COMPARE-INDEX SELFTEST PICKED ITS ARMS BY POSITION (#206's CI, build red at 742de1b)
+- **Found by kent at the forge** (run 45016349914, step "The indexed comparator renders byte-equal to the linear reference
+  (row 130)"): `compareIndexSelftest` chose its three wrong-model arms as `[0, n / 2, n - 1]` of `selftestArms`. D404 and
+  D405 appended wrong models to the list, so the middle pick slid from `every nop advances RIP by one byte` (master's, read
+  from master 4db7305's own CI log, run 44983477008) onto `retq jumps without popping`, which disagrees at 2 cases and
+  cannot be planted from (the arm needs three on distinct (vector, field)). The selftest reddened on a list that only grew.
+- ⚠️ **An offline count of the list named the wrong middle arm** (`cld is a no-op`, which also cannot be planted from
+  here): my regex over `def selftestArms` missed entries. Master's CI log is the authority on which arms were measured.
+- **The repair:** the three arms are chosen BY NAME, master's three, and a name not in the list is REFUSED. At this
+  tree: `compare-index selftest: PASS` (26 ✔, 0 ⛔). Red: the positional rule, at 742de1b, in CI (above). Mutant: a
+  misspelled name (`inc clobbers CFx`) reds with "no selftest arm named …" and FAIL.
