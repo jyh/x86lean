@@ -26195,3 +26195,32 @@ pmullw form lands in (a) while its XMM twin stays (b), and the plant (the rule r
 - **The seal, read.** Sealed (§4): covered +3,530. Read: **covered +3,530, silicon +0** (ffmpeg +1,409, vlc-video_chroma
   +1,536, x264 +520, vpx +65). The MMX residue falls **11,108 → 7,578**; P2-ROSTER's gap falls 313,505 → **309,975**.
   Selftest 260 arms PASS. Record 49 (`docs/DIFFERENTIAL-P2-BATCH49.md`).
+
+### 6. THE K1, AND THE MMX FORMS LEAVE THE MAIN TABLE'S SHAPES COLUMN
+- **The K1** (katmai, `kernel_delta --base 75c41df --head d452411 --repeats 6`, then `ku_delta --arm a-prime`, 2026-11-21
+  23:05Z): the NEW unit `Tests.CoverageMmx` is REFUSED on both arms as designed (`Tests.CoverageMmx 1221 @on katmai`, head
+  407.0 ms; 138,227 unfoldings unregistered). `Tests.Vectors` reads UNMEASURABLE (+9.2 against 10.9, band ±5.6), the
+  #178/#180 shape, with no ku finding. ⛔ **And `Tests.Coverage @decl memDestSweep` is OVER BUDGET: 7,165 → 8,445 ms, +1,280
+  (±70) against 616.2**, decided beyond the run's noise; the ku arm has no finding there.
+- **The mechanism, read before any build.** `memDestSweep` reads `tableP0`'s shapes column character by character (D38). The
+  column's total length: `2bee803` 2,430 → `75c41df` 2,494 (row 77, +64, whose K2 read memDestSweep +330, ok) → D404 d1
+  2,779 (+285: ` · mm,mm · mm,m` on 19 rows) → d2 2,839 (+60, 4 rows) → D405 +0. About 5.2 ms per character across row 77
+  and 3.7 across d1+d2, the same axis on both sides. The text is the shape declaration, not prose, so it cannot be trimmed.
+- **The fork, posted to the helm with the recommendation and taken on it.** (A) D341's and D353's repair, a table of its
+  own. (B) land as is and ask for the budget, refused by the gate's own text ("DO NOT WIDEN THE BUDGET … make the commit
+  cheaper"), and every later MMX batch would pay the same per-character price in the same unit.
+- **(A), built.** `X86.mmxTable` holds the 23 MMX forms (each row's tier and SDM reference copied from its main-table row);
+  the 23 `tableP0` cells return to their XMM-only text byte for byte. COVERAGE.md publishes the table in its own section
+  AFTER the main table and BEFORE the processor section, because the census's processor-section reader requires that
+  section to be exactly `siliconTable`, and its MMX reader takes every row before the VEX section. `Tests.CoverageMmx`
+  gains the bookkeeping: size 23, distinct, each row a main-table and not a processor-refereed mnemonic, and the rows and
+  the packed MMX vectors (`mmbin`/`mmbinm`) of `vectors` naming each other. ⚠️ A `filter`-then-`map` statement of the last
+  exceeded the elaborator's recursion depth on 1,300 vectors; it is written as `vectors.all` over a `match`, the shape
+  `Tests.Coverage` uses, with that file's `maxRecDepth 40000` scoped to the two theorems.
+- **Red backwards** (a scratch file, no source edited): the table without `pandn` is refused by the vectors theorem
+  ("`decide` proved that the proposition … is false"), and the shipped table passes the same statement in the same file.
+- **Unchanged, as predicted:** the differential (main table = record 48's line; whole run = §4's sealed line) and the census
+  (byte-identical to §5's, stamps included). Record 49 §1 and §3b.
+- **Owed:** K1b on katmai at the restructured tree. The prediction: `memDestSweep` returns to within its budget of the base,
+  `Tests.CoverageMmx` is the ONLY refusal, and its two printed lines (`@on katmai`, `@ku`) are copied into
+  `scripts/kernel_ceilings.txt` and `scripts/ku_delta_budget.txt`, as D393's and D353's were.
