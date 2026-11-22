@@ -26231,3 +26231,15 @@ pmullw form lands in (a) while its XMM twin stays (b), and the plant (the rule r
   against 10.9, band ±5.4), the shape it had at K1. Registered from the printed lines, copied, not retyped:
   `Tests.CoverageMmx 12525 @on katmai` and `Tests.CoverageMmx @ku 809625`. The runner's line comes from the PR's own
   kernel-delta refusal, in a follow-up, as D393's did. Then K2 on the registered commit against master, and the ledger row.
+
+### 7. THE COMPARE-INDEX SELFTEST PICKED ITS ARMS BY POSITION (#206's CI, build red at 742de1b)
+- **Found by kent at the forge** (run 45016349914, step "The indexed comparator renders byte-equal to the linear reference
+  (row 130)"): `compareIndexSelftest` chose its three wrong-model arms as `[0, n / 2, n - 1]` of `selftestArms`. D404 and
+  D405 appended wrong models to the list, so the middle pick slid from `every nop advances RIP by one byte` (master's, read
+  from master 4db7305's own CI log, run 44983477008) onto `retq jumps without popping`, which disagrees at 2 cases and
+  cannot be planted from (the arm needs three on distinct (vector, field)). The selftest reddened on a list that only grew.
+- ⚠️ **An offline count of the list named the wrong middle arm** (`cld is a no-op`, which also cannot be planted from
+  here): my regex over `def selftestArms` missed entries. Master's CI log is the authority on which arms were measured.
+- **The repair:** the three arms are chosen BY NAME, master's three, and a name not in the list is REFUSED. At this
+  tree: `compare-index selftest: PASS` (26 ✔, 0 ⛔). Red: the positional rule, at 742de1b, in CI (above). Mutant: a
+  misspelled name (`inc clobbers CFx`) reds with "no selftest arm named …" and FAIL.

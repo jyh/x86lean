@@ -5266,13 +5266,18 @@ cannot fail"; ok := false
   let dupGood := good.length - (firstById good).size
   IO.println s!"  ids: {good.length} cases in the correct model's records, \
 {dupGood} duplicate id(s)"
-  let n := selftestArms.length
-  let picks := [0, n / 2, n - 1].eraseDups
+  -- ⛔ D405 §7: the three arms are chosen BY NAME, never by position. They were `[0, n / 2, n - 1]`, and D404/D405
+  -- appended wrong models to `selftestArms`, so `n / 2` slid from `every nop advances RIP by one byte` onto `retq
+  -- jumps without popping`, whose 2 disagreements cannot be planted from, and the selftest reddened on a list that only
+  -- grew. These are the three arms master 4db7305's CI run 44983477008 ran (read from its log, not re-derived from
+  -- this file: an offline count of the list named the wrong middle arm); a name not in the list is REFUSED.
+  let pickNames := ["inc clobbers CF", "every nop advances RIP by one byte",
+    "andn is read as NAND, complementing the result instead of the destination"]
   let mut pairs := 0
   let mut entryRuns := 0
-  for i in picks do
-    match selftestArms[i]? with
-    | none => IO.println s!"  ⛔ no selftest arm at index {i}"; ok := false
+  for pick in pickNames do
+    match selftestArms.find? (·.1 == pick) with
+    | none => IO.println s!"  ⛔ no selftest arm named `{pick}`"; ok := false
     | some (name, wrong, _) =>
       let bad := parseRecords (emitAll wrong 4)
       for (lbl, xs, ys) in [("good→wrong", good, bad), ("wrong→good", bad, good)] do
@@ -5347,7 +5352,7 @@ so the classing is not compared"; ok := false
   IO.println "  limit: the per-entry arm shows each branch FIRES, and the pre-state and pair mutants show \
 each restriction BINDS when it excludes everything; a branch that only PARTLY degrades still classes \
 ≥ 1 case and is not seen here"
-  return ok && pairs == 3 * 2 * picks.length && entryRuns == 2 * picks.length
+  return ok && pairs == 3 * 2 * pickNames.length && entryRuns == 2 * pickNames.length
 
 def main (args : List String) : IO UInt32 := do
   match args with
