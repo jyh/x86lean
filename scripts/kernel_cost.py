@@ -73,10 +73,31 @@ MACHINE_TAG = "@on"
 RUNNER_POOL = "runner-pool"
 
 
+# ⭐ ROW 82 (2026-11-22): GitHub's `ubuntu-latest` is drawn from TWO clouds. The Azure half is named `runnervm*`; the AWS
+# half carries the EC2-default hostname `ip-<n>-<n>-<n>-<n>` (#206's kernel-delta job 137336385208 ran on ip-10-0-131-128:
+# runner group "GitHub Actions", label ubuntu-latest, the repository has 0 self-hosted runners; systems @108,967,892).
+# A FULL match on four decimal groups, never the prefix `ip-10-`: GitHub's VPC block can change, and a prefix would also
+# take `ip-10-foo`. ⚠️ LIMIT: n = 1 AWS job read; AWS ran 0.82-0.86x Azure's time over 34 units (range 0.70-0.97).
+#   THE PRICE, BOTH WAYS (paper's read of #207): a 3x ceiling read on AZURE is 3/0.86-3/0.82 = 3.49-3.66x of the AWS
+#   reading (4.29x at the 0.70 unit), so on an AWS draw it hides a regression of 16-22 % beyond the 3x, up to 43 %: the
+#   QUIET direction. A 3x ceiling read on AWS leaves Azure ~2.1x (3/1.43), so the headroom shrinks and nothing refuses
+#   falsely inside the measured range. A false refusal needs a ratio above 3, a hidden regression one below 1/3.
+#   ⇒ No "register from Azure only" rule: the refusal prints the host it read on, and the registrant copies that host
+#   into the line's comment, so the source of every pool line is on record.
+#   WHAT WOULD SHOW THE RATIO WRONG: a same-head Azure/AWS job pair with any unit's AWS/Azure ratio outside 0.70-0.97.
+#   Re-read at the next such pair (STATUS-paris row 83, review-by 2026-12-06); every kernel-delta job prints its host.
+_EC2_HOST = re.compile(r"ip-[0-9]{1,3}-[0-9]{1,3}-[0-9]{1,3}-[0-9]{1,3}")  # [0-9], not \d: \d is Unicode-aware (paper's LOW on #207)
+
+
 def machine_class(machine):
-    """`runner-pool` for a GitHub-hosted runner VM (`runnervm*`), else None (D396). The ONE definition: kernel_delta
-    delegates here (row 69), so the registry's two parsers cannot learn different classes."""
-    return RUNNER_POOL if machine and machine.startswith("runnervm") else None
+    """`runner-pool` for a GitHub-hosted runner VM (`runnervm*`, or since row 82 the AWS half's `ip-<n>-<n>-<n>-<n>`),
+    else None (D396). The ONE definition: kernel_delta delegates here (row 69), so the registry's two parsers cannot learn
+    different classes."""
+    if not machine:
+        return None
+    if machine.startswith("runnervm") or _EC2_HOST.fullmatch(machine):
+        return RUNNER_POOL
+    return None
 
 
 _THIS_MACHINE = None
@@ -1402,6 +1423,11 @@ def conditions_selftest():
         p3 = _parse("X86.Basic 999 @on runner-pool\nX86.Basic 50 @on runnervmzz123\n")
         _THIS_MACHINE = "katmai"
         p4 = _parse("X86.Basic 163\nX86.Basic 999 @on runner-pool\n")
+        # ⭐ ROW 82: the AWS half of `ubuntu-latest` (EC2-default hostname), by a FULL match only
+        _THIS_MACHINE = "ip-10-0-131-128"
+        p5 = _parse("X86.Basic 163\nX86.Basic 999 @on runner-pool\n")
+        _THIS_MACHINE = "kip-10-0-1-2"
+        p6 = _parse("X86.Basic 163\nX86.Basic 999 @on runner-pool\n")
     finally:
         _THIS_MACHINE = _saved_m
     out.append((p1[0].get("X86.Basic") == ("abs", 999.0),
@@ -1410,6 +1436,13 @@ def conditions_selftest():
                 "…an exact-host ceiling beats the pool line, in either order"))
     out.append((p4[0].get("X86.Basic") == ("abs", 163.0),
                 "…and on katmai the pool line is ANOTHER box's, leaving the machine-less one"))
+    out.append((p5[0].get("X86.Basic") == ("abs", 999.0) and machine_class("ip-10-0-131-128") == RUNNER_POOL,
+                "row 82: on an AWS-hosted runner (ip-10-0-131-128) the pool line applies"))
+    out.append((p6[0].get("X86.Basic") == ("abs", 163.0) and machine_class("kip-10-0-1-2") is None
+                and machine_class("ip-10-0-131") is None and machine_class("ip-10-0-131-128x") is None
+                and machine_class("ip-\u0661\u0660-0-131-128") is None,
+                "…and `kip-10-0-1-2`, `ip-10-0-131`, `ip-10-0-131-128x` and an Arabic-Indic-digit host are not "
+                "(a full match on four ASCII-digit groups)"))
 
     # ⛔ ARM 1 — THE DELEGATION IS REAL, NOT A COMMENT SAYING SO.  `conditions()`
     # claims to get its idle % from `threads_ab.idle_pct` rather than from a
