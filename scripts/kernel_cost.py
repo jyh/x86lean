@@ -77,15 +77,19 @@ RUNNER_POOL = "runner-pool"
 # half carries the EC2-default hostname `ip-<n>-<n>-<n>-<n>` (#206's kernel-delta job 137336385208 ran on ip-10-0-131-128:
 # runner group "GitHub Actions", label ubuntu-latest, the repository has 0 self-hosted runners; systems @108,967,892).
 # A FULL match on four decimal groups, never the prefix `ip-10-`: GitHub's VPC block can change, and a prefix would also
-# take `ip-10-foo`. ⚠️ LIMIT: n = 1 AWS job read; AWS ran 0.82-0.86x Azure's time over 34 units (range 0.70-0.97).
-#   THE PRICE, BOTH WAYS (paper's read of #207): a 3x ceiling read on AZURE is 3/0.86-3/0.82 = 3.49-3.66x of the AWS
-#   reading (4.29x at the 0.70 unit), so on an AWS draw it hides a regression of 16-22 % beyond the 3x, up to 43 %: the
-#   QUIET direction. A 3x ceiling read on AWS leaves Azure ~2.1x (3/1.43), so the headroom shrinks and nothing refuses
-#   falsely inside the measured range. A false refusal needs a ratio above 3, a hidden regression one below 1/3.
+# take `ip-10-foo`. ⚠️ LIMIT: n = 2 AWS jobs. The first (#206, job 137336385208, ip-10-0-131-128) read 0.82-0.86x Azure's
+#   time over 34 units (range 0.70-0.97) against Azure jobs at OTHER heads. The second is a SAME-HEAD PAIR (#207 at
+#   14d94e6: Azure job 137452575396 on runnervm0hi8g, AWS job 137539562033 on ip-10-0-135-5): units >= 50 ms, n = 45,
+#   AWS/Azure median 0.787, range 0.699-0.913 (row 83, re-read 2026-11-23). Two AWS jobs ran on two different hosts.
+#   THE PRICE, BOTH WAYS: a 3x ceiling read on AZURE is 3/0.913-3/0.699 = 3.29-4.29x of an AWS reading, so on an AWS
+#   draw it hides a regression of up to 43 % (1/0.699 - 1) beyond the 3x: the QUIET direction, present at EVERY ratio
+#   under 1 (1/ratio - 1). A 3x ceiling read on AWS leaves Azure at least 3 x 0.699 = 2.1x, so the headroom shrinks.
+#   A FALSE REFUSAL needs an AWS/Azure ratio above 3 (an Azure-read line, measured on AWS) or below 1/3 (an AWS-read
+#   line, measured on Azure); neither is near the measured range (paper's NIT on #207, the earlier sentence was wrong).
 #   ⇒ No "register from Azure only" rule: the refusal prints the host it read on, and the registrant copies that host
 #   into the line's comment, so the source of every pool line is on record.
-#   WHAT WOULD SHOW THE RATIO WRONG: a same-head Azure/AWS job pair with any unit's AWS/Azure ratio outside 0.70-0.97.
-#   Re-read at the next such pair (STATUS-paris row 83, review-by 2026-12-06); every kernel-delta job prints its host.
+#   WHAT WOULD SHOW THE CLASS WRONG: a same-head Azure/AWS job pair with any unit's ratio outside 1/3-3 (the headroom).
+#   A unit outside 0.699-0.913 widens this comment's range, nothing more; every kernel-delta job prints its host.
 _EC2_HOST = re.compile(r"ip-[0-9]{1,3}-[0-9]{1,3}-[0-9]{1,3}-[0-9]{1,3}")  # [0-9], not \d: \d is Unicode-aware (paper's LOW on #207)
 
 
