@@ -1066,6 +1066,28 @@ jobs:
           test "$rc" = 0
           grep -E '^VERDICT (rule|x86isa) ' mmx87.out
 
+      # ⭐⭐ D405 §4 — MMX PMADDWD, the model against x86isa (chunk size 16 where its own doc says 32 for MMX). Rows are
+      # generated from the differential's record files; paddw controls must hold (else rc 2); the plant runs paddw in
+      # pmaddwd's place and must give no verdict (rc 3).
+      - name: D405 MMX pmaddwd (controls, plant, verdict)
+        if: ${{ !cancelled() }}
+        working-directory: hwprobe
+        run: |
+          gcc -O0 -Wall -o pmaddwd_mm_probe pmaddwd_mm_probe.c
+          gcc -O0 -Wall -DPLANT -o pmaddwd_mm_probe_plant pmaddwd_mm_probe.c
+          ./pmaddwd_mm_probe --cpuid
+          set +e
+          ./pmaddwd_mm_probe_plant > pm_plant.out; rc_plant=$?
+          ./pmaddwd_mm_probe > pm.out; rc=$?
+          set -e
+          cat pm_plant.out
+          cat pm.out
+          echo "pmaddwd plant rc=$rc_plant (want 3) · probe rc=$rc (want 0)"
+          test "$rc_plant" = 3
+          grep -q '^VERDICT mixed (model 0, oracle 0' pm_plant.out
+          test "$rc" = 0
+          grep -E '^VERDICT (model|oracle) ' pm.out
+
       - name: Bit-string rows, full listing (artifact)
         if: always()
         uses: actions/upload-artifact@v4
