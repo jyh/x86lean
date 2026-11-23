@@ -132,10 +132,14 @@ licensed. Precedence: fourth in the personal lane (saltworks · SaltBench · twi
 - `scripts/axiom_gate.sh` builds before it scans and ENUMERATES the declarations, and since 2026-09-17 its CLEAN line
   carries the COUNT it read (4,057 at `paris/b1`). A scan of zero declarations is REFUSED, rc 2 (`x86lean-axioms X86`
   printed CLEAN over nothing before).
-- ⛔ **A scratch `#print axioms <name>` reads the oleans and names one declaration**, so a declaration that never
-  elaborated can print "does not depend on any axioms". An ad-hoc axiom receipt is therefore a PAIR from ONE log: the
-  `saltbuild EXIT=0` line with a zero tagged-error count (`error(…)` included) beside the axioms lines. It carries a
-  fourth-axiom control that prints `sorryAx`.
+- ⛔ **A scratch `#print axioms <name>` reads the oleans**, a table written at build time, so a declaration that never
+  elaborated can print "does not depend on any axioms", and so can a name whose olean predates an upstream that has
+  since gained a `sorry` (STALE CLEAN, measured in salt 2026-11-23). An ad-hoc axiom receipt is therefore a TRIPLE:
+  (1) a build line for the module that DEFINES each audited name, taken after the last source write and before the
+  audit, `saltbuild EXIT=0` with a zero tagged-error count (`error(…)` included); (2) the audit log, `saltbuild
+  EXIT=0`, zero tagged errors, the axioms lines; (3) an IMPORTED control in that log: `#print axioms Lean.reduceBool`
+  printing `Lean.trustCompiler`, or a `sorry` in its own built module printing `sorryAx`. A `sorry` planted in the
+  scratch itself tests only the printer.
 
 ## The plan of record
 The seat repo's plan brief for this campaign — `2026-09-02-PLAN-x86lean-personal-DRAFT.md`,
