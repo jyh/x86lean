@@ -1143,6 +1143,12 @@ def verdict(data, default_ms, budgets, floor=None, quiet=False, ceilings=None):
             # draws another VM, and a per-VM line would not release it there.
             p(f"         {u} {sug:.0f} @on "
               f"{machine_class(mach) or mach or '<machine>'}")
+            # ⭐ ROW 82 (paper's read of #207): a POOL line hides which host it was read on, and the two halves of the
+            # pool differ (kernel_cost's LIMIT), so the source host is printed for the registrant to copy into the
+            # line's comment.
+            if machine_class(mach) and mach != machine_class(mach):
+                p(f"     (read on {mach}: copy that host into the line's comment; the pool's two halves differ, see "
+                  f"kernel_cost.machine_class's LIMIT.)")
             p(f"     (headroom from the registry's own rule, derived not retyped: "
               f"max(measured x {kernel_cost.HEADROOM:g}, {kernel_cost.FLOOR_MS}ms). "
               f"⛔ THE `@on` IS LOAD-BEARING: an entry with no machine, or one for "
@@ -1972,6 +1978,9 @@ def selftest():
     run("⛔ …nor is `kip-10-0-1-2` (a full match, not a substring)",
         _new_unit("X86.Program", 10.0, machine="kip-10-0-1-2"), REPO_DEFAULT, {}, 3,
         f"registered for {RUNNER_POOL}", floor=REPO_FLOOR, ceilings=_POOL(50.0))
+    run("⭐ …and that refusal names the host the reading came from",
+        _new_unit("X86.Program", 10.0, machine="ip-10-0-131-128"), REPO_DEFAULT, {},
+        3, "read on ip-10-0-131-128: copy that host", floor=REPO_FLOOR, ceilings={})
     run("⭐ an unregistered NEW unit on an AWS-hosted runner is told to add the POOL line",
         _new_unit("X86.Program", 10.0, machine="ip-10-0-131-128"), REPO_DEFAULT, {},
         3, f"X86.Program "

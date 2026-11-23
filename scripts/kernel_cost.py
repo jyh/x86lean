@@ -77,10 +77,16 @@ RUNNER_POOL = "runner-pool"
 # half carries the EC2-default hostname `ip-<n>-<n>-<n>-<n>` (#206's kernel-delta job 137336385208 ran on ip-10-0-131-128:
 # runner group "GitHub Actions", label ubuntu-latest, the repository has 0 self-hosted runners; systems @108,967,892).
 # A FULL match on four decimal groups, never the prefix `ip-10-`: GitHub's VPC block can change, and a prefix would also
-# take `ip-10-foo`. ⚠️ LIMIT: n = 1 AWS job read; AWS ran 0.82-0.86x Azure's time over 34 units (range 0.70-0.97), so a
-# pool line read on Azure is looser on AWS and one read on AWS leaves Azure at most ~1.43x its reading, inside the 3x
-# headroom: an upper bound on spread from one job, as D396's Azure spread was.
-_EC2_HOST = re.compile(r"ip-\d{1,3}-\d{1,3}-\d{1,3}-\d{1,3}")
+# take `ip-10-foo`. ⚠️ LIMIT: n = 1 AWS job read; AWS ran 0.82-0.86x Azure's time over 34 units (range 0.70-0.97).
+#   THE PRICE, BOTH WAYS (paper's read of #207): a 3x ceiling read on AZURE is 3/0.86-3/0.82 = 3.49-3.66x of the AWS
+#   reading (4.29x at the 0.70 unit), so on an AWS draw it hides a regression of 16-22 % beyond the 3x, up to 43 %: the
+#   QUIET direction. A 3x ceiling read on AWS leaves Azure ~2.1x (3/1.43), so the headroom shrinks and nothing refuses
+#   falsely inside the measured range. A false refusal needs a ratio above 3, a hidden regression one below 1/3.
+#   ⇒ No "register from Azure only" rule: the refusal prints the host it read on, and the registrant copies that host
+#   into the line's comment, so the source of every pool line is on record.
+#   WHAT WOULD SHOW THE RATIO WRONG: a same-head Azure/AWS job pair with any unit's AWS/Azure ratio outside 0.70-0.97.
+#   Re-read at the next such pair (STATUS-paris row 83, review-by 2026-12-06); every kernel-delta job prints its host.
+_EC2_HOST = re.compile(r"ip-[0-9]{1,3}-[0-9]{1,3}-[0-9]{1,3}-[0-9]{1,3}")  # [0-9], not \d: \d is Unicode-aware (paper's LOW on #207)
 
 
 def machine_class(machine):
@@ -1433,8 +1439,10 @@ def conditions_selftest():
     out.append((p5[0].get("X86.Basic") == ("abs", 999.0) and machine_class("ip-10-0-131-128") == RUNNER_POOL,
                 "row 82: on an AWS-hosted runner (ip-10-0-131-128) the pool line applies"))
     out.append((p6[0].get("X86.Basic") == ("abs", 163.0) and machine_class("kip-10-0-1-2") is None
-                and machine_class("ip-10-0-131") is None and machine_class("ip-10-0-131-128x") is None,
-                "…and `kip-10-0-1-2`, `ip-10-0-131` and `ip-10-0-131-128x` are not (a full match on four groups)"))
+                and machine_class("ip-10-0-131") is None and machine_class("ip-10-0-131-128x") is None
+                and machine_class("ip-\u0661\u0660-0-131-128") is None,
+                "…and `kip-10-0-1-2`, `ip-10-0-131`, `ip-10-0-131-128x` and an Arabic-Indic-digit host are not "
+                "(a full match on four ASCII-digit groups)"))
 
     # ⛔ ARM 1 — THE DELEGATION IS REAL, NOT A COMMENT SAYING SO.  `conditions()`
     # claims to get its idle % from `threads_ab.idle_pct` rather than from a
