@@ -1960,6 +1960,24 @@ def selftest():
            f"{max(10.0 * kernel_cost.HEADROOM, float(kernel_cost.FLOOR_MS)):.0f} "
            f"@on {RUNNER_POOL}", floor=REPO_FLOOR, ceilings={})
 
+    # ⭐ ROW 82 (2026-11-22): GitHub's `ubuntu-latest` is drawn from TWO clouds. The AWS half carries the EC2-default
+    # hostname `ip-<n>-<n>-<n>-<n>` (#206's job 137336385208 ran on ip-10-0-131-128: runner group "GitHub Actions",
+    # label ubuntu-latest, 0 self-hosted runners; systems @108,967,892). It is in the pool by a FULL match only.
+    run("⭐ a `@on runner-pool` line releases a NEW unit on an AWS-hosted runner (ip-10-0-131-128)",
+        _new_unit("X86.Program", 10.0, machine="ip-10-0-131-128"), REPO_DEFAULT, {},
+        0, f"@on {RUNNER_POOL}", floor=REPO_FLOOR, ceilings=_POOL(50.0))
+    run("⛔ …but a three-group `ip-10-0-131` is not in the pool",
+        _new_unit("X86.Program", 10.0, machine="ip-10-0-131"), REPO_DEFAULT, {}, 3,
+        f"registered for {RUNNER_POOL}", floor=REPO_FLOOR, ceilings=_POOL(50.0))
+    run("⛔ …nor is `kip-10-0-1-2` (a full match, not a substring)",
+        _new_unit("X86.Program", 10.0, machine="kip-10-0-1-2"), REPO_DEFAULT, {}, 3,
+        f"registered for {RUNNER_POOL}", floor=REPO_FLOOR, ceilings=_POOL(50.0))
+    run("⭐ an unregistered NEW unit on an AWS-hosted runner is told to add the POOL line",
+        _new_unit("X86.Program", 10.0, machine="ip-10-0-131-128"), REPO_DEFAULT, {},
+        3, f"X86.Program "
+           f"{max(10.0 * kernel_cost.HEADROOM, float(kernel_cost.FLOOR_MS)):.0f} "
+           f"@on {RUNNER_POOL}", floor=REPO_FLOOR, ceilings={})
+
     # ⛔ AND THE RUN'S OWN MACHINE MUST BE KNOWN. A reading without its box cannot
     # be compared against any ceiling, however well registered.
     run("⛔ a run whose OWN machine is unknown refuses even with a matching ceiling",

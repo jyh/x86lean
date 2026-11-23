@@ -73,10 +73,25 @@ MACHINE_TAG = "@on"
 RUNNER_POOL = "runner-pool"
 
 
+# ⭐ ROW 82 (2026-11-22): GitHub's `ubuntu-latest` is drawn from TWO clouds. The Azure half is named `runnervm*`; the AWS
+# half carries the EC2-default hostname `ip-<n>-<n>-<n>-<n>` (#206's kernel-delta job 137336385208 ran on ip-10-0-131-128:
+# runner group "GitHub Actions", label ubuntu-latest, the repository has 0 self-hosted runners; systems @108,967,892).
+# A FULL match on four decimal groups, never the prefix `ip-10-`: GitHub's VPC block can change, and a prefix would also
+# take `ip-10-foo`. ⚠️ LIMIT: n = 1 AWS job read; AWS ran 0.82-0.86x Azure's time over 34 units (range 0.70-0.97), so a
+# pool line read on Azure is looser on AWS and one read on AWS leaves Azure at most ~1.43x its reading, inside the 3x
+# headroom: an upper bound on spread from one job, as D396's Azure spread was.
+_EC2_HOST = re.compile(r"ip-\d{1,3}-\d{1,3}-\d{1,3}-\d{1,3}")
+
+
 def machine_class(machine):
-    """`runner-pool` for a GitHub-hosted runner VM (`runnervm*`), else None (D396). The ONE definition: kernel_delta
-    delegates here (row 69), so the registry's two parsers cannot learn different classes."""
-    return RUNNER_POOL if machine and machine.startswith("runnervm") else None
+    """`runner-pool` for a GitHub-hosted runner VM (`runnervm*`, or since row 82 the AWS half's `ip-<n>-<n>-<n>-<n>`),
+    else None (D396). The ONE definition: kernel_delta delegates here (row 69), so the registry's two parsers cannot learn
+    different classes."""
+    if not machine:
+        return None
+    if machine.startswith("runnervm") or _EC2_HOST.fullmatch(machine):
+        return RUNNER_POOL
+    return None
 
 
 _THIS_MACHINE = None
@@ -1402,6 +1417,11 @@ def conditions_selftest():
         p3 = _parse("X86.Basic 999 @on runner-pool\nX86.Basic 50 @on runnervmzz123\n")
         _THIS_MACHINE = "katmai"
         p4 = _parse("X86.Basic 163\nX86.Basic 999 @on runner-pool\n")
+        # ⭐ ROW 82: the AWS half of `ubuntu-latest` (EC2-default hostname), by a FULL match only
+        _THIS_MACHINE = "ip-10-0-131-128"
+        p5 = _parse("X86.Basic 163\nX86.Basic 999 @on runner-pool\n")
+        _THIS_MACHINE = "kip-10-0-1-2"
+        p6 = _parse("X86.Basic 163\nX86.Basic 999 @on runner-pool\n")
     finally:
         _THIS_MACHINE = _saved_m
     out.append((p1[0].get("X86.Basic") == ("abs", 999.0),
@@ -1410,6 +1430,11 @@ def conditions_selftest():
                 "…an exact-host ceiling beats the pool line, in either order"))
     out.append((p4[0].get("X86.Basic") == ("abs", 163.0),
                 "…and on katmai the pool line is ANOTHER box's, leaving the machine-less one"))
+    out.append((p5[0].get("X86.Basic") == ("abs", 999.0) and machine_class("ip-10-0-131-128") == RUNNER_POOL,
+                "row 82: on an AWS-hosted runner (ip-10-0-131-128) the pool line applies"))
+    out.append((p6[0].get("X86.Basic") == ("abs", 163.0) and machine_class("kip-10-0-1-2") is None
+                and machine_class("ip-10-0-131") is None and machine_class("ip-10-0-131-128x") is None,
+                "…and `kip-10-0-1-2`, `ip-10-0-131` and `ip-10-0-131-128x` are not (a full match on four groups)"))
 
     # ⛔ ARM 1 — THE DELEGATION IS REAL, NOT A COMMENT SAYING SO.  `conditions()`
     # claims to get its idle % from `threads_ab.idle_pct` rather than from a
