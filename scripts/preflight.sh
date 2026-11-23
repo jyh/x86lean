@@ -169,35 +169,6 @@ while IFS= read -r cmd; do
   else printf "  ⛔ FAIL %s   (from ci.yml)\n" "$name"; rc=1; fi
 done <<< "$ci_checks"
 printf "  ci.yml --check census: %s command(s) read, %s run here, the rest ran above by name\n" "$n_ci" "$n_ran"
-# ⛔⛔ ADDED 2026-11-21 (paris, queue row 81): the census above reads only `… --check*` commands, and CI also runs
-#   `check_*` gates BARE (or with `--selftest` alone). #205 reddened at `build` on `check_listings.py`, which this script
-#   never ran; measured the same day, 35 such commands are in ci.yml and the hand loop above names 15 of the bare ones.
-#   ⇒ every ci.yml command of the form `python3 scripts/check_<name>.py [--selftest]`, READ FROM ci.yml, is run here
-#   unless THIS script already ran that exact command above (recorded in `ran_cmds` as it ran, never a second list).
-#   The `check_*` family is read-only by convention and the whole set took 125 s on yukon (2026-11-21), 98 of them
-#   `check_claims --selftest`, which the loop above already runs. The counts are printed, so a parse that finds
-#   nothing reads as a refusal, not as ok.
-bare_checks=$(BARE_CI="${PREFLIGHT_CI_YML:-.github/workflows/ci.yml}" python3 - <<'PYEOF2'
-import os, re
-seen = []
-for line in open(os.environ["BARE_CI"], encoding="utf-8"):
-    m = re.match(r"\s*(?:-\s*)?(?:run:\s*)?(python3\s+scripts/check_\w+\.py(?:\s+--selftest)?)\s*$", line)
-    if m and m.group(1) not in seen:
-        seen.append(m.group(1))
-print("\n".join(seen))
-PYEOF2
-)
-n_bare=$(printf "%s\n" "$bare_checks" | grep -c 'python3' || true)
-if [ "$n_bare" -lt 1 ]; then printf "  ⛔ FAIL ci.yml bare check_* census: 0 commands read (the parse found nothing)\n"; rc=1; fi
-n_bran=0; n_bskip=0
-while IFS= read -r cmd; do
-  [ -n "$cmd" ] || continue
-  case "$ran_cmds" in *"|$cmd|"*) n_bskip=$((n_bskip+1)); continue ;; esac
-  n_bran=$((n_bran+1))
-  if $cmd >/dev/null 2>&1; then printf "  ok   %s   (from ci.yml, bare)\n" "${cmd#python3 }"
-  else printf "  ⛔ FAIL %s   (from ci.yml, bare)\n" "${cmd#python3 }"; rc=1; fi
-done <<< "$bare_checks"
-printf "  ci.yml bare check_* census: %s command(s) read, %s run here, %s already run above\n" "$n_bare" "$n_bran" "$n_bskip"
 # ⛔ ADDED 2026-09-12 (D215): the drift gate's selftest reads the REAL window, so a new
 #   top-level directory with no exemption rule reds CI's kernel-delta job. It was not on
 #   this list, and `d7dbd58` met the refusal in CI after the push. ~17 s together.
@@ -221,6 +192,36 @@ for t in check_claims label_fit; do
   if python3 "scripts/$t.py" --selftest >/dev/null 2>&1; then printf "  ok   %s --selftest\n" "$t"
   else printf "  ⛔ FAIL %s --selftest\n" "$t"; rc=1; fi
 done
+# ⛔⛔ ADDED 2026-11-21 (paris, queue row 81): the census above reads only `… --check*` commands, and CI also runs
+#   `check_*` gates BARE (or with `--selftest` alone). #205 reddened at `build` on `check_listings.py`, which this script
+#   never ran; measured the same day, 35 such commands are in ci.yml and the hand loop above names 15 of the bare ones.
+#   ⇒ every ci.yml command of the form `python3 scripts/check_<name>.py [--selftest]`, READ FROM ci.yml, is run here
+#   unless THIS script already ran that exact command above (recorded in `ran_cmds` as it ran, never a second list).
+#   The `check_*` family is read-only by convention and the whole set took 125 s on yukon (2026-11-21), 98 of them
+#   `check_claims --selftest`, which the loop just above runs (this census sits AFTER it, so ran_cmds holds it:
+#   paper's MEDIUM on #208, where it sat before the loop and ran that selftest twice). The counts are printed, so a parse that finds
+#   nothing reads as a refusal, not as ok.
+bare_checks=$(BARE_CI="${PREFLIGHT_CI_YML:-.github/workflows/ci.yml}" python3 - <<'PYEOF2'
+import os, re
+seen = []
+for line in open(os.environ["BARE_CI"], encoding="utf-8"):
+    m = re.match(r"\s*(?:-\s*)?(?:run:\s*)?(python3\s+scripts/check_\w+\.py(?:\s+--selftest)?)\s*$", line)
+    if m and m.group(1) not in seen:
+        seen.append(m.group(1))
+print("\n".join(seen))
+PYEOF2
+)
+n_bare=$(printf "%s\n" "$bare_checks" | grep -c 'python3' || true)
+if [ "$n_bare" -lt 1 ]; then printf "  ⛔ FAIL ci.yml bare check_* census: 0 commands read (the parse found nothing)\n"; rc=1; fi
+n_bran=0; n_bskip=0
+while IFS= read -r cmd; do
+  [ -n "$cmd" ] || continue
+  case "$ran_cmds" in *"|$cmd|"*) n_bskip=$((n_bskip+1)); continue ;; esac
+  n_bran=$((n_bran+1))
+  if $cmd >/dev/null 2>&1; then printf "  ok   %s   (from ci.yml, bare)\n" "${cmd#python3 }"
+  else printf "  ⛔ FAIL %s   (from ci.yml, bare)\n" "${cmd#python3 }"; rc=1; fi
+done <<< "$bare_checks"
+printf "  ci.yml bare check_* census: %s command(s) read, %s run here, %s already run above\n" "$n_bare" "$n_bran" "$n_bskip"
 for a in --selftest --gap; do
   if python3 scripts/kernel_drift.py $a >/dev/null 2>&1; then printf "  ok   kernel_drift %s\n" "$a"
   else printf "  ⛔ FAIL kernel_drift %s\n" "$a"; rc=1; fi
