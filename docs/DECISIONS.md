@@ -26243,3 +26243,42 @@ pmullw form lands in (a) while its XMM twin stays (b), and the plant (the rule r
 - **The repair:** the three arms are chosen BY NAME, master's three, and a name not in the list is REFUSED. At this
   tree: `compare-index selftest: PASS` (26 ✔, 0 ⛔). Red: the positional rule, at 742de1b, in CI (above). Mutant: a
   misspelled name (`inc clobbers CFx`) reds with "no selftest arm named …" and FAIL.
+
+## D406 — The MMX shifts by IMMEDIATE (STATUS-paris row 84): predictions and price BEFORE any model work
+
+⚖️ The next MMX batch, priced from master b1ce64e's census (record 49). The MMX residue is 7,578; the shifts are 2,822 of it.
+By count form (an `objdump -d` pass over the census corpus, counting each `%mm` shift by whether its count is `$imm`, a
+register or memory; CONTROL: every mnemonic
+re-sums to the census, psraw 772 + 6 + 42 = 820, psrlq 421 + 22 = 443, psrlw 328 + 1 = 329, psllw 667, psllq 229, psrad
+222, psrld 79): **imm 2,671 (94.6 %) · reg 144 · mem 7.**
+
+### 1. THE REFEREE, READ FROM x86isa BEFORE ANYTHING IS DESIGNED
+- `inst-listing.lisp` wires the NP (MMX) IMMEDIATE forms, `0F 71/72/73 /2 /4 /6 ib`, to `X86-PSRL-IMM-MMX`,
+  `X86-PSRA-IMM-MMX` and `X86-PSLL-IMM-MMX`: psrlw psrld psrlq psraw psrad psllw pslld psllq, eight kinds.
+- It wires NO handler to the NP register/memory-count forms (`0F D1-D3`, `E1-E2`, `F1-F3`). ⚠️ pshift.lisp DEFINES the
+  `mm/m64` count instruction (its macro, line 102, with its `mmx-instruction-updates` at 188), yet nothing dispatches it: a
+  definition no opcode reaches. The 151 reg/mem forms are therefore a silicon item, not this batch.
+- The immediate handler computes through the same `spec-fn` as the SSE form at operand size 8 (pshift.lisp:197-262) and
+  calls `mmx-instruction-updates` once (line 261), so the x87 side effect matches the model's `setMm` touch.
+
+### 2. THE CLAIM, PER MEMBER: is MMX(a, imm) = low64(XMM(zext a, imm))?
+`vshiftApply` (X86/Semantics.lean:450) is `vlanes1 w (vshiftLane op w · cnt)` over the 128-bit value with ONE
+whole-register count, so lane i of the result reads lane i of the input and nothing else. Every lane of the low 64 bits is
+therefore the same function of the same bits in the MMX and XMM forms, for each of w16/w32/w64 and each of sll/srl/sra. The
+count is the imm8 as a Nat in both, and `vshiftLane`'s `cnt ≥ w` branch (zero, or the sign fill for sra) applies alike.
+**Held for all eight by construction; the arms below are what could refute it.** (No psraq exists outside AVX-512, and
+there is no byte shift: the eight are exactly the listing's.)
+
+### 3. PREDICTIONS
+1. **Differential:** the eight kinds, a register vector each (`ps* $imm8, %mmN`), agree with x86isa in every key at every
+   pre-state; unexplained 0; no new declared divergence.
+2. **Arms, each must catch on at least one vector:** (a) the count MASKED to the lane (`cnt % w`) instead of saturating:
+   caught by an imm ≥ the lane width; (b) psra filling ZEROS: caught by a negative lane; (c) the x87 touch dropped: caught
+   by the tag/TOP keys (D402's channel); (d) the shift applied across the whole 64 bits (one lane): caught by w16/w32.
+3. **Census:** covered +2,671 (the imm demand above, derived beforehand), MMX residue 7,578 → 4,907.
+4. **Kernel cost:** the MMX rows join `mmxTable`, not `tableP0` (D405 §6), so `memDestSweep` does not move; the new vectors
+   cost Tests.Coverage's vector sweeps. Measured at K1, never predicted to a number here.
+
+### 4. PRICE
+One `Op` constructor (`mmshifti op w dst imm8`) or a reuse of the XMM shift constructor with an MMX destination; eight
+vectors at two counts each (an in-range count and one ≥ the lane width), 16 vectors; four arms; one K1 and one K2. A day.
