@@ -169,7 +169,7 @@ tier\_absent, silicon\_mnemonics]}
 
 \paragraph{Trust.}
 Decoding is trusted, not proved. The AST is produced from Intel XED's structured output, and every one
-of the 344 rows (the roster, its 34 VEX.128 register twins, and the processor-refereed forms) records its decoding as trusted to XED; a Lean decoder for the covered subset is later
+of the 374 rows (the roster, its VEX.128 register twins and MMX forms, and the processor-refereed forms) records its decoding as trusted to XED; a Lean decoder for the covered subset is later
 work.
 \src{TRUSTBASE.md, Decode trust; X86/Coverage.lean DecodeTrust; docs/CLAIMS.tsv[decode\_xed\_rows]}
 Every theorem outside the test tree and a separately compiled native library depends on at most
@@ -761,16 +761,16 @@ hwprobe/; Tests/Anchors.lean, the cvtss2sd\_*\_sticky rows marked ``x86isa diffe
 Differential validation needs a reference model that runs the instruction, and for much of what
 x86lean does not yet cover, ours does not. We measure demand with a census of the instructions in
 ten public Debian amd64 packages; in its assembly class, six codec columns counted apart from compiler output,
-345{,}443 instructions are of forms the model does not differentially validate, a count that includes the demand for the mnemonics it implements and referees only on processors.
+309{,}975 instructions are of forms the model does not differentially validate, a count that includes the demand for the mnemonics it implements and referees only on processors.
 \src{docs/DEMAND-CENSUS.md, the corpus recipe; docs/P2-ROSTER.md header; docs/CLAIMS.tsv[p2\_gap\_total]}
 Most of those are vector instructions; the scalar remainder includes the BMI2 forms (400). Two scalar parts of the
 earlier count, the LOCK vocabulary and ENDBR64, have since landed and left it.
 Asking the reference model to execute one form of each mnemonic in the gap, at the operand class where the
-demand actually occurs, it executes the forms carrying 86{,}191 of them and refuses the forms carrying
-169{,}439; on 241, in three mnemonics, it neither advances nor refuses; and 89{,}572 have not yet been
+demand actually occurs, it executes the forms carrying 54{,}253 of them and refuses the forms carrying
+169{,}439; on 241, in three mnemonics, it neither advances nor refuses; and 86{,}042 have not yet been
 asked at their own class. The four parts sum to the total.
 \src{docs/P2-ROSTER.md, the additions table and the BY (mnemonic, BUCKET) table; docs/CLAIMS.tsv[p2\_bucket\_executes, p2\_bucket\_refuses, p2\_bucket\_stalls, p2\_bucket\_stalls\_pairs, p2\_bucket\_unasked, p2\_ceiling\_partition\_residue];
-86191 + 169439 + 241 + 89572 = 345443}
+54253 + 169439 + 241 + 86042 = 309975}
 The refused instructions cannot be differentially validated against it at any price, however the work
 is ordered. K has
 semantic rules for many of the refused mnemonics, but it executes assembly source rather than machine
@@ -798,7 +798,7 @@ claim a row only if the two encodings share every non-operand bit, so a mis-pars
 instances assemble to identical bytes are reported as spellings of one machine form, which is why the
 figures count both rows and distinct forms.
 \src{scripts/claimed\_forms.py module docstring}
-The published figures are 200 mnemonics in 1{,}241 differentially tested vectors, read from the table
+The published figures are 200 mnemonics in 1{,}298 differentially tested vectors, read from the table
 the model generates, and 504 of the 525 roster rows, which are 355 of the 374 distinct machine forms those
 rows describe; CI fails if the prose that states them disagrees with the derivation. The roster is K's
 scalar forms: the model's vector forms have no row there, are listed by name as exempt, and are counted
