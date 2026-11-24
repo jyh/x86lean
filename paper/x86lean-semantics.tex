@@ -700,7 +700,7 @@ of its five machines.
 Main.lean knownDivergences, movd\_to\_x and movq\_to\_x; docs/DECISIONS.md D108, the first run's record
 ``unexplained=8 oracle-divergence=163'', taken while those two were the only declared entries, and 171 once the
 eight shifts were declared; docs/CLAIMS.tsv[movdq\_divergences, diff\_diverged, fp\_divergences\_added, p2\_shift\_divergences, liblisa\_machines,
-memrecords\_divergences\_added, mmx\_divergences\_added]; 1{,}399 = 835 + BATCH46's 564 (the MMX stores that leave the x87 tag word alone, D402); 835 = 171 + the four floating-point records' increases (DIFFERENTIAL-P2-BATCH27, 29, 31 and 35: +50, +11, +12, +48) + BATCH40's 324 for the 29 bit-string entries + BATCH42's 6, BATCH43's 171 and BATCH44's 42 (at the pin) (D331, docs/CLAIMS.tsv[bitstring\_divergences\_added]); every other record from BATCH22 to BATCH39 adds 0, D300; docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, the vmovd and vmovq verdicts; D221; docs/DECISIONS.md D248}
+memrecords\_divergences\_added, mmx\_divergences\_added]; 1{,}399 = 835 + BATCH46's 564 (the MMX stores that leave the x87 tag word alone, declared by D403 on silicon); 835 = 171 + the four floating-point records' increases (DIFFERENTIAL-P2-BATCH27, 29, 31 and 35: +50, +11, +12, +48) + BATCH40's 324 for the 29 bit-string entries + BATCH42's 6, BATCH43's 171 and BATCH44's 42 (at the pin) (D331, docs/CLAIMS.tsv[bitstring\_divergences\_added]); every other record from BATCH22 to BATCH39 adds 0, D300; docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, the vmovd and vmovq verdicts; D221; docs/DECISIONS.md D248}
 
 \paragraph{A reference model that disagrees with itself.}
 On the packed shifts (PSLLW, PSRAD and their siblings) with a count in an XMM register, the first
