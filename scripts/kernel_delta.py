@@ -48,6 +48,13 @@ points and that direction is the one nobody polices.
   straddles the budget, so this run cannot tell which side of it the commit is
   on. That is not a verdict about the commit and must not be reported as one.
 
+Two outcomes are not verdicts on readings. **SKIP** (rc 0, nothing measured): the
+range changes nothing `lake` reads (`null_pair_reason`). **IDENTITY** (rc 0,
+measured, row 85): the range changes only the method or the allowance
+(`METHOD_PATHS`) plus exempt paths, so base and head elaborate the same tree and
+every delta is zero by construction. The readings are printed and labelled as
+the box's, and the LIMIT is printed with them.
+
 ⭐ The third verdict is what replaces `kernel_cost.py`'s load-average band, and it
 is strictly better evidence: that band is a HEURISTIC about the machine calibrated
 on four readings months of batches ago, while this is the machine's noise
@@ -702,6 +709,64 @@ def null_pair_reason(base, head, cwd=None):
             return None                      # UNCLASSIFIED ⇒ measure, never skip
         reasons.append((path, why))
     return reasons
+
+
+# ══ ROW 85 (2026-11-24): A STEP THAT CHANGES ONLY THE METHOD OR THE ALLOWANCE ══════════════
+# #207 and #208 changed only PROFILER_PATHS (a classifier, a comment in kernel_cost.py), so
+# the gate MEASURED, as it must, and base and head elaborated the SAME `.lean` tree. Both
+# attempt-1 runs read UNMEASURABLE on runnervm0hi8g and each cost a ~4 h re-roll. The ms
+# delta of every unit on such a step is ZERO BY CONSTRUCTION: `profile()` runs THIS
+# checkout's kernel_cost.py over BOTH worktrees, so a changed METHOD is applied to both
+# sides, and the budget and ceiling files are ALLOWANCES, which reach no reading at all.
+# ⇒ The gate still MEASURES (the method change is exercised and its readings are printed),
+#   and passes on the IDENTITY instead of reading noise as a verdict.
+# ⛔ NOT EVERY PROFILER_PATH QUALIFIES: `lean-toolchain` and `lake-manifest.json` move every
+#   reading in the tree, so they keep the ordinary verdict. The classifier is the same
+#   inverted default as null_pair_reason: every OTHER changed path must carry a stated
+#   exemption, and any `.lean`, lakefile or unclassified path measures and is judged.
+# ⚠️ THE LIMIT, printed beside the verdict: a changed method CAN move readings (both sides
+#   equally), so the absolute readings printed under an IDENTITY are readings of the NEW
+#   method; and a reading that differs between two copies of one tree is a fact about the
+#   box (D141, D145), posted if it is large, never a verdict on the code.
+METHOD_PATHS = ("scripts/kernel_cost.py", "scripts/kernel_delta.py",
+                "scripts/kernel_delta_budget.txt", "scripts/kernel_ceilings.txt")
+
+
+def identity_reason(base, head, cwd=None):
+    """The method/allowance paths a range changes, if that is ALL it changes; else None.
+
+    Returns None when the range changes no METHOD_PATH (null_pair_reason decides that
+    case), or when ANY changed path is a `.lean`, a `lakefile.*`, another PROFILER_PATH
+    (the toolchain, the manifest) or a path with no stated exemption."""
+    _cwd = cwd or ROOT
+    changed = [p for p in git("diff", "--name-only", base, head, cwd=_cwd).split("\n") if p.strip()]
+    import kernel_drift as _kdrift          # lazy, as in null_pair_reason
+    method = []
+    for path in sorted(changed):
+        if path.endswith(".lean") or os.path.basename(path).startswith("lakefile"):
+            return None
+        if path in METHOD_PATHS:
+            method.append(path)
+            continue
+        if path in _kdrift.PROFILER_PATHS or _kdrift.exempt_reason(path) is None:
+            return None
+    return method or None
+
+
+def identity_finish(rc, method, base, head):
+    """Print the IDENTITY verdict for a measured method-only step and return rc 0."""
+    was = {0: "CLEAN", 1: "FAILED", 3: "UNMEASURABLE"}.get(rc, f"rc {rc}")
+    print(f"⚖️  IDENTITY — {base[:9]} → {head[:9]} changes no `.lean`, lakefile, toolchain or "
+          f"manifest; it changes only the method or the allowance:")
+    for p in method:
+        print(f"     {p}")
+    print(f"   ⇒ base and head elaborate the SAME tree, so every unit's ms delta is ZERO BY "
+          f"CONSTRUCTION. The readings above would have read {was}; that is printed as a "
+          f"reading of this box, not as this gate's verdict. rc 0 (row 85).")
+    print("   LIMIT: a changed method CAN move readings, on both sides alike, so the absolute "
+          "readings above are the NEW method's. A large difference between the two copies "
+          "of one tree is a finding about the box, to post, not a verdict on the code.")
+    return 0
 
 
 def resolve_base(head):
@@ -2145,6 +2210,71 @@ def selftest():
     null_arm("⛔ `scripts/kernel_delta.py` itself MEASURES (it carries the rule)",
              {"scripts/kernel_delta.py": "# touched"}, "MEASURE")
 
+    # ── ROW 85: THE IDENTITY CLASS — measured, and passed on the identity ──
+    # ⛔ RED FIRST: before row 85 there was no IDENTITY class, so every arm below that
+    # wants IDENTITY read MEASURE (the gate then judged noise on identical trees).
+    def ident_arm(name, files, want):
+        d = tempfile.mkdtemp(prefix="x86lean-identarm-")
+        def sh(*a):
+            return subprocess.run(a, cwd=d, capture_output=True, text=True)
+        def commit(fs, msg):
+            for f, c in fs.items():
+                fp = os.path.join(d, f)
+                if os.path.dirname(fp):
+                    os.makedirs(os.path.dirname(fp), exist_ok=True)
+                with open(fp, "w", encoding="utf-8") as fh:
+                    fh.write(c)
+            sh("git", "add", "-A"); sh("git", "commit", "-qm", msg)
+            return sh("git", "rev-parse", "HEAD").stdout.strip()
+        try:
+            sh("git", "init", "-q", ".")
+            sh("git", "config", "user.email", "t@t"); sh("git", "config", "user.name", "t")
+            b = commit({"README.md": "x", "X86/Basic.lean": "theorem a : True := trivial",
+                        "scripts/kernel_cost.py": "# base"}, "base")
+            h = commit(files, "head")
+            if null_pair_reason(b, h, cwd=d) is not None:
+                got = "SKIP"
+            else:
+                got = "IDENTITY" if identity_reason(b, h, cwd=d) is not None else "MEASURE"
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+        ok = got == want
+        arms.append(name)
+        print(("  ✔ " if ok else "  ⛔ ") + name + ("" if ok else f"   (got {got}, wanted {want})"))
+        if not ok:
+            bad.append(name)
+
+    ident_arm("⭐ a kernel_cost.py-only step (#208's shape) is IDENTITY",
+              {"scripts/kernel_cost.py": "# a comment"}, "IDENTITY")
+    ident_arm("⭐ …and so is the gate + its budget + a docs path (#207's shape)",
+              {"scripts/kernel_delta.py": "# touched", "scripts/kernel_delta_budget.txt": "x",
+               "docs/Q.md": "q"}, "IDENTITY")
+    ident_arm("⛔ a method path beside ONE `.lean` is judged as usual (MEASURE)",
+              {"scripts/kernel_cost.py": "# c", "X86/Basic.lean": "theorem a : True := by trivial"},
+              "MEASURE")
+    ident_arm("⛔ a method path beside a `lean-toolchain` bump is judged (MEASURE)",
+              {"scripts/kernel_cost.py": "# c", "lean-toolchain": "leanprover/lean4:v4.33.0"},
+              "MEASURE")
+    ident_arm("⛔ a method path beside `lakefile.toml` is judged (MEASURE)",
+              {"scripts/kernel_cost.py": "# c", "lakefile.toml": "name = 'x'"}, "MEASURE")
+    ident_arm("⛔ a method path beside an UNCLASSIFIED path is judged (MEASURE)",
+              {"scripts/kernel_cost.py": "# c", "vendor/thing.c": "int main(){}"}, "MEASURE")
+    ident_arm("⛔ a docs-only step stays a SKIP (nothing measured), not an IDENTITY",
+              {"README.md": "y"}, "SKIP")
+    # The finish: an UNMEASURABLE (rc 3) or FAILED (rc 1) reading on an identity returns 0,
+    # and says what the readings would have read.
+    for _rc, _word in ((3, "UNMEASURABLE"), (1, "FAILED")):
+        _buf = io.StringIO()
+        with contextlib.redirect_stdout(_buf):
+            _got = identity_finish(_rc, ["scripts/kernel_cost.py"], "a" * 40, "b" * 40)
+        _out = _buf.getvalue()
+        name = f"⭐ an identity whose readings read {_word} passes rc 0 and names the reading"
+        ok = _got == 0 and f"would have read {_word}" in _out and "LIMIT:" in _out
+        arms.append(name)
+        print(("  ✔ " if ok else "  ⛔ ") + name + ("" if ok else f"   (rc {_got})"))
+        if not ok:
+            bad.append(name)
+
     # ── THE REGISTRY KEY (D198): (unit, machine), and a duplicate is an ERROR ──
     # ⛔ These drive the PARSER, not the verdict. The defect being repaired lived
     # entirely in the parse: two lines went in and one entry came out, so no
@@ -2662,6 +2792,10 @@ def main():
         print(f"readings → {out}")
     rc, lines = verdict(data, default_ms, budgets, floor, ceilings=read_ceilings())
     absolute_readings(data)
+    _ident = identity_reason(base, git("rev-parse", head))
+    if _ident is not None:
+        # ⛔ BEFORE the D381 record: an identity is not a refusal, so it is not counted as one.
+        return identity_finish(rc, _ident, base, git("rev-parse", head))
     # ⚖️ D381 (the helm's (C) ruling, 2026-11-01): ON A MASTER PUSH RUN ONLY (ci.yml passes the flag there and
     # nowhere else), an exit 3 is decided by the RECORD — a ledger row or a PR run at the merged head — and an
     # exit 1 is never touched. `refusal_record.apply` prints the KERNEL-DELTA-REFUSED row every time, so the
