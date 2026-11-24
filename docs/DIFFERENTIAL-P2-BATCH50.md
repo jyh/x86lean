@@ -56,8 +56,10 @@ then `python3 scripts/p2_roster.py` (rc 0; `--check` rc 0). The census stamps:
    Every figure in this table is read from `docs/DEMAND-CENSUS.md.json` against record 49's copy, summed over the
    non-underscore columns. ⚠️ A first draft of this table was typed from the refuted run's columns and read ffmpeg
    +1,629 and x264 +434. The derivation corrected both: the 21 and 130 left those two columns.
-4. **Kernel cost:** owed, at K1 on katmai (D406 §3.4). The rows are in `mmxTable`, so `memDestSweep` is not expected to
-   move.
+4. **Kernel cost: FAILED at K1, then CLEAN at K1b** (D406 §5). `memDestSweep` did not move (−50 ms), as predicted. The
+   unit that failed was `Tests.CoverageMmx` (+1,505 ms over a 310 budget), whose per-row scan of `vectors` grew as
+   rows × vectors. Repaired at `c500038` (one linear pass); K1b on katmai reads both arms CLEAN, `Tests.CoverageMmx`
+   −1,845 ms and −100,830 ku against master.
 
 ## 3. THE ARMS OF THE TOOLS
 - `demand_census.py --selftest`: PASS, 263 arms (three new bucket arms: an immediate count stays `MMX (mm)`, and a

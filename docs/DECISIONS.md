@@ -26298,8 +26298,13 @@ vectors at two counts each (an in-range count and one ≥ the lane width), 16 ve
   `Tests.Coverage` read +50 against 1,300. The +35 % is the rows × vectors ratio (31/23 × 1314/1298 ≈ 1.36), because
   `mmx_rows_have_vectors` scanned all of `vectors` once per ROW. **Repair (§6):** the MMX vectors' mnemonics are read once
   (`mmxVectorMnemonics`, one linear `filterMap`), and both theorems check against that list. Red backwards: with
-  `.mmshifti` dropped from the extraction, `mmx_rows_have_vectors` reds (`decide` proves it false). K1b owed at the
-  repaired head.
+  `.mmshifti` dropped from the extraction, `mmx_rows_have_vectors` reds (`decide` proves it false).
+- **K1b, read** (katmai, `6a12679 → c500038`, `--repeats 6`, both arms, 2026-11-24 17:21Z): ms delta gate **CLEAN**,
+  `Tests.CoverageMmx` 4,215 → 2,370 ms (−1,845, ok against 280), `Tests.Coverage` −150; `ku_delta` A′ **CLEAN**,
+  `Tests.CoverageMmx` 809,625 → 708,795 (−100,830 against 188,643). The repaired unit is cheaper than master's, because
+  the per-row scan was already there before D406 and D406 only made it visible. Recorded as the drift ledger row
+  (`kernel_drift.py --record --a-prime`; D251: lands on the ms verdict). `c500038` is the last `.lean` commit, so this is
+  the landing measurement.
 - ⇒ **A census keyed by (mnemonic, register file) cannot see an operand FORM.** Any future MMX or XMM row modelled at only
   some of its count forms needs the same split. That held trivially until now, because every XMM shift row models all
   three forms.
