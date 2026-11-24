@@ -481,7 +481,7 @@ opposite oracles, and we have not proved it for every instruction.
 \src{Tests/Nonvacuity.lean cursor\_add\_spends\_nothing, cursor\_and\_spends\_one, cursor\_shift\_nonzero\_spends\_three,
 cursor\_shift\_zero\_spends\_nothing, cursor\_independent\_of\_bits (the one over two oracles, one SHL at one state); docs/DECISIONS.md D213, D250}
 It is checked case by case: the leak check of Section~\ref{sec:undef:derived} also requires the two runs
-to leave the cursor in the same place, so the 0 leaks in the 109{,}208 cases of the differential record cited in Section~\ref{sec:validation:harness} include it, and an earlier Lean-only run over the 89{,}056 cases of the 1{,}012-vector population found the cursors differ in 0. A model planted to draw one extra bit whenever its first drawn bit is set is caught on exactly
+to leave the cursor in the same place, so the 0 leaks in the 114{,}224 cases of the differential record cited in Section~\ref{sec:validation:harness} include it, and an earlier Lean-only run over the 89{,}056 cases of the 1{,}012-vector population found the cursors differ in 0. A model planted to draw one extra bit whenever its first drawn bit is set is caught on exactly
 the cases that draw, 27{,}717 of 85{,}008 in the check's own walk of 84 pre-states per vector.
 \src{X86/Serialize.lean undefinedLeaked (the oracle cursor clause); docs/CLAIMS.tsv[diff\_cases, diff\_leaks]; docs/CURSOR-LEAK-CHECK-2026-09-13.md, ``emitted 1012 vectors x 88 pre-states = 89056 cases'', a Lean-only run without ACL2, and the cursor-plant line and the 84-vs-88 pre-state note (D250); docs/CLAIMS.tsv[cursor\_cases, cursor\_leaks, cursor\_plant\_fired, cursor\_plant\_cases, cursor\_walk\_prestates]; X86/Serialize.lean
 undefinedLeakedBy; Main.lean wrongDrawCountReadsDrawnBit; docs/DECISIONS.md D226}
@@ -584,10 +584,10 @@ which both models refuse is matched on the refusal alone, since neither claims a
 
 The summary counts two different things, and they must be read apart: cases, and disagreeing fields.
 The record we cite, taken against the reference model pinned at ACL2 commit c8897a34, covers
-1{,}241 vectors at 88 pre-states, 109{,}208 cases, of which 85{,}692 are
-matched. The remaining cases carry 34{,}407 field disagreements explained by the undefined set and 835
+1{,}298 vectors at 88 pre-states, 114{,}224 cases, of which 90{,}356 are
+matched. The remaining cases carry 34{,}407 field disagreements explained by the undefined set and 1{,}399
 declared divergences. 0 disagreements are unexplained, and in 0 cases did an undefined bit leak.
-\src{docs/DIFFERENTIAL-P2-BATCH45.md at the pin 6f85116, the RUN block's main table; docs/CLAIMS.tsv[diff\_vectors, diff\_prestates, diff\_cases,
+\src{docs/DIFFERENTIAL-P2-BATCH49.md at the pin 6a12679, the RUN block's main table; docs/CLAIMS.tsv[diff\_vectors, diff\_prestates, diff\_cases,
 diff\_matched, diff\_explained, diff\_diverged, diff\_unexplained, diff\_leaks]. Units: Main.lean
 compareRecs counts cases, matched and leaks per case, and the other three per field}
 Every mnemonic in the differential table has a vector (Section~\ref{sec:gated}), and each vector runs at the same 88
@@ -690,17 +690,17 @@ liblisa.nl/publications/liblisa-oopsla24/05-results section 5.2.2, the BT/BTS/BT
 Moving a general-purpose register into an XMM register (MOVD, MOVQ) clears the destination's upper bits in
 the manual and in K's rules; the reference model keeps them and writes only the low 32 or 64. x86lean
 follows the manual, and the two vectors are declared divergences with K's rule as their independent
-source. They are 163 of the cited record's 835 declared divergences. The eight shifts below are
+source. They are 163 of the cited record's 1{,}399 declared divergences. The eight shifts below are
 another eight, the floating-point records added 121, bit strings (Sect.~\ref{sec:validation:limits}) 324,
-and three later memory-form records 219. A wrong model planted to merge rather than
+three later memory-form records 219, and the MMX stores 564. A model planted to merge rather than
 clear was already one of the harness's controls, and it fired against x86lean; the reference model
-implements the same mistake. libLISA's semantics agree with the manual on the VEX-encoded forms, on each
+makes the same mistake. libLISA's semantics agree with the manual on the VEX-encoded forms, on each
 of its five machines.
 \src{docs/DECISIONS.md D93, sections 1 and 2 (the planted arm, and K's movd\_xmm\_r32.k and movq\_xmm\_r64.k);
 Main.lean knownDivergences, movd\_to\_x and movq\_to\_x; docs/DECISIONS.md D108, the first run's record
 ``unexplained=8 oracle-divergence=163'', taken while those two were the only declared entries, and 171 once the
 eight shifts were declared; docs/CLAIMS.tsv[movdq\_divergences, diff\_diverged, fp\_divergences\_added, p2\_shift\_divergences, liblisa\_machines,
-memrecords\_divergences\_added]; 835 = 171 + the four floating-point records' increases (DIFFERENTIAL-P2-BATCH27, 29, 31 and 35: +50, +11, +12, +48) + BATCH40's 324 for the 29 bit-string entries + BATCH42's 6, BATCH43's 171 and BATCH44's 42 (at the pin) (D331, docs/CLAIMS.tsv[bitstring\_divergences\_added]); every other record from BATCH22 to BATCH39 adds 0, D300; docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, the vmovd and vmovq verdicts; D221; docs/DECISIONS.md D248}
+memrecords\_divergences\_added, mmx\_divergences\_added]; 1{,}399 = 835 + BATCH46's 564 (the MMX stores that leave the x87 tag word alone, D402); 835 = 171 + the four floating-point records' increases (DIFFERENTIAL-P2-BATCH27, 29, 31 and 35: +50, +11, +12, +48) + BATCH40's 324 for the 29 bit-string entries + BATCH42's 6, BATCH43's 171 and BATCH44's 42 (at the pin) (D331, docs/CLAIMS.tsv[bitstring\_divergences\_added]); every other record from BATCH22 to BATCH39 adds 0, D300; docs/LIBLISA-HARDWARE-CHECK-2026-09-12.md, the vmovd and vmovq verdicts; D221; docs/DECISIONS.md D248}
 
 \paragraph{A reference model that disagrees with itself.}
 On the packed shifts (PSLLW, PSRAD and their siblings) with a count in an XMM register, the first
@@ -1066,7 +1066,7 @@ x86isa at ACL2 commit \texttt{c8897a34}, pinned by \texttt{scripts/oracle\_revis
 by \texttt{scripts/setup\_oracle.sh}, which does not pin the host Lisp (the image at that commit was built
 with SBCL 2.6.8). The repository's scripts and records call the reference model ``the oracle''; in
 this paper that word names x86lean's source of undefined bits. This paper describes x86lean at commit
-\texttt{6f85116}. The Zenodo record above
+\texttt{6a12679}. The Zenodo record above
 is the repository's concept record, which resolves to its latest version, not to that commit.
 \src{scripts/setup\_oracle.sh (brew install sbcl, unversioned); vendor/acl2/saved\_acl2 exec line reads sbcl/2.6.8 (D250);
 LICENSE; lean-toolchain; scripts/oracle\_revision.txt; docs/CLAIMS.tsv[pin\_reference\_model\_short, proof\_sample\_routines]}
