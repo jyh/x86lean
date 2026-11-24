@@ -26293,7 +26293,13 @@ vectors at two counts each (an in-range count and one ≥ the lane width), 16 ve
   a bucket `MMX shift, register/memory count (D406)` that maps to nothing. Re-run: covered +2,671, MMX residue 7,578 →
   4,907 (151 of it in the new bucket), P2 gap 309,975 → 307,304. The 151 were counted before any code by §0's objdump pass,
   so the repaired figure is the pre-registered one. Red backwards: with the bucket rule disabled, 4 selftest arms red.
-- **Prediction 4 OWED:** K1 on katmai.
+- **Prediction 4: the K1 FAILED on one unit, and not the one predicted.** katmai, `6a12679 → ce83341`, `--repeats 6`:
+  `Tests.CoverageMmx` 4,285 → 5,790 ms, +1,505 against a 310 budget (band ±113). Every other unit read ok, and
+  `Tests.Coverage` read +50 against 1,300. The +35 % is the rows × vectors ratio (31/23 × 1314/1298 ≈ 1.36), because
+  `mmx_rows_have_vectors` scanned all of `vectors` once per ROW. **Repair (§6):** the MMX vectors' mnemonics are read once
+  (`mmxVectorMnemonics`, one linear `filterMap`), and both theorems check against that list. Red backwards: with
+  `.mmshifti` dropped from the extraction, `mmx_rows_have_vectors` reds (`decide` proves it false). K1b owed at the
+  repaired head.
 - ⇒ **A census keyed by (mnemonic, register file) cannot see an operand FORM.** Any future MMX or XMM row modelled at only
   some of its count forms needs the same split. That held trivially until now, because every XMM shift row models all
   three forms.

@@ -47,23 +47,23 @@ theorem mmx_rows_are_main_rows :
   decide
 
 set_option maxRecDepth 40000 in  -- `Tests.Coverage`'s file-wide value, scoped here
-/-- Every packed MMX vector of `vectors` (D404's `mmbin`/`mmbinm`) names a row of this table. Written as `vectors.all` over
-a `match`, the shape the main table's vector theorems use: a `filter` then `map` first exceeded the elaborator's
-recursion depth on 1,300 vectors, and the `match` form needs `Tests.Coverage`'s recursion depth too. -/
-theorem mmx_vectors_have_rows :
-    vectors.all (fun v => match v.instr.op with
-      | .mmbin .. => mmxMnemonics.contains v.mnemonic
-      | .mmbinm .. => mmxMnemonics.contains v.mnemonic
-      | .mmshifti .. => mmxMnemonics.contains v.mnemonic
-      | _ => true) = true := by decide
+/-- ⭐ D406 K1: the mnemonics of the packed MMX vectors of `vectors` (`mmbin`, `mmbinm`, `mmshifti`), read ONCE. The two
+theorems below used to scan `vectors` themselves, and `mmx_rows_have_vectors` did it once PER ROW (rows × vectors), so
+D406's 8 rows and 16 vectors cost the unit +1,505 ms against a 310 ms budget on katmai (K1, 6a12679 → ce83341): +35 %,
+the rows × vectors ratio. Both now read this one linear pass. -/
+def mmxVectorMnemonics : List String :=
+  vectors.filterMap (fun v => match v.instr.op with
+    | .mmbin .. | .mmbinm .. | .mmshifti .. => some v.mnemonic
+    | _ => none)
 
-set_option maxRecDepth 40000 in  -- `Tests.Coverage`'s file-wide value, scoped here
+set_option maxRecDepth 40000 in  -- the same scoped value
+/-- Every packed MMX vector of `vectors` names a row of this table. -/
+theorem mmx_vectors_have_rows :
+    mmxVectorMnemonics.all (fun m => mmxMnemonics.contains m) = true := by decide
+
+set_option maxRecDepth 40000 in  -- the same scoped value
 /-- …and every row has a packed MMX vector in `vectors`. -/
 theorem mmx_rows_have_vectors :
-    (mmxMnemonics.all fun m => vectors.any (fun v => match v.instr.op with
-      | .mmbin .. => v.mnemonic == m
-      | .mmbinm .. => v.mnemonic == m
-      | .mmshifti .. => v.mnemonic == m
-      | _ => false)) = true := by decide
+    mmxMnemonics.all (fun m => mmxVectorMnemonics.contains m) = true := by decide
 
 end X86.Tests.CoverageMmx
