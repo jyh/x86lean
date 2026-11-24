@@ -26282,3 +26282,19 @@ there is no byte shift: the eight are exactly the listing's.)
 ### 4. PRICE
 One `Op` constructor (`mmshifti op w dst imm8`) or a reuse of the XMM shift constructor with an MMX destination; eight
 vectors at two counts each (an in-range count and one ≥ the lane width), 16 vectors; four arms; one K1 and one K2. A day.
+
+### 5. RESULTS (record 50, `docs/DIFFERENTIAL-P2-BATCH50.md`)
+- **Prediction 1 HELD.** Main table 1,314 vectors · 115,632 cases · 0 unexplained · 0 leaks; whole run +1,408 cases, all
+  matched; explained and divergence counts identical to record 49.
+- **Prediction 2 HELD.** All four arms catch, and only on `.mmshifti` vectors: (a) 599 · (b) 284 · (c) 1,344 in `fptag`
+  (first registered against `mm0` and refused by the harness) · (d) 388.
+- **Prediction 3 REFUTED as first run, then HELD.** The census read +2,822. It credited the 151 register/memory-count forms
+  that §1 excludes, because it buckets an `%mm` form by register file and maps it by mnemonic alone. The census now has
+  a bucket `MMX shift, register/memory count (D406)` that maps to nothing. Re-run: covered +2,671, MMX residue 7,578 →
+  4,907 (151 of it in the new bucket), P2 gap 309,975 → 307,304. The 151 were counted before any code by §0's objdump pass,
+  so the repaired figure is the pre-registered one. Red backwards: with the bucket rule disabled, 4 selftest arms red.
+- **Prediction 4 OWED:** K1 on katmai.
+- ⇒ **A census keyed by (mnemonic, register file) cannot see an operand FORM.** Any future MMX or XMM row modelled at only
+  some of its count forms needs the same split. That held trivially until now, because every XMM shift row models all
+  three forms.
+

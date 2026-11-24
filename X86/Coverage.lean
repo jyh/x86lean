@@ -1173,7 +1173,23 @@ def mmxTable : List Row :=
   , { mnemonic := "pcmpgtd", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands; differential (D404 d1)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PCMPGTD" }
   , { mnemonic := "pandn", shapes := "mm,mm · mm,m", note := "the MMX form of the main-table row, 64-bit operands; differential (D404 d1)",
-      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PANDN" } ]
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PANDN" }
+  , { mnemonic := "psllw", shapes := "mm,i", note := "the MMX form of the main-table row by immediate, 4 lanes of 16 bits; count ≥ 16 saturates; differential (D406)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSLLW/PSLLD/PSLLQ" }
+  , { mnemonic := "pslld", shapes := "mm,i", note := "the MMX form of the main-table row by immediate, 2 lanes of 32 bits; count ≥ 32 saturates; differential (D406)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSLLW/PSLLD/PSLLQ" }
+  , { mnemonic := "psllq", shapes := "mm,i", note := "the MMX form of the main-table row by immediate, 1 lane of 64 bits; count ≥ 64 saturates; differential (D406)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSLLW/PSLLD/PSLLQ" }
+  , { mnemonic := "psrlw", shapes := "mm,i", note := "the MMX form of the main-table row by immediate, 4 lanes of 16 bits; count ≥ 16 saturates; differential (D406)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSRLW/PSRLD/PSRLQ" }
+  , { mnemonic := "psrld", shapes := "mm,i", note := "the MMX form of the main-table row by immediate, 2 lanes of 32 bits; count ≥ 32 saturates; differential (D406)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSRLW/PSRLD/PSRLQ" }
+  , { mnemonic := "psrlq", shapes := "mm,i", note := "the MMX form of the main-table row by immediate, 1 lane of 64 bits; count ≥ 64 saturates; differential (D406)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSRLW/PSRLD/PSRLQ" }
+  , { mnemonic := "psraw", shapes := "mm,i", note := "the MMX form of the main-table row by immediate, 4 lanes of 16 bits; count ≥ 16 saturates; differential (D406)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSRAW/PSRAD/PSRAQ" }
+  , { mnemonic := "psrad", shapes := "mm,i", note := "the MMX form of the main-table row by immediate, 2 lanes of 32 bits; count ≥ 32 saturates; differential (D406)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSRAW/PSRAD/PSRAQ" } ]
 
 /-- ⭐⭐⭐ V3 (D341): THE VEX.128 REGISTER TWINS — a THIRD population beside `tableP0` (the 199
 differentially tested mnemonics) and `siliconTable` (the forms only a processor referees).

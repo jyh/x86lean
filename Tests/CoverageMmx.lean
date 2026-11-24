@@ -36,7 +36,7 @@ The 23 rows D404 d1 and d2 had written into `tableP0`'s shapes column, moved to 
 
 def mmxMnemonics : List String := mmxTable.map (·.mnemonic)
 
-theorem mmx_table_size : mmxTable.length = 23 := by decide
+theorem mmx_table_size : mmxTable.length = 31 := by decide
 
 theorem mmx_rows_distinct : mmxMnemonics.eraseDups.length = mmxTable.length := by decide
 
@@ -54,6 +54,7 @@ theorem mmx_vectors_have_rows :
     vectors.all (fun v => match v.instr.op with
       | .mmbin .. => mmxMnemonics.contains v.mnemonic
       | .mmbinm .. => mmxMnemonics.contains v.mnemonic
+      | .mmshifti .. => mmxMnemonics.contains v.mnemonic
       | _ => true) = true := by decide
 
 set_option maxRecDepth 40000 in  -- `Tests.Coverage`'s file-wide value, scoped here
@@ -62,6 +63,7 @@ theorem mmx_rows_have_vectors :
     (mmxMnemonics.all fun m => vectors.any (fun v => match v.instr.op with
       | .mmbin .. => v.mnemonic == m
       | .mmbinm .. => v.mnemonic == m
+      | .mmshifti .. => v.mnemonic == m
       | _ => false)) = true := by decide
 
 end X86.Tests.CoverageMmx

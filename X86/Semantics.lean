@@ -1820,6 +1820,15 @@ def step (i : Instr) (s : Cpu) : Cpu :=
       else
         let a := ea.addr s nr
         (s.setMm dst (mmxApply k (s.getMm dst) (s.readMem .q a))).setRip nr
+  -- ⭐⭐ D406 — the MMX packed shifts by immediate: the XMM shift on the ZERO-EXTENDED register, low 64 bits kept (D406 §2:
+  -- each lane reads only itself, so no bit above 63 reaches the result). Written through `setMm`, so the x87 touch is the
+  -- one x86isa's `mmx-instruction-updates` makes (pshift.lisp:261).
+  | .mmshifti op w dst cnt =>
+      if !(vshiftEncodable op w) then
+        s.halt (.illegalOperands
+          "there is no packed byte shift, and no psraq outside AVX-512")
+      else
+        (s.setMm dst ((vshiftApply op w ((s.getMm dst).setWidth 128) cnt.toNat).setWidth 64)).setRip nr
 
   -- ⭐⭐⭐ THE PACKED SHIFTS (SDM Vol. 2B), all three count shapes.  DEST is
   -- shifted lane-wise by ONE count; "Flags Affected: None".

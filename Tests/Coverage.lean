@@ -334,7 +334,8 @@ def vectorCount : Nat := vectors.length
 -- ⭐ D402 adds 11: the MMX `movd`/`movq` forms, both directions, a low and a high register.
 -- ⭐ D404 d1 adds 38: nineteen packed MMX binary operations, register and memory source.
 -- ⭐ D404 d2 adds 8: the three high unpacks and packuswb.
-theorem vector_count_is_1298 : vectorCount = 1298 := by decide
+-- ⭐ D406 adds 16: the eight MMX shifts by immediate, at an in-range count and at the lane width.
+theorem vector_count_is_1314 : vectorCount = 1314 := by decide
 
 /-- ⭐⭐ THE CLAIM THAT `movdqa` AND `movdqu` ARE ONE OPERATION BETWEEN REGISTERS,
 AS A THEOREM RATHER THAN THE COMMENT THAT FIRST STATED IT.
@@ -1265,6 +1266,7 @@ def isMemDestVector (v : Vec) : Bool :=
     | .mmovgst .. | .mmovqst .. => true
     -- D404 d1: a packed MMX operation writes an MMX register at both shapes.
     | .mmbin .. | .mmbinm .. => false
+    | .mmshifti .. => false
     -- P2 BATCH 38, in the same commit as the constructors: a scalar min/max
     -- writes an XMM register at both shapes; the memory operand is its SOURCE.
     | .vminmax .. | .vminmaxm .. => false
