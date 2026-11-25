@@ -26371,4 +26371,13 @@ form above 202.
   keyed by mnemonic alone (row 80), so a per-(mnemonic, ext) split cannot be read from it, and none is published.
 - **Two census defects found by this batch, both fixed:** the processor-section check read to the end of the file (it now stops
   at the next heading); and the no-pooling reference ignored the D407 section (it now shares the model's reader).
-- **Prediction 4: K1 on katmai in flight** (2a32a6ec → 7689392, --repeats 6, both arms).
+- **Prediction 4 HELD.** K1 (katmai, `2a32a6ec → 7689392`, `--repeats 6`, both arms) refused exactly the NEW unit
+  `Tests.AnchorsMmxSil` on both arms, as designed (952.0 ms; 520,925 ku), and read every other unit ok: `Tests.CoverageMmx`
+  +240 ms against 547.6 and +82,057 ku against 165,149 (it reads the vectors once since D406 §6); `memDestSweep` +35 ms.
+  The two printed registration lines were copied into the registries (`a444ce8`). **K1b** (`2a32a6ec → a444ce8`, both arms):
+  ms delta gate **CLEAN** (`Tests.AnchorsMmxSil` 953.0 against its 2,856 katmai ceiling); `ku_delta` A′ **CLEAN** (520,925,
+  registered). Recorded as the drift ledger row (`kernel_drift.py --record --a-prime`; D251: lands on the ms verdict). The
+  later commits are hwprobe/, docs/ and the ledger: exempt paths, so the PR head differs from the row head by records only.
+  The runner-pool ceiling line comes from the PR's own kernel-delta job.
+- **No differential record:** D407 adds no vector, so it follows D384/D393/D394 (silicon-refereed waves): the results live here,
+  and no `DIFFERENTIAL-P2-BATCH` record or batch narrative is written.
