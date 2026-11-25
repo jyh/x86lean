@@ -1191,6 +1191,20 @@ def mmxTable : List Row :=
   , { mnemonic := "psrad", shapes := "mm,i", note := "the MMX form of the main-table row by immediate, 2 lanes of 32 bits; count ≥ 32 saturates; differential (D406)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSRAW/PSRAD/PSRAQ" } ]
 
+/-- ⭐⭐ D407 — the MMX forms that NEITHER reference model executes: x86isa's inst-listing names no handler for the NP forms of
+PMAXSW, PSADBW, PAVGB and PSHUFW, so each row is refereed by a PROCESSOR (`hwprobe/mmxsil_probe.c` on the CI runners) and
+pinned in `Tests.AnchorsMmxSil`. A population of its own, with its own COVERAGE.md section, which the demand census reads as
+processor-refereed (class b), never as a D405 differential twin. pshufw has no XMM row. -/
+def mmxSilTable : List Row :=
+  [ { mnemonic := "pmaxsw", shapes := "mm,mm · mm,m", note := "four words, the SIGNED maximum; the MMX form, refereed by a processor (D407)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMAXSW" }
+  , { mnemonic := "psadbw", shapes := "mm,mm · mm,m", note := "one sum of eight unsigned byte absolute differences in bits 15:0, bits 63:16 ZEROED; the MMX form, refereed by a processor (D407)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSADBW" }
+  , { mnemonic := "pavgb", shapes := "mm,mm · mm,m", note := "eight bytes, (DEST + SRC + 1) >> 1 unsigned, rounding up; the MMX form, refereed by a processor (D407)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PAVGB" }
+  , { mnemonic := "pshufw", shapes := "mm,mm,i · mm,m,i", note := "four words of the source selected by the immediate's 2-bit fields; the destination is not read; refereed by a processor (D407)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSHUFW" } ]
+
 /-- ⭐⭐⭐ V3 (D341): THE VEX.128 REGISTER TWINS — a THIRD population beside `tableP0` (the 199
 differentially tested mnemonics) and `siliconTable` (the forms only a processor referees).
 

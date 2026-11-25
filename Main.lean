@@ -6260,6 +6260,12 @@ theorem (D405 §6).\n\n"
 tested forms, NOT counted in the roster figure above. The XMM form of each is in the processor section, because the \
 reference model refuses it; the reference model implements the MMX form, so the MMX form is differentially tested. Each \
 row keeps one referee.\n\n"
+      -- ⭐⭐ D407: the MMX forms neither reference model executes. The title is a CONTRACT with
+      -- scripts/demand_census.py's MMX_SILICON_SECTION, which files these rows processor-refereed (class b).
+      let mmxSil := "\n## MMX forms refereed by a processor (D407)\n\n" ++
+        toString mmxSilTable.length ++ " mnemonics whose MMX form NEITHER reference model executes (x86isa's inst-listing \
+names no handler for the NP form), NOT counted in the roster figure above. Each is refereed by a processor \
+(hwprobe/mmxsil_probe.c on the CI runners) and pinned row by row in Tests.AnchorsMmxSil.\n\n"
       -- ⭐⭐⭐ V3 (D341): the VEX.128 twins, a THIRD population, published as their own table and
       -- their own count, never folded into the roster figure above.
       let vex := "\n## VEX.128 register twins, differentially tested (V3, D341)\n\n" ++
@@ -6288,7 +6294,7 @@ Each mnemonic below has at least one differentially tested vector whose form `Op
 credit LOCK-prefixed instructions; a mnemonic not listed stays in its residue.\n\n\
 Lockable: " ++ String.intercalate " " (lockMns.map (fun m => "`" ++ m ++ "`")) ++ "\n"
       IO.FS.writeFile out (hdr ++ renderTable tableP0 ++ trust ++ mmxMain ++ renderTable mmxTable ++ silicon ++ renderTable siliconTable
-        ++ mmxTwin ++ renderTable mmxTwinTable ++ vex ++ renderTable (vexTable.map (·.row)) ++ lock)
+        ++ mmxTwin ++ renderTable mmxTwinTable ++ mmxSil ++ renderTable mmxSilTable ++ vex ++ renderTable (vexTable.map (·.row)) ++ lock)
       IO.println s!"wrote coverage table ({tableP0.length} rows) → {out}"
       return 0
   -- ⭐⭐ P2 BATCH 12 (D105): THE RUN-INDEX CERTIFICATE.  `Tests/Coverage.lean`'s
