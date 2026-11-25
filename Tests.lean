@@ -7,6 +7,7 @@ consistency theorems.  What it cannot make is the differential comparison
 against another model; that is `lake exe x86lean-diff` and the ACL2 side.
 -/
 import Tests.Anchors
+import Tests.AnchorsMmxSil
 import Tests.AnchorsBmi
 import Tests.AnchorsShuf
 import Tests.AnchorsShufM
