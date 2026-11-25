@@ -1095,12 +1095,11 @@ jobs:
         if: ${{ !cancelled() }}
         working-directory: hwprobe
         run: |
-          mkdir -p mmxsil_plant
           python3 mk_mmxsil_rows.py --reach
           python3 mk_mmxsil_rows.py > mmxsil_rows.h
-          python3 mk_mmxsil_rows.py --plant > mmxsil_plant/mmxsil_rows.h
-          cc -O1 -Wall -I. -o mmxsil_probe mmxsil_probe.c
-          cc -O1 -Wall -Immxsil_plant -o mmxsil_probe_plant mmxsil_probe.c
+          python3 mk_mmxsil_rows.py --plant > mmxsil_rows_plant.h
+          cc -O1 -Wall -o mmxsil_probe mmxsil_probe.c
+          cc -O1 -Wall -DPLANT -o mmxsil_probe_plant mmxsil_probe.c
           set +e
           ./mmxsil_probe_plant > mmxsil_plant.out; rc_plant=$?
           ./mmxsil_probe > mmxsil.out; rc=$?

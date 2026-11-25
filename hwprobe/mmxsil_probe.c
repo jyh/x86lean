@@ -9,7 +9,14 @@
  * pshufw selector has no dispatch; 4 off x86-64.
  */
 #include <stdio.h>
+/* ⛔ The plant has its OWN header name, chosen by -DPLANT: a quoted #include searches this file's directory BEFORE any -I
+ * path, so a planted header passed by -I lost to the unplanted one beside this file and the plant ran unplanted (rc 0, the
+ * first CI run of this probe, 45614471018). Locally the header was not beside the file, which is why the local plant passed. */
+#ifdef PLANT
+#include "mmxsil_rows_plant.h"
+#else
 #include "mmxsil_rows.h"
+#endif
 
 #if !defined(__x86_64__)
 int main(void) { puts("REFUSED: not x86-64"); return 4; }
