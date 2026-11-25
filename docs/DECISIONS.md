@@ -26330,8 +26330,11 @@ pminsw 202 · packssdw 190 · pavgw 172 · emms 165 · paddusb 158 · paddusw 14
 - **pmaxsw, pavgb:** lane-wise, so held by construction (D404 §1's argument; no lane crosses bit 63).
 - **psadbw:** the XMM form computes one sum per 64-bit half from that half's eight bytes; the low half of zero-extended operands
   is exactly the MMX computation, and the high half's sum lands above bit 63 and is dropped. Held by construction.
-- **pshufw:** NOT a reuse. A four-word permute of one 64-bit source by imm8 (2 bits per destination word); it needs its own
-  definition. The plausible wrong models are pshufd's dword lanes and the field order reversed (P2 batch 14's arm).
+- **pshufw:** a reuse of **pshuflw**, not of pshufd. `pshuflw` (`F2 0F 70 /r ib`) selects the source's four LOW words by imm8
+  into the low quadword and copies the high one, so `low64 (pshuflw (zext a) imm8)` is pshufw's four-word permute exactly.
+  ⚠️ This read "NOT a reuse … needs its own definition" in this note's first commit (6564de4) and was corrected before any model
+  work, on reading the pshuf constructors (X86/Syntax.lean, `pshufd`/`pshuflw`/`pshufhw`). The plausible wrong models stand:
+  pshufd's dword lanes, and the field order reversed (P2 batch 14's arm).
 
 ### 3. PREDICTIONS
 1. **Silicon:** the model agrees with both runner processors (AMD EPYC 7763, Intel Core i7-8700B; D405's pair) on every anchor row
@@ -26347,7 +26350,7 @@ pminsw 202 · packssdw 190 · pavgw 172 · emms 165 · paddusb 158 · paddusw 14
 
 ### 4. PRICE
 Two-to-three days, in this order: (i) the census class (a silicon twin name), red first; (ii) the model: three reuse members
-through `mmxApply`'s default rule, one new `pshufw` definition; (iii) the probe (`hwprobe/mmxsil_ops.S` + rows + anchors) on the
+through `mmxApply`'s default rule, and `pshufw` as a reuse of `pshuflw` (no new definition); (iii) the probe (`hwprobe/mmxsil_ops.S` + rows + anchors) on the
 runners; (iv) 4 × 2 vectors, six arms; (v) K1, K2, the ledger row, the record. The value: 3,073 instructions (65 % of the residue)
-for one new definition, which is about 20× row 89's 151 for similar machinery. The remaining 1,683 are 21 mnemonics with no single
+for no new definition (all four reuse an XMM form), which is about 20× row 89's 151 for similar machinery. The remaining 1,683 are 21 mnemonics with no single
 form above 202.
