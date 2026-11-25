@@ -26354,3 +26354,21 @@ through `mmxApply`'s default rule, and `pshufw` as a reuse of `pshuflw` (no new 
 runners; (iv) 4 × 2 vectors, six arms; (v) K1, K2, the ledger row, the record. The value: 3,073 instructions (65 % of the residue)
 for no new definition (all four reuse an XMM form), which is about 20× row 89's 151 for similar machinery. The remaining 1,683 are 21 mnemonics with no single
 form above 202.
+
+### 5. RESULTS SO FAR (branch paris/d407-mmx-silicon-twins; the record is owed after K1)
+- **Prediction 1 HELD, on silicon.** hwprobe 45614996905: on AMD EPYC 9V74 (ubuntu-latest) and Intel Core i7-8700B
+  (macos-15-intel), `VERDICT rule: 144 of 144 rows agree (controls 36/36)`; the plant (bit 63 of one pavgb expectation) reports
+  exactly that row on both legs. ⚠️ The AMD leg drew an EPYC 9V74, not the 7763 this note named, so the prediction's processor
+  list was wrong in one name. ⚠️ The FIRST run (45614471018) passed the probe and failed the plant: a quoted `#include` found the
+  unplanted header beside the source before the `-I` path, so the "plant" ran clean. The plant now has its own header (`-DPLANT`).
+- **Prediction 2: arms (a)–(e) HELD as row reach** (`mk_mmxsil_rows.py --reach`: pmaxsw unsigned 30/36, pavgb rounding down
+  30/36, psadbw high bits kept 34/36, pshufw field order reversed 20/36, pshufw as pshufd's dwords 30/36), and a planted pin in
+  `Tests.AnchorsMmxSil` reds the build. **(f), the x87 touch, is NOT observed by these rows:** the probe and the anchors read
+  %mm0/%mm1/m64/RIP only. The touch is `setMm`'s, already decided on silicon by D403. Stated as a LIMIT, not claimed.
+- **Prediction 3: the class move HELD, the residue figure named the wrong field.** Census: covered +0, silicon +3,073 (ffmpeg
+  922, x264 2,151), total +0, all as sealed. The `MMX (mm)` ext residue reads 4,756 unchanged, because that field counts
+  not-covered, processor-refereed included; 1,683 holds only as 4,756 − 3,073 (two measured moves). The JSON's `silicon_all` is
+  keyed by mnemonic alone (row 80), so a per-(mnemonic, ext) split cannot be read from it, and none is published.
+- **Two census defects found by this batch, both fixed:** the processor-section check read to the end of the file (it now stops
+  at the next heading); and the no-pooling reference ignored the D407 section (it now shares the model's reader).
+- **Prediction 4: K1 on katmai in flight** (2a32a6ec → 7689392, --repeats 6, both arms).
