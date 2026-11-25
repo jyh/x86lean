@@ -23,8 +23,12 @@ Usage: mk_mmxsil_rows.py [--plant | --summary | --reach]   writes C rows on stdo
   --summary  prints the per-form row counts, not C
   --reach    prints, per mnemonic, how many rows each named WRONG rule disagrees on (0 would be a vacuous row set)
 """
+import os
 import random
 import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts"))
+import portable as P  # noqa: E402
 
 M64 = (1 << 64) - 1
 MNEMONICS = ["pmaxsw", "psadbw", "pavgb", "pshufw"]
@@ -113,6 +117,7 @@ def rows():
 
 
 def main(argv):
+    P.strict_flags(__file__, argv)
     rs = rows()
     if "--summary" in argv:
         from collections import Counter

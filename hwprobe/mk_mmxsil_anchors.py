@@ -15,6 +15,9 @@ and the processor's reading; what makes the MODEL right is the kernel. The paddw
 import os
 import sys
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts"))
+import portable as P  # noqa: E402
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
@@ -63,6 +66,7 @@ def current():
 
 
 def main(argv):
+    P.strict_flags(__file__, argv)
     b = block()
     if "--write" in argv:
         cur, s = current()
