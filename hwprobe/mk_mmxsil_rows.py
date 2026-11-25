@@ -14,7 +14,7 @@ value is bits (i+1)w-1 : iw. DEST is %mm0, SRC is %mm1 or the m64 at [RBX].
 
 THE ROW POPULATION, per mnemonic (the same pairs at both shapes, register `rr` and memory `rm`): 8 EDGE rows (lane i of
 DEST and SRC from an edge set, SRC rotated by the row number), 4 UNIFORM rows at the extremes, and 6 RANDOM rows from
-`random.Random(407000 + k)`. PSHUFW takes its SRC from the same population and one imm8 per row: the four identity-free
+`random.Random(407000 + k)`. PSHUFW takes its SRC from the same population and one imm8 per row: four fixed
 patterns 0x1B (reverse), 0x00 (broadcast word 0), 0xFF (broadcast word 3), 0xE4 (identity), then random bytes.
 CONTROL: PADDW at %mm, a differential form (D404 d1) whose rule here must agree with the processor, or the probe refuses.
 

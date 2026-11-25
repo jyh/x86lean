@@ -296,7 +296,17 @@ def model_mnemonics():
               f"disagree — only in COVERAGE.md: {sorted(sect - sil)}; only in "
               f"siliconTable: {sorted(set(sil) - sect)}. Regenerate COVERAGE.md.")
         sys.exit(2)
-    return Model(ms, sil, vex, silicon256_mnemonics(), lockable, mmx_rows(text), mmx_silicon=mmx_silicon_rows(text))
+    msil = mmx_silicon_rows(text)
+    # ⛔ D407 (paper's LOW 2 on #214): the section joins the silicon set by BARE name, so a member with a DIFFERENTIAL row
+    # elsewhere in COVERAGE.md would drop that differential form to (b) silently. Refuse it; today the set is empty.
+    _j = text.find(MMX_SILICON_SECTION)
+    _outside = text if _j < 0 else text[:_j] + text[(text.find("\n## ", _j + 1) if text.find("\n## ", _j + 1) >= 0 else len(text)):]
+    _bad = msil & (set(re.findall(r'^\| `([a-z0-9]+)` \|', _outside, re.M)) - set(sil))
+    if _bad:
+        print(f"⛔ D407: {sorted(_bad)} are in the processor-refereed MMX section AND have a differential row elsewhere; "
+              "the bare-name join would refile that row as processor-refereed. Refusing.")
+        sys.exit(2)
+    return Model(ms, sil, vex, silicon256_mnemonics(), lockable, mmx_rows(text), mmx_silicon=msil)
 
 # ── objdump mnemonic -> roster name ────────────────────────────────────────
 CC = ("o no b c nae ae nb nc e z ne nz be na a nbe s ns p pe np po l nge "
@@ -2157,6 +2167,15 @@ def selftest():
         and _dt == ("mm:pmullw", True, "mapped") and "mm:pmaxsw" not in _Ms and "pshufw" not in _Ms,
         f"D407: processor-refereed MMX forms are (b) as {_ds} and {_dp} (pshufw has no XMM row), "
         f"while a D405 twin stays (a) as {_dt}", "D407:silicon-twin")
+    d337 += 1
+    # ⭐ D407 (paper's LOW 1 on #214): the SHIPPED no-pooling reference holds no processor-refereed MMX name and no D405 twin
+    # of one; without this arm, dropping `- _ms` from `differential_reference` survived the selftest.
+    _cov = open(os.path.join(root, "docs", "COVERAGE.md"), encoding="utf-8").read()
+    _msr = mmx_silicon_rows(_cov)
+    _ref = differential_reference(_M)
+    arm(bool(_msr) and not (_msr & set(_ref)) and not ({mm_twin(m) for m in _msr} & set(_ref)),
+        f"D407: the no-pooling reference holds none of the {len(_msr)} processor-refereed MMX names "
+        f"({', '.join(sorted(_msr))}) and no twin of one", "D407:reference")
     d337 += 1
     # ⭐ STATUS 7c — the operand-shape split, derived from synthetic objdump lines by the one loop and the one rule:
     # two silicon-VEX ymm forms (one register, one memory), three differential `mov`s (register, base+disp, and a
