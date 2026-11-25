@@ -694,7 +694,7 @@ def null_pair_reason(base, head, cwd=None):
     armed. [[feedback-a-gate-with-no-callable-surface]]
     """
     _cwd = cwd or ROOT
-    changed = [p for p in git("diff", "--name-only", base, head, cwd=_cwd).split("\n") if p.strip()]
+    changed = [p for p in git("diff", "--name-only", "--no-renames", base, head, cwd=_cwd).split("\n") if p.strip()]
     if not changed:
         return "the two trees are identical — nothing changed at all"
     import kernel_drift as _kdrift          # lazy: see the note above
@@ -739,7 +739,7 @@ def identity_reason(base, head, cwd=None):
     case), or when ANY changed path is a `.lean`, a `lakefile.*`, another PROFILER_PATH
     (the toolchain, the manifest) or a path with no stated exemption."""
     _cwd = cwd or ROOT
-    changed = [p for p in git("diff", "--name-only", base, head, cwd=_cwd).split("\n") if p.strip()]
+    changed = [p for p in git("diff", "--name-only", "--no-renames", base, head, cwd=_cwd).split("\n") if p.strip()]
     import kernel_drift as _kdrift          # lazy, as in null_pair_reason
     method = []
     for path in sorted(changed):
@@ -2261,6 +2261,43 @@ def selftest():
               {"scripts/kernel_cost.py": "# c", "vendor/thing.c": "int main(){}"}, "MEASURE")
     ident_arm("⛔ a docs-only step stays a SKIP (nothing measured), not an IDENTITY",
               {"README.md": "y"}, "SKIP")
+    # ── ROW 87 (paper's LOW on #211): A RENAME MUST NOT HIDE A `.lean` ──
+    # `git diff --name-only` follows renames, so `X86/Basic.lean -> docs/Basic.md` listed ONLY the new name: with a
+    # method edit beside it the range read IDENTITY, and alone it read SKIP (a docs path). Both classifiers now diff
+    # with `--no-renames`, so the deleted `.lean` is listed. RED FIRST: both arms read wrong before the fix.
+    def rename_arm(name, extra, want):
+        d = tempfile.mkdtemp(prefix="x86lean-renamearm-")
+        def sh(*a):
+            return subprocess.run(a, cwd=d, capture_output=True, text=True)
+        try:
+            sh("git", "init", "-q", ".")
+            sh("git", "config", "user.email", "t@t"); sh("git", "config", "user.name", "t")
+            os.makedirs(os.path.join(d, "X86")); os.makedirs(os.path.join(d, "docs")); os.makedirs(os.path.join(d, "scripts"))
+            body = "theorem a : True := trivial\n" * 20
+            for f, c in {"README.md": "x", "X86/Basic.lean": body, "scripts/kernel_cost.py": "# base"}.items():
+                open(os.path.join(d, f), "w", encoding="utf-8").write(c)
+            sh("git", "add", "-A"); sh("git", "commit", "-qm", "base")
+            b = sh("git", "rev-parse", "HEAD").stdout.strip()
+            sh("git", "mv", "X86/Basic.lean", "docs/Basic.md")
+            for f, c in extra.items():
+                open(os.path.join(d, f), "w", encoding="utf-8").write(c)
+            sh("git", "add", "-A"); sh("git", "commit", "-qm", "head")
+            h = sh("git", "rev-parse", "HEAD").stdout.strip()
+            if null_pair_reason(b, h, cwd=d) is not None:
+                got = "SKIP"
+            else:
+                got = "IDENTITY" if identity_reason(b, h, cwd=d) is not None else "MEASURE"
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+        ok = got == want
+        arms.append(name)
+        print(("  ✔ " if ok else "  ⛔ ") + name + ("" if ok else f"   (got {got}, wanted {want})"))
+        if not ok:
+            bad.append(name)
+
+    rename_arm("⛔ a `.lean` RENAMED to a docs path MEASURES (not a SKIP)", {}, "MEASURE")
+    rename_arm("⛔ …and beside a kernel_cost.py edit it MEASURES (not an IDENTITY)",
+               {"scripts/kernel_cost.py": "# changed"}, "MEASURE")
     # The finish: an UNMEASURABLE (rc 3) or FAILED (rc 1) reading on an identity returns 0,
     # and says what the readings would have read.
     for _rc, _word in ((3, "UNMEASURABLE"), (1, "FAILED")):
