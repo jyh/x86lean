@@ -26309,3 +26309,45 @@ vectors at two counts each (an in-range count and one ≥ the lane width), 16 ve
   some of its count forms needs the same split. That held trivially until now, because every XMM shift row models all
   three forms.
 
+
+## D407 — The next MMX batch by demand, refereed by SILICON (STATUS-paris row 91): predictions and price BEFORE any model work
+
+⚖️ Priced from master 2a32a6ec's census. The `MMX (mm)` residue is 4,756 (record 50; the 151 count-form shifts are in their own
+bucket and are row 89's, deferred). By mnemonic: **pmaxsw 917 · psadbw 896 · pshufw 642 · pavgb 618 = 3,073 (65 %)**, then
+pminsw 202 · packssdw 190 · pavgw 172 · emms 165 · paddusb 158 · paddusw 143 (read from `docs/DEMAND-CENSUS.md.json`,
+`miss_by_ext[m]["MMX (mm)"]` summed over the non-underscore columns).
+
+### 1. THE REFEREE, READ FROM x86isa BEFORE ANYTHING IS DESIGNED
+- `inst-listing.lisp` lists the NP (MMX) forms of PMAXSW (`0F EE`), PSADBW (`0F F6`), PAVGB (`0F E0`) and PSHUFW (`0F 70 ib`) with
+  the handler slot `'NIL`: no semantic function, so x86isa cannot execute them. The model's XMM rows of pmaxsw, psadbw and pavgb are
+  already `siliconTable` members for the same reason ("x86isa refuses it", docs/COVERAGE.md). pshufw has no XMM row; its relatives
+  are pshufd/pshufhw/pshuflw.
+- So the batch is **D405's twin shape with the referee swapped**: D405's MMX twins were differential because x86isa implements the
+  MMX forms while refusing the XMM ones. These four are refused in both, so the referee is the processor (the `hwprobe` anchor
+  pattern: a probe on the CI runners, rows generated from the vectors, a `Tests/Anchors*` module proved by `decide`).
+
+### 2. THE CLAIM, PER MEMBER: is MMX(a, b) = low64(XMM(zext a, zext b))?
+- **pmaxsw, pavgb:** lane-wise, so held by construction (D404 §1's argument; no lane crosses bit 63).
+- **psadbw:** the XMM form computes one sum per 64-bit half from that half's eight bytes; the low half of zero-extended operands
+  is exactly the MMX computation, and the high half's sum lands above bit 63 and is dropped. Held by construction.
+- **pshufw:** NOT a reuse. A four-word permute of one 64-bit source by imm8 (2 bits per destination word); it needs its own
+  definition. The plausible wrong models are pshufd's dword lanes and the field order reversed (P2 batch 14's arm).
+
+### 3. PREDICTIONS
+1. **Silicon:** the model agrees with both runner processors (AMD EPYC 7763, Intel Core i7-8700B; D405's pair) on every anchor row
+   of the four mnemonics, register and memory source; 0 disagreements.
+2. **Arms, each must catch on at least one row:** (a) pmaxsw UNSIGNED instead of signed; (b) pavgb rounding DOWN; (c) psadbw
+   leaving bits 63:16 unzeroed; (d) pshufw with dword lanes; (e) pshufw with the field order reversed; (f) the x87 touch dropped
+   (the tag/TOP keys, D402's channel).
+3. **Census:** the four MMX forms are filed as processor-refereed twins (class b, not differential). **This needs a census change
+   first:** D405's `mm:<m>` twin name puts a twin INSIDE the differential set, which is right for D405 and wrong here. Predicted
+   movement: covered +0, silicon +3,073, MMX residue 4,756 → 1,683. The census class change is red-first by itself, before any row.
+4. **Kernel cost:** a NEW anchors unit (`Tests.AnchorsMmxSil`) refused at K1 on both arms as designed, then registered (the D405
+   §6 path); `Tests.CoverageMmx` grows by the rows only, and since D406 §6 it reads the vectors once.
+
+### 4. PRICE
+Two-to-three days, in this order: (i) the census class (a silicon twin name), red first; (ii) the model: three reuse members
+through `mmxApply`'s default rule, one new `pshufw` definition; (iii) the probe (`hwprobe/mmxsil_ops.S` + rows + anchors) on the
+runners; (iv) 4 × 2 vectors, six arms; (v) K1, K2, the ledger row, the record. The value: 3,073 instructions (65 % of the residue)
+for one new definition, which is about 20× row 89's 151 for similar machinery. The remaining 1,683 are 21 mnemonics with no single
+form above 202.
