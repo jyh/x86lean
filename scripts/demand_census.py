@@ -358,6 +358,9 @@ def to_roster(m, ext=None, model=None):
     # would map `paddw %mm1, %mm0` to the XMM `paddw` row, which has no MMX form; it is unclaimed (None), so it
     # is counted in scope and NOT covered.
     # ⭐ D405: and a TWIN (an MMX row of a `siliconTable` mnemonic) maps to its own name, never the bare one.
+    # ⭐ D406: no roster row has a register- or memory-count MMX shift, so nothing maps here.
+    if ext == MMX_SHIFT_COUNT:
+        return None
     if model is not None and ext == "MMX (mm)":
         if m not in mmx_of(model):
             return None
@@ -687,6 +690,13 @@ _BUCKET_PROBE_OPS = ("", "(%rbx)", "(%rbx),%eax", "%ax", "%rax, %rbx",
 # ⭐ D367: the LOCK bucket's name, ONE spelling, so `_decide` and `isa_bucket` cannot drift apart.
 LOCK_BUCKET = "LOCK prefix (P2 addition 2)"
 
+# ⭐ D406: the MMX shifts are modelled by IMMEDIATE count only (`0F 71/72/73 ib`). Their register and memory count forms
+# (`0F D1-D3 / E1-E2 / F1-F3`) have no handler in x86isa (D406 §1: pshift.lisp defines one and no opcode dispatches it),
+# so they are a silicon item and must NOT be credited by the `%mm` identity rule. Under the `MMX (mm)` bucket they were:
+# the D406 census read +2,822 covered where +2,671 was predicted, the difference being exactly these 151.
+MMX_SHIFT_COUNT = "MMX shift, register/memory count (D406)"
+_MMX_SHIFT_RE = re.compile(r"ps(ll|rl|ra)[wdq]")
+
 def isa_bucket(mn, ops, kind="plain", evex=False):
     """⛔ THE BUCKET IS THE REASON THE MODEL CANNOT EXECUTE IT, not just the
     register file it touches.  `movq %gs:0x28, %rax` is a `mov` the model has;
@@ -714,6 +724,8 @@ def isa_bucket(mn, ops, kind="plain", evex=False):
     if "%xmm" in ops:
         return "VEX-128 (v… xmm)" if mn.startswith("v") else "SSE-legacy (xmm)"
     if re.search(r"%mm[0-7]\b", ops):
+        if _MMX_SHIFT_RE.fullmatch(mn) and not ops.lstrip().startswith("$"):
+            return MMX_SHIFT_COUNT
         return "MMX (mm)"
     if "%st" in ops:
         return "x87 (st)"
@@ -759,6 +771,7 @@ EXT_SCOPE.update({
     # ⭐ D402: IN SCOPE since the MMX file joined `Cpu` (D400) and its moves joined the model. The other MMX
     # forms are in scope and NOT covered, which is the honest denominator for the wave that follows.
     "MMX (mm)":                               True,
+    MMX_SHIFT_COUNT:                          True,
     "x87 (st)":                               False,
     # ⭐ the one vector register file it DOES have (P2 batches 4-9)
     "SSE-legacy (xmm)":                       True,
@@ -1994,7 +2007,7 @@ def selftest():
     # ⛔ every bucket `isa_bucket` can actually return has a ruling
     for ext in set(GPR_EXT.values()) | {
             "GPR/other (unclassified)", "AVX-512 (zmm/k)", "AVX2/AVX (ymm)",
-            "VEX-128 (v… xmm)", "SSE-legacy (xmm)", "MMX (mm)", "x87 (st)",
+            "VEX-128 (v… xmm)", "SSE-legacy (xmm)", "MMX (mm)", MMX_SHIFT_COUNT, "x87 (st)",
             "LOCK prefix (P2 addition 2)",
             "segment base %fs:/%gs: (P2 addition 1)",
             "mov imm64 / movabs (P2 addition 3)"}:
@@ -2380,6 +2393,10 @@ def selftest():
         (("vpaddd", "%xmm2, %xmm1, %xmm0"), "VEX-128 (v… xmm)"),
         (("paddd", "%xmm1, %xmm0"), "SSE-legacy (xmm)"),
         (("paddd", "%mm1, %mm0"), "MMX (mm)"),
+        # ⭐ D406: an MMX shift by immediate stays MMX; by register or memory count it is its own (unmodelled) bucket.
+        (("psllw", "$0x3,%mm0"), "MMX (mm)"),
+        (("psraw", "%mm1,%mm0"), MMX_SHIFT_COUNT),
+        (("psrlq", "0x8(%rsp),%mm2"), MMX_SHIFT_COUNT),
         # ⛔ D259 FLIPPED THIS ARM ON PURPOSE.  Until then it expected
         # "GPR/other": an x87 load from memory names no `%st`, and the arm pinned
         # the operand rule's blind spot as the right answer.

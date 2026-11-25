@@ -2276,6 +2276,10 @@ inductive Op where
   | mmbin (k : VBinKind) (dst src : MmReg)
   /-- D404 d1 — the same with an m64 source. MMX memory operands carry no alignment requirement. -/
   | mmbinm (k : VBinKind) (dst : MmReg) (ea : Ea)
+  /-- ⭐⭐ D406 — an MMX packed shift by IMMEDIATE (`NP 0F 71/72/73 /2 /4 /6 ib`, mod = 11): psrlw psrld psrlq psraw psrad
+  psllw pslld psllq. By D406 §2 it is `low64 (vshiftApply op w (zext a) imm8)`, exact because every lane of the low 64 bits
+  reads only its own bits. A kind `vshiftEncodable` declines (byte shifts, psraq) is REFUSED, as for `vshifti`. -/
+  | mmshifti (op : VShiftOp) (w : VShiftW) (dst : MmReg) (cnt : BitVec 8)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFTS AT AN IMMEDIATE COUNT
   (`66 0F 71/72/73 /r ib`), and the first operation in this model whose RESULT
   IS NOT A FUNCTION OF ITS OPERANDS LANE BY LANE: one count is applied to every
@@ -2700,6 +2704,7 @@ def opOperands : Op → List Operand
   | .mmovq .. => []
   | .mmbin .. => []
   | .mmbinm _ _ ea => [.mem ea]
+  | .mmshifti .. => []
   | .vmovq .. => []
   | .vmovs .. => []
   -- ⭐ P2 BATCH 13.  The immediate and register count shapes name no `Operand`
@@ -2892,6 +2897,7 @@ def Op.anyLocked : Op → Bool
   | .mmovg .. | .mmovq .. => false
   | .mmbinm _ _ ea => ea.lock
   | .mmbin .. => false
+  | .mmshifti .. => false
   | .vmovg .. | .vmovq .. | .vmovs .. => false
   -- P2 BATCH 13: `lock psrad` is not a form the SDM lists, so `lockable`
   -- refusing it is what makes it #UD — the memory shape reports its `Ea` here
@@ -3144,6 +3150,7 @@ def Op.mnemonic : Op → String
   | .mmovg _ sz .. | .mmovgld sz .. | .mmovgst sz .. => match sz with | .q => "movq" | _ => "movd"
   | .mmovq .. | .mmovqld .. | .mmovqst .. => "movq"
   | .mmbin k .. | .mmbinm k .. => k.mnemonic
+  | .mmshifti op w .. => op.mnemonic w
   -- ⭐ P2 BATCH 13.  All three count shapes print the SAME mnemonic — `psrad`
   -- names the operation and the lane, and the count's provenance is in the
   -- operands, not in the name.  That is the opposite of `movss`/`movsd`, where
