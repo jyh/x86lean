@@ -512,13 +512,15 @@ def exempt_reason(path):
     return None
 
 
+# ⛔ ROW 87: `--no-renames` on every changed-path diff here and in kernel_delta / kernel_delta_history. A rename-following
+# diff lists only a renamed file's NEW name, so a `.lean` moved to a docs path vanished from every "touches a .lean?" test.
 def _changed_paths(base, head, repo=ROOT):
-    return [p for p in kd.git("diff", "--name-only", base, head, cwd=repo).split("\n")
+    return [p for p in kd.git("diff", "--name-only", "--no-renames", base, head, cwd=repo).split("\n")
             if p.strip()]
 
 
 def _touches(base, head, paths, repo=ROOT):
-    return bool(kd.git("diff", "--name-only", base, head, "--", *paths, cwd=repo).strip())
+    return bool(kd.git("diff", "--name-only", "--no-renames", base, head, "--", *paths, cwd=repo).strip())
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2304,6 +2306,25 @@ def selftest():
            "...and the record says which instrument decided, the ms rc, and A′'s machine")
     finally:
         kud.BUDGET_FILE = saved_reg
+
+    # ── ROW 87: a renamed `.lean` must stay visible to `_changed_paths` and `_touches` ──
+    import tempfile as _tf, shutil as _shu
+    _d = _tf.mkdtemp(prefix="x86lean-drift-rename-")
+    try:
+        def _sh(*a):
+            return subprocess.run(a, cwd=_d, capture_output=True, text=True)
+        _sh("git", "init", "-q", "."); _sh("git", "config", "user.email", "t@t"); _sh("git", "config", "user.name", "t")
+        os.makedirs(os.path.join(_d, "X86")); os.makedirs(os.path.join(_d, "docs"))
+        open(os.path.join(_d, "X86", "Basic.lean"), "w", encoding="utf-8").write("theorem a : True := trivial\n" * 20)
+        _sh("git", "add", "-A"); _sh("git", "commit", "-qm", "base"); _b = _sh("git", "rev-parse", "HEAD").stdout.strip()
+        _sh("git", "mv", "X86/Basic.lean", "docs/Basic.md"); _sh("git", "commit", "-qm", "head")
+        _h = _sh("git", "rev-parse", "HEAD").stdout.strip()
+        _ch = _changed_paths(_b, _h, repo=_d)
+        ok("X86/Basic.lean" in _ch and _touches(_b, _h, ["X86/Basic.lean"], repo=_d),
+           "a `.lean` RENAMED to a docs path stays in `_changed_paths` and `_touches` (row 87, --no-renames)",
+           plant="rename hides .lean")
+    finally:
+        _shu.rmtree(_d, ignore_errors=True)
 
     print()
     if fails:

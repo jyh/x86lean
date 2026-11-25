@@ -241,7 +241,7 @@ def analyse(path, decl_names):
     print("THE ZERO-LEAN CONTROLS — commits whose diff touches no .lean file")
     for c in seq[1:]:
         a = seq[seq.index(c) - 1]
-        changed = subprocess.run(["git", "diff", "--name-only", a, c],
+        changed = subprocess.run(["git", "diff", "--name-only", "--no-renames", a, c],
                                  cwd=ROOT, capture_output=True, text=True).stdout
         if any(x.endswith(".lean") for x in changed.split()):
             continue
@@ -369,7 +369,7 @@ def budget_info(rows, extract, decl_names):
                      else 0.0 for k in keys}
     zero_lean = set()
     for a, b in zip(seq, seq[1:]):
-        ch = subprocess.run(["git", "diff", "--name-only", a, b],
+        ch = subprocess.run(["git", "diff", "--name-only", "--no-renames", a, b],
                             cwd=ROOT, capture_output=True, text=True).stdout.split()
         if not any(x.endswith(".lean") for x in ch):
             zero_lean.add(b)
