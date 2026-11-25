@@ -1267,6 +1267,7 @@ def isMemDestVector (v : Vec) : Bool :=
     -- D404 d1: a packed MMX operation writes an MMX register at both shapes.
     | .mmbin .. | .mmbinm .. => false
     | .mmshifti .. => false
+    | .mmpshufw .. | .mmpshufwm .. => false
     -- P2 BATCH 38, in the same commit as the constructors: a scalar min/max
     -- writes an XMM register at both shapes; the memory operand is its SOURCE.
     | .vminmax .. | .vminmaxm .. => false
