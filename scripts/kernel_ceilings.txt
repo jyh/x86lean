@@ -597,3 +597,6 @@ Tests.CoverageMmx 12525 @on katmai
 # job 137198057248, head b1f1d96: Tests.CoverageMmx head 7760.0 ms on runnervm0hi8g, max(x 3, 50)), copied, not retyped.
 # In D396's pool form; since row 82 the pool also takes the AWS half of ubuntu-latest (ip-<n>-<n>-<n>-<n>).
 Tests.CoverageMmx 23280 @on runner-pool
+# D407: the NEW unit's katmai ceiling, the line kernel_delta printed on refusing it at K1 (2a32a6ec → 7689392, katmai,
+# --repeats 6), copied, not retyped: Tests.AnchorsMmxSil head 952.0 ms ⇒ max(952.0 × 3, 50).
+Tests.AnchorsMmxSil 2856 @on katmai
