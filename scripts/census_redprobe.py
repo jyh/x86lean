@@ -174,8 +174,12 @@ MUTATIONS = [
      "                 mmx=_mx, mmx_twins={mm_twin(m) for m in _mx & _si})",  # ⭐ D405: re-anchored (the twin names)
      "    return frozenset(model)"),
     ("the silicon split is dropped — every implemented mnemonic reads as differential",
-     "    return Model(ms, sil, vex, silicon256_mnemonics(), lockable, mmx_rows(text))",
-     "    return Model(ms, (), vex, silicon256_mnemonics(), lockable, mmx_rows(text))"),
+     "    return Model(ms, sil, vex, silicon256_mnemonics(), lockable, mmx_rows(text), mmx_silicon=msil)",  # ⭐ D407: re-anchored
+     "    return Model(ms, (), vex, silicon256_mnemonics(), lockable, mmx_rows(text), mmx_silicon=msil)"),
+    # ⭐ D407: a processor-refereed MMX form made a D405 twin — the twin set ignores `mmx_silicon`.
+    ("a processor-refereed MMX form is made a differential twin (D407)",
+     "        twins = (frozenset(mm_twin(m) for m in (frozenset(mmx) & sil) - msil) if mmx_twins is None",
+     "        twins = (frozenset(mm_twin(m) for m in (frozenset(mmx) & sil)) if mmx_twins is None"),
     # ⭐ D342 (a): the VEX-table class pooled into (a) — `_decide` files a VEX-table instruction as COVERED.
     ("the VEX-table class is pooled into covered (D342)",
      '        if ext == VEX128 and r in vex_of(model):\n            return r, False, "vex"',
