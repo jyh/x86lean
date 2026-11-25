@@ -108,10 +108,11 @@ class Model(frozenset):
     where a `Model` is expected behaves as a model with no silicon rows, which
     is exactly the reference pass `check_no_pooling` needs."""
     def __new__(cls, names, silicon=(), vex=(), silicon256=(), lockable=(), mmx=(), mmx_twins=None, mmx_silicon=()):
-        sil = frozenset(silicon)
-        # ⭐ D407: an MMX row of a `siliconTable` mnemonic whose MMX form is ALSO refereed by a processor (x86isa names no
-        # handler for it) is NOT a D405 twin: it keeps the bare name, which is in the silicon set, so it is class (b).
-        msil = frozenset(mmx_silicon) & sil
+        # ⭐ D407: the MMX forms refereed by a PROCESSOR (x86isa names no handler for them) join the silicon set under their
+        # bare names, whether or not an XMM row of the mnemonic is a `siliconTable` row (pshufw has no XMM row at all), and
+        # are never D405 twins: so they are class (b). Their COVERAGE.md section is the authority, not `siliconTable`.
+        msil = frozenset(mmx_silicon)
+        sil = frozenset(silicon) | msil
         # ⭐⭐ D405 (the census half): an MMX row whose mnemonic is a `siliconTable` row is a TWIN, and it gets its own
         # roster name `mm:<m>` (`mm_twin`). The name is IN the differential set, so every `r in model` / `r in sil_set`
         # test in `report`, `shape_split` and `modelled_mem` classes it (a) without a second class decision: before
@@ -2133,11 +2134,14 @@ def selftest():
     d337 += 1
     # ⭐⭐ D407: an MMX form refereed by a PROCESSOR (x86isa names no handler) is class (b) under its bare name, never a twin;
     # a D405 twin beside it in the same model stays (a). A synthetic model, because the shipped tree has no such row yet.
-    _Ms = Model(_M.names | {"pmaxsw"}, _M.silicon | {"pmaxsw"}, _M.vex, _M.silicon256, _M.lockable,
-                set(mmx_of(_M)) | {"pmullw", "pmaxsw"}, mmx_silicon={"pmaxsw"})
+    _Ms = Model(_M.names | {"pmaxsw", "pshufw"}, _M.silicon | {"pmaxsw"}, _M.vex, _M.silicon256, _M.lockable,
+                set(mmx_of(_M)) | {"pmullw", "pmaxsw", "pshufw"}, mmx_silicon={"pmaxsw", "pshufw"})
     _ds, _dt = _decide("pmaxsw", "MMX (mm)", _Ms), _decide("pmullw", "MMX (mm)", _Ms)
-    arm(_ds == ("pmaxsw", False, "silicon") and _dt == ("mm:pmullw", True, "mapped") and "mm:pmaxsw" not in _Ms,
-        f"D407: a processor-refereed MMX form is (b) as {_ds}, while a D405 twin stays (a) as {_dt}", "D407:silicon-twin")
+    _dp = _decide("pshufw", "MMX (mm)", _Ms)
+    arm(_ds == ("pmaxsw", False, "silicon") and _dp == ("pshufw", False, "silicon")
+        and _dt == ("mm:pmullw", True, "mapped") and "mm:pmaxsw" not in _Ms and "pshufw" not in _Ms,
+        f"D407: processor-refereed MMX forms are (b) as {_ds} and {_dp} (pshufw has no XMM row), "
+        f"while a D405 twin stays (a) as {_dt}", "D407:silicon-twin")
     d337 += 1
     # ⭐ STATUS 7c — the operand-shape split, derived from synthetic objdump lines by the one loop and the one rule:
     # two silicon-VEX ymm forms (one register, one memory), three differential `mov`s (register, base+disp, and a
