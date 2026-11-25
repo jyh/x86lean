@@ -3405,6 +3405,39 @@ def vectors : List Vec :=
     , bytes := "0f67c1", instr := ⟨.mmbin .packuswb .m0 .m1, 3⟩ }
   , { id := "mmx_packuswb_rm", mnemonic := "packuswb", asm := "packuswb (%rbx), %mm2"
     , bytes := "0f6713", instr := ⟨.mmbinm .packuswb .m2 { base := some .rbx }, 3⟩ }
+  -- ⭐⭐ D406 — THE MMX SHIFTS BY IMMEDIATE (NP 0F 71/72/73 /2 /4 /6 ib), each at an in-range count and at the lane width.
+  , { id := "mmx_psllw_i", mnemonic := "psllw", asm := "psllw $0x3, %mm0"
+    , bytes := "0f71f003", instr := ⟨.mmshifti .sll .w16 .m0 0x3, 4⟩ }
+  , { id := "mmx_psllw_isat", mnemonic := "psllw", asm := "psllw $0x10, %mm0"
+    , bytes := "0f71f010", instr := ⟨.mmshifti .sll .w16 .m0 0x10, 4⟩ }
+  , { id := "mmx_pslld_i", mnemonic := "pslld", asm := "pslld $0x3, %mm0"
+    , bytes := "0f72f003", instr := ⟨.mmshifti .sll .w32 .m0 0x3, 4⟩ }
+  , { id := "mmx_pslld_isat", mnemonic := "pslld", asm := "pslld $0x20, %mm0"
+    , bytes := "0f72f020", instr := ⟨.mmshifti .sll .w32 .m0 0x20, 4⟩ }
+  , { id := "mmx_psllq_i", mnemonic := "psllq", asm := "psllq $0x3, %mm0"
+    , bytes := "0f73f003", instr := ⟨.mmshifti .sll .w64 .m0 0x3, 4⟩ }
+  , { id := "mmx_psllq_isat", mnemonic := "psllq", asm := "psllq $0x40, %mm0"
+    , bytes := "0f73f040", instr := ⟨.mmshifti .sll .w64 .m0 0x40, 4⟩ }
+  , { id := "mmx_psrlw_i", mnemonic := "psrlw", asm := "psrlw $0x3, %mm0"
+    , bytes := "0f71d003", instr := ⟨.mmshifti .srl .w16 .m0 0x3, 4⟩ }
+  , { id := "mmx_psrlw_isat", mnemonic := "psrlw", asm := "psrlw $0x10, %mm0"
+    , bytes := "0f71d010", instr := ⟨.mmshifti .srl .w16 .m0 0x10, 4⟩ }
+  , { id := "mmx_psrld_i", mnemonic := "psrld", asm := "psrld $0x3, %mm0"
+    , bytes := "0f72d003", instr := ⟨.mmshifti .srl .w32 .m0 0x3, 4⟩ }
+  , { id := "mmx_psrld_isat", mnemonic := "psrld", asm := "psrld $0x20, %mm0"
+    , bytes := "0f72d020", instr := ⟨.mmshifti .srl .w32 .m0 0x20, 4⟩ }
+  , { id := "mmx_psrlq_i", mnemonic := "psrlq", asm := "psrlq $0x3, %mm0"
+    , bytes := "0f73d003", instr := ⟨.mmshifti .srl .w64 .m0 0x3, 4⟩ }
+  , { id := "mmx_psrlq_isat", mnemonic := "psrlq", asm := "psrlq $0x40, %mm0"
+    , bytes := "0f73d040", instr := ⟨.mmshifti .srl .w64 .m0 0x40, 4⟩ }
+  , { id := "mmx_psraw_i", mnemonic := "psraw", asm := "psraw $0x3, %mm0"
+    , bytes := "0f71e003", instr := ⟨.mmshifti .sra .w16 .m0 0x3, 4⟩ }
+  , { id := "mmx_psraw_isat", mnemonic := "psraw", asm := "psraw $0x10, %mm0"
+    , bytes := "0f71e010", instr := ⟨.mmshifti .sra .w16 .m0 0x10, 4⟩ }
+  , { id := "mmx_psrad_i", mnemonic := "psrad", asm := "psrad $0x3, %mm0"
+    , bytes := "0f72e003", instr := ⟨.mmshifti .sra .w32 .m0 0x3, 4⟩ }
+  , { id := "mmx_psrad_isat", mnemonic := "psrad", asm := "psrad $0x20, %mm0"
+    , bytes := "0f72e020", instr := ⟨.mmshifti .sra .w32 .m0 0x20, 4⟩ }
 
   -- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 7 — THE UNPACK (INTERLEAVE) GROUP.  The first
   -- vector operations here that are a PERMUTATION rather than lane-wise
