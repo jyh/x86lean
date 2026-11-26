@@ -26309,3 +26309,81 @@ vectors at two counts each (an in-range count and one ≥ the lane width), 16 ve
   some of its count forms needs the same split. That held trivially until now, because every XMM shift row models all
   three forms.
 
+
+## D407 — The next MMX batch by demand, refereed by SILICON (STATUS-paris row 91): predictions and price BEFORE any model work
+
+⚖️ Priced from master 2a32a6ec's census. The `MMX (mm)` residue is 4,756 (record 50; the 151 count-form shifts are in their own
+bucket and are row 89's, deferred). By mnemonic: **pmaxsw 917 · psadbw 896 · pshufw 642 · pavgb 618 = 3,073 (65 %)**, then
+pminsw 202 · packssdw 190 · pavgw 172 · emms 165 · paddusb 158 · paddusw 143 (read from `docs/DEMAND-CENSUS.md.json`,
+`miss_by_ext[m]["MMX (mm)"]` summed over the non-underscore columns).
+
+### 1. THE REFEREE, READ FROM x86isa BEFORE ANYTHING IS DESIGNED
+- `inst-listing.lisp` lists the NP (MMX) forms of PMAXSW (`0F EE`), PSADBW (`0F F6`), PAVGB (`0F E0`) and PSHUFW (`0F 70 ib`) with
+  the handler slot `'NIL`: no semantic function, so x86isa cannot execute them. The model's XMM rows of pmaxsw, psadbw and pavgb are
+  already `siliconTable` members for the same reason ("x86isa refuses it", docs/COVERAGE.md). pshufw has no XMM row; its relatives
+  are pshufd/pshufhw/pshuflw.
+- So the batch is **D405's twin shape with the referee swapped**: D405's MMX twins were differential because x86isa implements the
+  MMX forms while refusing the XMM ones. These four are refused in both, so the referee is the processor (the `hwprobe` anchor
+  pattern: a probe on the CI runners, rows generated from the vectors, a `Tests/Anchors*` module proved by `decide`).
+
+### 2. THE CLAIM, PER MEMBER: is MMX(a, b) = low64(XMM(zext a, zext b))?
+- **pmaxsw, pavgb:** lane-wise, so held by construction (D404 §1's argument; no lane crosses bit 63).
+- **psadbw:** the XMM form computes one sum per 64-bit half from that half's eight bytes; the low half of zero-extended operands
+  is exactly the MMX computation, and the high half's sum lands above bit 63 and is dropped. Held by construction.
+- **pshufw:** a reuse of **pshuflw**, not of pshufd. `pshuflw` (`F2 0F 70 /r ib`) selects the source's four LOW words by imm8
+  into the low quadword and copies the high one, so `low64 (pshuflw (zext a) imm8)` is pshufw's four-word permute exactly.
+  ⚠️ This read "NOT a reuse … needs its own definition" in this note's first commit (6564de4) and was corrected before any model
+  work, on reading the pshuf constructors (X86/Syntax.lean, `pshufd`/`pshuflw`/`pshufhw`). The plausible wrong models stand:
+  pshufd's dword lanes, and the field order reversed (P2 batch 14's arm).
+
+### 3. PREDICTIONS
+1. **Silicon:** the model agrees with both runner processors (AMD EPYC 7763, Intel Core i7-8700B; D405's pair) on every anchor row
+   of the four mnemonics, register and memory source; 0 disagreements.
+2. **Arms, each must catch on at least one row:** (a) pmaxsw UNSIGNED instead of signed; (b) pavgb rounding DOWN; (c) psadbw
+   leaving bits 63:16 unzeroed; (d) pshufw with dword lanes; (e) pshufw with the field order reversed; (f) the x87 touch dropped
+   (the tag/TOP keys, D402's channel).
+3. **Census:** the four MMX forms are filed as processor-refereed twins (class b, not differential). **This needs a census change
+   first:** D405's `mm:<m>` twin name puts a twin INSIDE the differential set, which is right for D405 and wrong here. Predicted
+   movement: covered +0, silicon +3,073, MMX residue 4,756 → 1,683. The census class change is red-first by itself, before any row.
+4. **Kernel cost:** a NEW anchors unit (`Tests.AnchorsMmxSil`) refused at K1 on both arms as designed, then registered (the D405
+   §6 path); `Tests.CoverageMmx` grows by the rows only, and since D406 §6 it reads the vectors once.
+
+### 4. PRICE
+Two-to-three days, in this order: (i) the census class (a silicon twin name), red first; (ii) the model: three reuse members
+through `mmxApply`'s default rule, and `pshufw` as a reuse of `pshuflw` (no new definition); (iii) the probe (`hwprobe/mmxsil_ops.S` + rows + anchors) on the
+runners; (iv) 4 × 2 vectors, six arms; (v) K1, K2, the ledger row, the record. The value: 3,073 instructions (65 % of the residue)
+for no new definition (all four reuse an XMM form), which is about 20× row 89's 151 for similar machinery. The remaining 1,683 are 21 mnemonics with no single
+form above 202.
+
+### 5. RESULTS SO FAR (branch paris/d407-mmx-silicon-twins; the record is owed after K1)
+- **Prediction 1 HELD, on silicon.** hwprobe 45614996905: on AMD EPYC 9V74 (ubuntu-latest) and Intel Core i7-8700B
+  (macos-15-intel), `VERDICT rule: 144 of 144 rows agree (controls 36/36)`; the plant (bit 63 of one pavgb expectation) reports
+  exactly that row on both legs. ⚠️ The AMD leg drew an EPYC 9V74, not the 7763 this note named, so the prediction's processor
+  list was wrong in one name. ⚠️ The FIRST run (45614471018) passed the probe and failed the plant: a quoted `#include` found the
+  unplanted header beside the source before the `-I` path, so the "plant" ran clean. The plant now has its own header (`-DPLANT`).
+- **Prediction 2: arms (a)–(e) HELD as row reach** (`mk_mmxsil_rows.py --reach`: pmaxsw unsigned 30/36, pavgb rounding down
+  30/36, psadbw high bits kept 34/36, pshufw field order reversed 20/36, pshufw as pshufd's dwords 30/36), and a planted pin in
+  `Tests.AnchorsMmxSil` reds the build. **(f), the x87 touch, is NOT observed by these rows:** the probe and the anchors read
+  %mm0/%mm1/m64/RIP only. The touch is `setMm`'s, already decided on silicon by D403. Stated as a LIMIT, not claimed.
+- **Prediction 3: the class move HELD, the residue figure named the wrong field.** Census: covered +0, silicon +3,073 (ffmpeg
+  922, x264 2,151), total +0, all as sealed. The `MMX (mm)` ext residue reads 4,756 unchanged, because that field counts
+  not-covered, processor-refereed included; 1,683 holds only as 4,756 − 3,073 (two measured moves). The JSON's `silicon_all` is
+  keyed by mnemonic alone (row 80), so a per-(mnemonic, ext) split cannot be read from it, and none is published.
+- **Two census defects found by this batch, both fixed:** the processor-section check read to the end of the file (it now stops
+  at the next heading); and the no-pooling reference ignored the D407 section (it now shares the model's reader).
+- **Prediction 4 HELD.** K1 (katmai, `2a32a6ec → 7689392`, `--repeats 6`, both arms) refused exactly the NEW unit
+  `Tests.AnchorsMmxSil` on both arms, as designed (952.0 ms; 520,925 ku), and read every other unit ok: `Tests.CoverageMmx`
+  +240 ms against 547.6 and +82,057 ku against 165,149 (it reads the vectors once since D406 §6); `memDestSweep` +35 ms.
+  The two printed registration lines were copied into the registries (`a444ce8`). **K1b** (`2a32a6ec → a444ce8`, both arms):
+  ms delta gate **CLEAN** (`Tests.AnchorsMmxSil` 953.0 against its 2,856 katmai ceiling); `ku_delta` A′ **CLEAN** (520,925,
+  registered). Recorded as the drift ledger row (`kernel_drift.py --record --a-prime`; D251: lands on the ms verdict). The
+  later commits are hwprobe/, docs/ and the ledger: exempt paths, so the PR head differs from the row head by records only.
+  The runner-pool ceiling line comes from the PR's own kernel-delta job.
+- **The runner line, and the re-measure it cost** (D405's path). #214's kernel-delta (run 45708532372) refused the NEW unit on
+  ip-10-0-130-183 (1360.0 ms) and printed `Tests.AnchorsMmxSil 4080 @on runner-pool` (copied at 7afcec7). That file is a
+  profiler path, so the a444ce8 row no longer covered the PR head; it was withdrawn and **K2** run at the head (`2a32a6ec →
+  2393127`, katmai, both arms): ms rc 3, UNMEASURABLE on `Tests.Vectors` alone (+6.5 ±4.9 against 11.3; K1b read the same
+  `.lean` tree CLEAN, so it is the box); `ku_delta` A′ **CLEAN**, readings identical to K1b's. Recorded: D251 lands the step on
+  the a-prime verdict.
+- **No differential record:** D407 adds no vector, so it follows D384/D393/D394 (silicon-refereed waves): the results live here,
+  and no `DIFFERENTIAL-P2-BATCH` record or batch narrative is written.

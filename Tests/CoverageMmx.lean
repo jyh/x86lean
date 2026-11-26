@@ -66,4 +66,20 @@ set_option maxRecDepth 40000 in  -- the same scoped value
 theorem mmx_rows_have_vectors :
     mmxMnemonics.all (fun m => mmxVectorMnemonics.contains m) = true := by decide
 
+/-! ## D407 — the MMX forms refereed by a processor (`X86.mmxSilTable`)
+
+Neither reference model executes these NP forms, so no `vectors` entry carries them; their rows are `Tests.AnchorsMmxSil`'s. -/
+
+def mmxSilMnemonics : List String := mmxSilTable.map (·.mnemonic)
+
+theorem mmx_sil_table_size : mmxSilTable.length = 4 := by decide
+
+theorem mmx_sil_rows_distinct : mmxSilMnemonics.eraseDups.length = mmxSilTable.length := by decide
+
+/-- No D407 row is a differentially tested mnemonic of the main table, or one of D404's or D405's MMX rows: one referee
+per row. -/
+theorem mmx_sil_rows_are_not_differential :
+    (mmxSilMnemonics.all fun m => !(tableP0.any (·.mnemonic == m)) && !(mmxMnemonics.contains m)
+      && !(twinMnemonics.contains m)) = true := by decide
+
 end X86.Tests.CoverageMmx

@@ -1088,6 +1088,30 @@ jobs:
           test "$rc" = 0
           grep -E '^VERDICT (model|oracle) ' pm.out
 
+      # ⭐⭐ D407 — the MMX forms x86isa cannot execute (pmaxsw psadbw pavgb pshufw at %mm), refereed by this processor.
+      # Expectations are SDM rules in mk_mmxsil_rows.py; paddw controls must hold (else rc 2); the plant flips bit 63 of
+      # one pavgb expectation and must report exactly one disagreement (rc 1).
+      - name: D407 MMX silicon twins (controls, plant, verdict)
+        if: ${{ !cancelled() }}
+        working-directory: hwprobe
+        run: |
+          python3 mk_mmxsil_rows.py --reach
+          python3 mk_mmxsil_rows.py > mmxsil_rows.h
+          python3 mk_mmxsil_rows.py --plant > mmxsil_rows_plant.h
+          cc -O1 -Wall -o mmxsil_probe mmxsil_probe.c
+          cc -O1 -Wall -DPLANT -o mmxsil_probe_plant mmxsil_probe.c
+          set +e
+          ./mmxsil_probe_plant > mmxsil_plant.out; rc_plant=$?
+          ./mmxsil_probe > mmxsil.out; rc=$?
+          set -e
+          cat mmxsil_plant.out
+          cat mmxsil.out
+          echo "mmxsil plant rc=$rc_plant (want 1) · probe rc=$rc (want 0)"
+          test "$rc_plant" = 1
+          grep -q '^VERDICT disagree: 1 of ' mmxsil_plant.out
+          test "$rc" = 0
+          grep -E '^VERDICT rule: [0-9]+ of [0-9]+ rows agree' mmxsil.out
+
       - name: Bit-string rows, full listing (artifact)
         if: always()
         uses: actions/upload-artifact@v4

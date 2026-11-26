@@ -2280,6 +2280,11 @@ inductive Op where
   psllw pslld psllq. By D406 §2 it is `low64 (vshiftApply op w (zext a) imm8)`, exact because every lane of the low 64 bits
   reads only its own bits. A kind `vshiftEncodable` declines (byte shifts, psraq) is REFUSED, as for `vshifti`. -/
   | mmshifti (op : VShiftOp) (w : VShiftW) (dst : MmReg) (cnt : BitVec 8)
+  /-- ⭐⭐ D407 — `pshufw mm, mm/m64, imm8` (`NP 0F 70 /r ib`): four words of the source selected by the immediate's four 2-bit
+  fields. By D407 §2 it is `low64 (vshufApply .lw (zext src) sel)`: pshuflw's low quadword is exactly this permute. -/
+  | mmpshufw (dst src : MmReg) (sel : BitVec 8)
+  /-- D407 — the same with an m64 source (MMX memory operands carry no alignment requirement). -/
+  | mmpshufwm (dst : MmReg) (ea : Ea) (sel : BitVec 8)
   /-- ⭐⭐⭐ P2 VECTOR WAVE, BATCH 13 — THE PACKED SHIFTS AT AN IMMEDIATE COUNT
   (`66 0F 71/72/73 /r ib`), and the first operation in this model whose RESULT
   IS NOT A FUNCTION OF ITS OPERANDS LANE BY LANE: one count is applied to every
@@ -2498,6 +2503,9 @@ def VBinKind.mmxTaken : VBinKind → Bool
   | .unpckhb | .unpckhw | .unpckhd | .packuswb => true
   -- ⭐ D405: the MMX twins of the processor-refereed rows (lane-wise, so `mmxApply`'s default rule).
   | .mullw | .mulhw | .addsw | .subsw | .subusb | .subusw | .maddwd => true
+  -- ⭐ D407: the MMX forms x86isa cannot execute either (no handler), refereed by a processor; lane-wise or per-quadword,
+  -- so `mmxApply`'s default rule (low64 of the XMM function on zero-extended operands) is exact (D407 §2).
+  | .maxsw | .sadbw | .avgb => true
   | _ => false
 
 /-- ⭐⭐ V3 (D341, D339) — the packed binary kinds whose VEX.128 register twin is TAKEN:
@@ -2705,6 +2713,8 @@ def opOperands : Op → List Operand
   | .mmbin .. => []
   | .mmbinm _ _ ea => [.mem ea]
   | .mmshifti .. => []
+  | .mmpshufw .. => []
+  | .mmpshufwm _ ea _ => [.mem ea]
   | .vmovq .. => []
   | .vmovs .. => []
   -- ⭐ P2 BATCH 13.  The immediate and register count shapes name no `Operand`
@@ -2898,6 +2908,8 @@ def Op.anyLocked : Op → Bool
   | .mmbinm _ _ ea => ea.lock
   | .mmbin .. => false
   | .mmshifti .. => false
+  | .mmpshufw .. => false
+  | .mmpshufwm _ ea _ => ea.lock
   | .vmovg .. | .vmovq .. | .vmovs .. => false
   -- P2 BATCH 13: `lock psrad` is not a form the SDM lists, so `lockable`
   -- refusing it is what makes it #UD — the memory shape reports its `Ea` here
@@ -3151,6 +3163,7 @@ def Op.mnemonic : Op → String
   | .mmovq .. | .mmovqld .. | .mmovqst .. => "movq"
   | .mmbin k .. | .mmbinm k .. => k.mnemonic
   | .mmshifti op w .. => op.mnemonic w
+  | .mmpshufw .. | .mmpshufwm .. => "pshufw"
   -- ⭐ P2 BATCH 13.  All three count shapes print the SAME mnemonic — `psrad`
   -- names the operation and the lane, and the count's provenance is in the
   -- operands, not in the name.  That is the opposite of `movss`/`movsd`, where

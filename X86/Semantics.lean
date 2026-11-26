@@ -1829,6 +1829,12 @@ def step (i : Instr) (s : Cpu) : Cpu :=
           "there is no packed byte shift, and no psraq outside AVX-512")
       else
         (s.setMm dst ((vshiftApply op w ((s.getMm dst).setWidth 128) cnt.toNat).setWidth 64)).setRip nr
+  -- ⭐⭐ D407 — pshufw: pshuflw's low quadword on the zero-extended source (D407 §2). The destination is not read.
+  | .mmpshufw dst src sel =>
+      (s.setMm dst ((vshufApply .lw ((s.getMm src).setWidth 128) sel).setWidth 64)).setRip nr
+  | .mmpshufwm dst ea sel =>
+      let a := ea.addr s nr
+      (s.setMm dst ((vshufApply .lw ((s.readMem .q a).setWidth 128) sel).setWidth 64)).setRip nr
 
   -- ⭐⭐⭐ THE PACKED SHIFTS (SDM Vol. 2B), all three count shapes.  DEST is
   -- shifted lane-wise by ONE count; "Flags Affected: None".

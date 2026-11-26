@@ -170,12 +170,20 @@ MUTATIONS = [
      "    ref = ref if isinstance(ref, Model) and not silicon_of(ref) else frozenset(ref)",
      "    return None"),
     ("the no-pooling reference is the model under test, so a pooled model referees itself",
-     "    return Model(frozenset(names_of(model)) - _si, lockable=lockable_mnemonics(),\n"
-     "                 mmx=_mx, mmx_twins={mm_twin(m) for m in _mx & _si})",  # ⭐ D405: re-anchored (the twin names)
+     "    return Model(frozenset(names_of(model)) - _si - _ms, lockable=lockable_mnemonics(),\n"
+     "                 mmx=_mx, mmx_twins={mm_twin(m) for m in (_mx & _si) - _ms})",  # ⭐ D405, D407: re-anchored
      "    return frozenset(model)"),
     ("the silicon split is dropped — every implemented mnemonic reads as differential",
-     "    return Model(ms, sil, vex, silicon256_mnemonics(), lockable, mmx_rows(text))",
-     "    return Model(ms, (), vex, silicon256_mnemonics(), lockable, mmx_rows(text))"),
+     "    return Model(ms, sil, vex, silicon256_mnemonics(), lockable, mmx_rows(text), mmx_silicon=msil)",  # ⭐ D407: re-anchored (LOW 2's refusal)
+     "    return Model(ms, (), vex, silicon256_mnemonics(), lockable, mmx_rows(text), mmx_silicon=msil)"),
+    # ⭐ D407 (paper's LOW 1 on #214): the no-pooling reference forgets the processor-refereed MMX section.
+    ("the no-pooling reference credits the processor-refereed MMX forms (D407)",
+     "    return Model(frozenset(names_of(model)) - _si - _ms, lockable=lockable_mnemonics(),",
+     "    return Model(frozenset(names_of(model)) - _si, lockable=lockable_mnemonics(),"),
+    # ⭐ D407: a processor-refereed MMX form made a D405 twin — the twin set ignores `mmx_silicon`.
+    ("a processor-refereed MMX form is made a differential twin (D407)",
+     "        twins = (frozenset(mm_twin(m) for m in (frozenset(mmx) & sil) - msil) if mmx_twins is None",
+     "        twins = (frozenset(mm_twin(m) for m in (frozenset(mmx) & sil)) if mmx_twins is None"),
     # ⭐ D342 (a): the VEX-table class pooled into (a) — `_decide` files a VEX-table instruction as COVERED.
     ("the VEX-table class is pooled into covered (D342)",
      '        if ext == VEX128 and r in vex_of(model):\n            return r, False, "vex"',
