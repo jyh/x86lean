@@ -26379,5 +26379,11 @@ form above 202.
   registered). Recorded as the drift ledger row (`kernel_drift.py --record --a-prime`; D251: lands on the ms verdict). The
   later commits are hwprobe/, docs/ and the ledger: exempt paths, so the PR head differs from the row head by records only.
   The runner-pool ceiling line comes from the PR's own kernel-delta job.
+- **The runner line, and the re-measure it cost** (D405's path). #214's kernel-delta (run 45708532372) refused the NEW unit on
+  ip-10-0-130-183 (1360.0 ms) and printed `Tests.AnchorsMmxSil 4080 @on runner-pool` (copied at 7afcec7). That file is a
+  profiler path, so the a444ce8 row no longer covered the PR head; it was withdrawn and **K2** run at the head (`2a32a6ec →
+  2393127`, katmai, both arms): ms rc 3, UNMEASURABLE on `Tests.Vectors` alone (+6.5 ±4.9 against 11.3; K1b read the same
+  `.lean` tree CLEAN, so it is the box); `ku_delta` A′ **CLEAN**, readings identical to K1b's. Recorded: D251 lands the step on
+  the a-prime verdict.
 - **No differential record:** D407 adds no vector, so it follows D384/D393/D394 (silicon-refereed waves): the results live here,
   and no `DIFFERENTIAL-P2-BATCH` record or batch narrative is written.
