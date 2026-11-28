@@ -28,17 +28,10 @@ b71eb4cda152	docs/DECISIONS.md	lexicon-e2
 e2e28a6de9a4	docs/P2-LOGIC-DESIGN.md	lexicon-e2
 a5286004630b	docs/QUEUE.md	lexicon-e2
 e08aa3a5bc7b	paper/README.md	lexicon-e2
-02b38d253e10	paper/x86lean-semantics.tex	lexicon-e2
 0c68e2ae3a2f	paper/x86lean-semantics.tex	lexicon-e2
-192719fc73a0	paper/x86lean-semantics.tex	lexicon-e2
-1b57e92d2f09	paper/x86lean-semantics.tex	lexicon-e2
-1c24272765ee	paper/x86lean-semantics.tex	lexicon-e2
 32c900d521c3	paper/x86lean-semantics.tex	lexicon-e2
-485a8cbf758d	paper/x86lean-semantics.tex	lexicon-e2
 59b58d014d42	paper/x86lean-semantics.tex	lexicon-e2
 66b809ec52a3	paper/x86lean-semantics.tex	lexicon-e2
 aa063ee3bd73	paper/x86lean-semantics.tex	lexicon-e2
-c0af3d955c9e	paper/x86lean-semantics.tex	lexicon-e2
-e8f9f0485ea9	paper/x86lean-semantics.tex	lexicon-e2
 # lexicon epoch 3 (R2, council 2026-10-22 item 3): Lean docstring claim sentences, gated from epoch 3 and accepted as debt by the WIDENING arm; class docstring-cited marks a declaration a public carrier names (read those first).
 25127b2cf11f	Tests/Coverage.lean	docstring
