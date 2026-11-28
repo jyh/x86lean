@@ -130,3 +130,10 @@ o38-2026-11-15-083	paper/x86lean-semantics.tex	1d4b56de7c87	cite:talos-repo	83ab
 o38-2026-11-15-084	paper/x86lean-semantics.tex	9afbc1bfae98	cite:myreen-hoare-machine-code	d001b083b430	paris	paper	2026-11-15
 o38-2026-11-15-085	paper/x86lean-semantics.tex	9afbc1bfae98	cite:myreen-multiple-architectures	b3bf17585d08	paris	paper	2026-11-15
 o38-2026-11-15-086	paper/x86lean-semantics.tex	9afbc1bfae98	cite:myreen-decompilation-improved	d37a9f5a55f0	paris	paper	2026-11-15
+o88-2026-11-28-001	paper/x86lean-semantics.tex	1c24272765ee	Tests/Coverage.lean::vshift_saturates_rather_than_wrapping	bee9c6479929	paris	paper	2026-11-28
+o88-2026-11-28-002	paper/x86lean-semantics.tex	1b57e92d2f09	Tests/Program.lean::memcpy_safe	9d7e2f9ed7e8	paris	paper	2026-11-28
+o88-2026-11-28-003	paper/x86lean-semantics.tex	192719fc73a0	Tests/Program.lean::countdown_writes_no_memory	c3912a5ef439	paris	paper	2026-11-28
+o88-2026-11-28-004	paper/x86lean-semantics.tex	e8f9f0485ea9	Tests/Program.lean::fill_safe	ff13f257372f	paris	paper	2026-11-28
+o88-2026-11-28-005	paper/x86lean-semantics.tex	c0af3d955c9e	Tests/Program.lean::memcpy_safe	9d7e2f9ed7e8	paris	paper	2026-11-28
+o88-2026-11-28-006	paper/x86lean-semantics.tex	02b38d253e10	Tests/Program.lean::memcpy_safe	9d7e2f9ed7e8	paris	paper	2026-11-28
+o88-2026-11-28-007	paper/x86lean-semantics.tex	485a8cbf758d	cite:afp-x86	ef3d27468454	paris	paper	2026-11-28
