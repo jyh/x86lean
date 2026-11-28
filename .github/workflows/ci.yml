@@ -657,6 +657,14 @@ jobs:
           python3 hwprobe/mk_vexsilm_rows.py --selftest
           python3 hwprobe/mk_vexsilm_anchors.py --selftest
           python3 hwprobe/mk_vexsilm_anchors.py --check
+          # D407/D408: the MMX silicon pins, set A (Tests/AnchorsMmxSil.lean) and set B (Tests/AnchorsMmxSilB.lean), same
+          # rule. Neither arm ran anywhere until D408, though the Lean file's header said `--check` gated it.
+          python3 hwprobe/mk_mmxsil_rows.py --reach
+          python3 hwprobe/mk_mmxsil_rows.py --set-b --reach
+          python3 hwprobe/mk_mmxsil_anchors.py --selftest
+          python3 hwprobe/mk_mmxsil_anchors.py --check
+          python3 hwprobe/mk_mmxsil_anchors.py --set-b --selftest
+          python3 hwprobe/mk_mmxsil_anchors.py --set-b --check
           # The pins are only right if the RULE that selected them still is. `--check`
           # cannot see that: it compares the file to the generator, and PINNED is declared.
           # ARM 3 reds when a vector is added to a form without a STREAMS line, which is the

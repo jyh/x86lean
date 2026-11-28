@@ -2506,6 +2506,9 @@ def VBinKind.mmxTaken : VBinKind → Bool
   -- ⭐ D407: the MMX forms x86isa cannot execute either (no handler), refereed by a processor; lane-wise or per-quadword,
   -- so `mmxApply`'s default rule (low64 of the XMM function on zero-extended operands) is exact (D407 §2).
   | .maxsw | .sadbw | .avgb => true
+  -- ⭐ D408: five more with no x86isa handler, lane-wise on words (pmaddubsw pairs two bytes inside its word), so the same
+  -- default rule is exact (D408 §2). Refereed by a processor, `Tests.AnchorsMmxSilB`.
+  | .minsw | .avgw | .mulhrsw | .maddubsw | .mulhuw => true
   | _ => false
 
 /-- ⭐⭐ V3 (D341, D339) — the packed binary kinds whose VEX.128 register twin is TAKEN:

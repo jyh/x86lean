@@ -2122,9 +2122,12 @@ def selftest():
     for m, ext, want in (("paddd",   "SSE-legacy (xmm)", (True,  "mapped")),
                          ("pmaddwd", "SSE-legacy (xmm)", (False, "silicon")),
                          # ⭐ D402: MMX is IN SCOPE. ⭐ D405: `pmaddwd %mm` is a shipped TWIN, so it is (a) under its
-                         # own name; a silicon mnemonic with no MMX row (`pmulhuw`, below) stays unmapped at `%mm`.
+                         # own name; a silicon mnemonic with no MMX row (`pshufb`, below) stays unmapped at `%mm`.
+                         # ⚠️ D408 moved `pmulhuw` from this arm's example into the processor-refereed MMX section; the
+                         # example is now `pshufb`, a siliconTable row whose MMX form is NOT a reuse (3-bit indices,
+                         # D408 §1 class iii), so the next lane-wise wave cannot map it by accident
                          ("pmaddwd", "MMX (mm)",         (True,  "mapped")),
-                         ("pmulhuw", "MMX (mm)",         (False, "unmapped")),
+                         ("pshufb",  "MMX (mm)",         (False, "unmapped")),
                          ("pmaddwd", "AVX-512 (zmm/k)",  (False, "outscope")),
                          ("andnl",   "BMI1",             (False, "silicon")),
                          ("adcxq",   "ADX",              (True,  "mapped")),

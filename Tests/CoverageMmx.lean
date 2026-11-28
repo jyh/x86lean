@@ -72,7 +72,7 @@ Neither reference model executes these NP forms, so no `vectors` entry carries t
 
 def mmxSilMnemonics : List String := mmxSilTable.map (·.mnemonic)
 
-theorem mmx_sil_table_size : mmxSilTable.length = 4 := by decide
+theorem mmx_sil_table_size : mmxSilTable.length = 9 := by decide
 
 theorem mmx_sil_rows_distinct : mmxSilMnemonics.eraseDups.length = mmxSilTable.length := by decide
 

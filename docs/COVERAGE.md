@@ -388,7 +388,7 @@ The reference model (ACL2 x86isa) refuses these forms at every pre-state, so no 
 
 ## MMX forms refereed by a processor (D407)
 
-4 mnemonics whose MMX form NEITHER reference model executes (x86isa's inst-listing names no handler for the NP form), NOT counted in the roster figure above. Each is refereed by a processor (hwprobe/mmxsil_probe.c on the CI runners) and pinned row by row in Tests.AnchorsMmxSil.
+9 mnemonics whose MMX form NEITHER reference model executes (x86isa's inst-listing names no handler for the NP form), NOT counted in the roster figure above. Each is refereed by a processor (hwprobe/mmxsil_probe.c on the CI runners) and pinned row by row in Tests.AnchorsMmxSil (D407) and Tests.AnchorsMmxSilB (D408).
 
 | mnemonic | operand shapes | tier | decode trust | undefined bits | SDM |
 |---|---|---|---|---|---|
@@ -396,6 +396,11 @@ The reference model (ACL2 x86isa) refuses these forms at every pre-state, so no 
 | `psadbw` | mm,mm · mm,m — one sum of eight unsigned byte absolute differences in bits 15:0, bits 63:16 ZEROED; the MMX form, refereed by a processor (D407) | T-exact | XED (trusted) | — | Vol. 2B PSADBW |
 | `pavgb` | mm,mm · mm,m — eight bytes, (DEST + SRC + 1) >> 1 unsigned, rounding up; the MMX form, refereed by a processor (D407) | T-exact | XED (trusted) | — | Vol. 2B PAVGB |
 | `pshufw` | mm,mm,i · mm,m,i — four words of the source selected by the immediate's 2-bit fields; the destination is not read; refereed by a processor (D407) | T-exact | XED (trusted) | — | Vol. 2B PSHUFW |
+| `pminsw` | mm,mm · mm,m — four words, the SIGNED minimum; the MMX form, refereed by a processor (D408) | T-exact | XED (trusted) | — | Vol. 2B PMINSW |
+| `pavgw` | mm,mm · mm,m — four words, (DEST + SRC + 1) >> 1 unsigned, rounding up; the MMX form, refereed by a processor (D408) | T-exact | XED (trusted) | — | Vol. 2B PAVGB/PAVGW |
+| `pmulhrsw` | mm,mm · mm,m — four words, the signed product rounded and scaled (bits 16:1 of ((x*y) >> 14) + 1); the MMX form, refereed by a processor (D408) | T-exact | XED (trusted) | — | Vol. 2B PMULHRSW |
+| `pmaddubsw` | mm,mm · mm,m — four words, each the signed-saturated sum of two products of DEST's unsigned bytes and SRC's signed bytes; the MMX form, refereed by a processor (D408) | T-exact | XED (trusted) | — | Vol. 2B PMADDUBSW |
+| `pmulhuw` | mm,mm · mm,m — four words, bits 31:16 of the unsigned product; the MMX form, refereed by a processor (D408) | T-exact | XED (trusted) | — | Vol. 2B PMULHUW |
 
 ## VEX.128 register twins, differentially tested (V3, D341)
 
