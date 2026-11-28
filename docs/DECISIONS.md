@@ -26353,7 +26353,7 @@ Two-to-three days, in this order: (i) the census class (a silicon twin name), re
 through `mmxApply`'s default rule, and `pshufw` as a reuse of `pshuflw` (no new definition); (iii) the probe (`hwprobe/mmxsil_ops.S` + rows + anchors) on the
 runners; (iv) 4 × 2 vectors, six arms; (v) K1, K2, the ledger row, the record. The value: 3,073 instructions (65 % of the residue)
 for no new definition (all four reuse an XMM form), which is about 20× row 89's 151 for similar machinery. The remaining 1,683 are 21 mnemonics with no single
-form above 202.
+form above 202. *(⚠️ 23 mnemonics, not 21: corrected 2026-11-28 by D408, derived from the census JSON. The 1,683 and the 202 stand.)*
 
 ### 5. RESULTS SO FAR (branch paris/d407-mmx-silicon-twins; the record is owed after K1)
 - **Prediction 1 HELD, on silicon.** hwprobe 45614996905: on AMD EPYC 9V74 (ubuntu-latest) and Intel Core i7-8700B
@@ -26387,3 +26387,56 @@ form above 202.
   the a-prime verdict.
 - **No differential record:** D407 adds no vector, so it follows D384/D393/D394 (silicon-refereed waves): the results live here,
   and no `DIFFERENTIAL-P2-BATCH` record or batch narrative is written.
+
+## D408 — The MMX residue after D407, partitioned by referee; the next batch is the five lane-wise reuses, refereed by SILICON: predictions and price BEFORE any model work
+
+⚖️ Priced from master bb6ae6b's census (`docs/DEMAND-CENSUS.md.json`, unchanged since D407 (v) `7689392`). D407's §4 method:
+`miss_by_ext[m]["MMX (mm)"]` summed over the non-underscore columns gives 4,756 over **27** mnemonics. Less D407's four
+(3,073), the residue is **1,683 over 23 mnemonics**. ⚠️ D407 §4 said "21 mnemonics", and so did STATUS-paris row 91 and the
+11-26 bank. That count was typed, not derived. The 1,683 and the "no single form above 202" were right. Corrected at all
+three copies in the same act.
+
+### 1. THE REFEREE, READ FROM x86isa AT THE PIN, PER MNEMONIC
+`inst-listing.lisp` at the oracle pin (`scripts/oracle_revision.txt`, c8897a34; the vendored file is byte-identical to the
+upstream file at that sha, 733,393 B). The semantic slot of each NO-PREFIX (MMX) entry, read by a script, not by eye. D407's
+four read `'NIL` as their control (PMAXSW :12465, PSADBW :12844, PAVGB :11676, PSHUFW :8033).
+| class | mnemonics (MMX-form demand) | sum |
+|---|---|---:|
+| **(i) `'NIL`, and the XMM row is a model kind that is lane-wise: the reuse** | pminsw 202 (`.minsw`) · pavgw 172 (`.avgw`) · pmulhrsw 104 (`.mulhrsw`) · pmaddubsw 74 (`.maddubsw`) · pmulhuw 2 (`.mulhuw`) | **554** |
+| (ii) x86isa names a handler: a differential batch | packssdw 190 (`X86-PACKSSDW-MMX`) · emms 165 (`X86-EMMS`) · paddusb 158 · paddusw 143 (`X86-PADDUSB/PADDUSW-MMX`) · packsswb 43 · paddsb 36 · psubsb 8 | 743 |
+| (iii) `'NIL`, not a reuse or no model kind yet | pabsw 94 (unary, its own constructor) · palignr 61 and pshufb 60 (**not** reuses: MMX palignr shifts the 128-bit `a:b`, and MMX pshufb indexes with 3 bits where XMM uses 4, so zero-extension changes both) · pinsrw 53 · pmovmskb 40 · movntq 27 · pminub 26 · psignw 13 · pmaxub 6 · pextrw 2 | 382 |
+| (iv) no NO-PREFIX entry at all | pmulhrw 4 (3DNow!, `0F 0F /r B7`; whether a runner processor implements it is CPUID `8000_0001h` EDX bit 31, NOT YET READ, so these 4 have no referee named) | 4 |
+554 + 743 + 382 + 4 = 1,683. ⚠️ A catalogue reading is a hypothesis (D330). Class (ii)'s handlers are measured by execution
+(`scripts/oracle_availability.py`) before that batch fixes a referee, and class (i)'s `'NIL` before this one does.
+
+### 2. THE CLAIM, PER MEMBER: MMX(a, b) = low64(XMM(zext a, zext b))
+All five are `vlanes 16 f a b` in `vbinApply` (X86/Semantics.lean). Each 16-bit lane reads only its own bits, and no lane
+crosses bit 63, so `mmxApply`'s default rule is exact. This is D404 §1's argument, and it is how D407 took `.maxsw`, `.sadbw` and
+`.avgb`. pmaddubsw pairs two bytes inside one word lane, so it is lane-wise at 16. All five XMM rows are already `siliconTable`
+members (pminsw D373, pavgw D384, pmulhrsw, pmaddubsw D335, pmulhuw). The model change is five kinds added to
+`VBinKind.mmxTaken`, with no new definition.
+
+### 3. PREDICTIONS
+1. **Silicon:** the model agrees with both runner processors on every anchor row of the five, register and memory source; 0
+   disagreements. I will not name the processors before the run (D407's prediction named the 7763 and drew a 9V74).
+2. **Arms, each must disagree on at least one row (`--reach`):** (a) pminsw UNSIGNED; (b) pavgw rounding down; (c) pmulhrsw
+   truncating (`(x·y) >> 15`, no rounding bit); (d) pmaddubsw with the operand roles swapped (DEST signed, SRC unsigned);
+   (e) pmaddubsw wrapping instead of saturating; (f) pmulhuw signed (pmulhw's rule). The x87 touch is `setMm`'s and decided by
+   D403, so as in D407 it is a LIMIT here, not an arm.
+3. **Census:** no census code change; the five rows join `mmxSilTable` under D407's section title, which
+   `MMX_SILICON_SECTION` already files as class (b). Movement: covered +0, silicon +554 (x264 244, ffmpeg 305, vpx 5), total
+   +0. The `MMX (mm)` field stays 4,756 (D407 §5, prediction 3: it counts processor-refereed forms too). The residue becomes
+   1,683 − 554 = 1,129 only as the difference of two measured moves.
+4. **Kernel cost:** a NEW anchors unit, `Tests.AnchorsMmxSilB`, refused at K1 on both arms as designed and then registered (the
+   D405 §6 path, which D407 took). The wave pattern here is one unit per wave (AnchorsVexSil to F). ~180 more rows inside
+   `Tests.AnchorsMmxSil` (144 rows read 952 ms on katmai) would more than double a unit whose relative allowance is the 23.3 %
+   default, so K1 would refuse that too and the remedy would be to widen a ceiling from the thing it checks. `Tests.CoverageMmx`
+   grows by five rows and reads ok at K1 (D407: +240 ms for four). If it does not, that is a finding.
+
+### 4. PRICE
+About two days, mostly katmai and CI: (i) `mmxTaken` + five `mmxSilTable` rows; (ii) `mk_mmxsil_rows.py` with five more
+mnemonics and the six wrong rules, the probe's dispatch, a `--set-b` selector so D407's rows and anchors stay byte-identical,
+and the B anchors; (iii) one hwprobe run on the runners with its plant; (iv) K1 → registration → K1b → the PR's runner-pool line →
+K2 at the PR head (the bank's ~12 h of katmai and two CI rounds for a new unit). The value is 554 instructions (33 % of the
+residue) for no new definition. Class (ii) is next (743, with new kinds and EMMS's tag-word write). STATUS row 89's 151 count
+shifts and class (iii) follow it.
