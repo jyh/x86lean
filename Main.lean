@@ -6265,7 +6265,7 @@ row keeps one referee.\n\n"
       let mmxSil := "\n## MMX forms refereed by a processor (D407)\n\n" ++
         toString mmxSilTable.length ++ " mnemonics whose MMX form NEITHER reference model executes (x86isa's inst-listing \
 names no handler for the NP form), NOT counted in the roster figure above. Each is refereed by a processor \
-(hwprobe/mmxsil_probe.c on the CI runners) and pinned row by row in Tests.AnchorsMmxSil.\n\n"
+(hwprobe/mmxsil_probe.c on the CI runners) and pinned row by row in Tests.AnchorsMmxSil (D407) and Tests.AnchorsMmxSilB (D408).\n\n"
       -- ⭐⭐⭐ V3 (D341): the VEX.128 twins, a THIRD population, published as their own table and
       -- their own count, never folded into the roster figure above.
       let vex := "\n## VEX.128 register twins, differentially tested (V3, D341)\n\n" ++

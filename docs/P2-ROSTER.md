@@ -203,13 +203,13 @@ question the differential actually depends on is whether the demand has a verdic
 | | pairs | occurrences | share of the gap |
 |---|---|---|---|
 | the oracle EXECUTES | 39 | 51,582 | 16.8% |
-| the oracle REFUSES | 88 | 169,439 | 55.1% |
+| the oracle REFUSES | 96 | 172,424 | 56.1% |
 | the oracle STALLS | 3 | 241 | 0.1% |
-| **probed so far** | 130 | **221,262** | **72.0%** |
-| not asked at its own bucket | | 86,042 | 28.0% |
+| **probed so far** | 138 | **224,247** | **73.0%** |
+| not asked at its own bucket | | 83,057 | 27.0% |
 
 ⇒ **the by-mnemonic table is ahead of the by-bucket one by
-54,183 instructions, 17.6% of the gap** — that is
+51,198 instructions, 16.7% of the gap** — that is
 exactly the demand attributed on a reading taken somewhere else. Every
 instruction is attributed once in the second table, and the generator refuses if
 the three rows do not sum to the vector demand.

@@ -1203,7 +1203,17 @@ def mmxSilTable : List Row :=
   , { mnemonic := "pavgb", shapes := "mm,mm · mm,m", note := "eight bytes, (DEST + SRC + 1) >> 1 unsigned, rounding up; the MMX form, refereed by a processor (D407)",
       tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PAVGB" }
   , { mnemonic := "pshufw", shapes := "mm,mm,i · mm,m,i", note := "four words of the source selected by the immediate's 2-bit fields; the destination is not read; refereed by a processor (D407)",
-      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSHUFW" } ]
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PSHUFW" }
+  , { mnemonic := "pminsw", shapes := "mm,mm · mm,m", note := "four words, the SIGNED minimum; the MMX form, refereed by a processor (D408)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMINSW" }
+  , { mnemonic := "pavgw", shapes := "mm,mm · mm,m", note := "four words, (DEST + SRC + 1) >> 1 unsigned, rounding up; the MMX form, refereed by a processor (D408)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PAVGB/PAVGW" }
+  , { mnemonic := "pmulhrsw", shapes := "mm,mm · mm,m", note := "four words, the signed product rounded and scaled (bits 16:1 of ((x*y) >> 14) + 1); the MMX form, refereed by a processor (D408)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULHRSW" }
+  , { mnemonic := "pmaddubsw", shapes := "mm,mm · mm,m", note := "four words, each the signed-saturated sum of two products of DEST's unsigned bytes and SRC's signed bytes; the MMX form, refereed by a processor (D408)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMADDUBSW" }
+  , { mnemonic := "pmulhuw", shapes := "mm,mm · mm,m", note := "four words, bits 31:16 of the unsigned product; the MMX form, refereed by a processor (D408)",
+      tier := .exact, decode := .xed, undefined := [], sdm := "Vol. 2B PMULHUW" } ]
 
 /-- ⭐⭐⭐ V3 (D341): THE VEX.128 REGISTER TWINS — a THIRD population beside `tableP0` (the 199
 differentially tested mnemonics) and `siliconTable` (the forms only a processor referees).

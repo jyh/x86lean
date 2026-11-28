@@ -12,13 +12,23 @@ value is bits (i+1)w-1 : iw. DEST is %mm0, SRC is %mm1 or the m64 at [RBX].
   PAVGB    byte i (8 bytes) := (DEST.b[i] + SRC.b[i] + 1) >> 1, both unsigned, the sum taken in 9 bits.
   PSHUFW   word i := SRC.w[(imm8 >> 2i) & 3] for i = 0..3; DEST's old value is not read.
 
+SET B (D408, `--set-b`): the five lane-wise MMX forms whose XMM kind the model already has, x86isa again naming no handler.
+  PMINSW    word i := DEST.w[i] if DEST.w[i] < SRC.w[i] (SIGNED) else SRC.w[i].
+  PAVGW     word i := (DEST.w[i] + SRC.w[i] + 1) >> 1, both unsigned, the sum taken in 17 bits.
+  PMULHRSW  word i := bits 16:1 of (((DEST.w[i] * SRC.w[i]) >> 14) + 1), the product SIGNED in 32 bits (SSSE3).
+  PMADDUBSW word i := SaturateToSignedWord(DEST.b[2i+1] * SRC.b[2i+1] + DEST.b[2i] * SRC.b[2i]), DEST's bytes UNSIGNED and
+            SRC's SIGNED (SSSE3).
+  PMULHUW   word i := bits 31:16 of DEST.w[i] * SRC.w[i], both unsigned.
+Set B draws its RANDOM rows from `random.Random(408000 + k)` and keeps set A's rows, seeds and C byte for byte.
+
 THE ROW POPULATION, per mnemonic (the same pairs at both shapes, register `rr` and memory `rm`): 8 EDGE rows (lane i of
 DEST and SRC from an edge set, SRC rotated by the row number), 4 UNIFORM rows at the extremes, and 6 RANDOM rows from
 `random.Random(407000 + k)`. PSHUFW takes its SRC from the same population and one imm8 per row: four fixed
 patterns 0x1B (reverse), 0x00 (broadcast word 0), 0xFF (broadcast word 3), 0xE4 (identity), then random bytes.
 CONTROL: PADDW at %mm, a differential form (D404 d1) whose rule here must agree with the processor, or the probe refuses.
 
-Usage: mk_mmxsil_rows.py [--plant | --summary | --reach]   writes C rows on stdout.
+Usage: mk_mmxsil_rows.py [--set-b] [--plant | --summary | --reach]   writes C rows on stdout.
+  --set-b    D408's five (set B) instead of D407's four; the plant then flips bit 63 of one PAVGW expectation
   --plant    flips bit 63 of ONE expectation: exactly that row must disagree (the probe exits 1)
   --summary  prints the per-form row counts, not C
   --reach    prints, per mnemonic, how many rows each named WRONG rule disagrees on (0 would be a vacuous row set)
@@ -32,7 +42,12 @@ import portable as P  # noqa: E402
 
 M64 = (1 << 64) - 1
 MNEMONICS = ["pmaxsw", "psadbw", "pavgb", "pshufw"]
-WIDTH = {"pmaxsw": 16, "psadbw": 8, "pavgb": 8, "pshufw": 16, "paddw": 16}
+MNEMONICS_B = ["pminsw", "pavgw", "pmulhrsw", "pmaddubsw", "pmulhuw"]
+# The OPERAND lane width the row population is drawn at. pmaddubsw multiplies bytes, so its edges are bytes.
+WIDTH = {"pmaxsw": 16, "psadbw": 8, "pavgb": 8, "pshufw": 16, "paddw": 16,
+         "pminsw": 16, "pavgw": 16, "pmulhrsw": 16, "pmaddubsw": 8, "pmulhuw": 16}
+SEED = {False: 407000, True: 408000}
+PLANT_MN = {False: "pavgb", True: "pavgw"}
 EDGES = {
     16: [0x0000, 0x0001, 0xFFFF, 0x7FFF, 0x8000, 0x8001, 0x4000, 0x00FF],
     8: [0x00, 0x01, 0xFF, 0x7F, 0x80, 0x81, 0x40, 0xFE],
@@ -72,6 +87,18 @@ def rule(mn, a, b, imm=0):
         return join([s[(imm >> (2 * i)) & 3] for i in range(4)], 16)
     if mn == "paddw":
         return join([p + q for p, q in zip(lanes(a, 16), lanes(b, 16))], 16)
+    if mn == "pminsw":
+        return join([p if sx(p, 16) < sx(q, 16) else q for p, q in zip(lanes(a, 16), lanes(b, 16))], 16)
+    if mn == "pavgw":
+        return join([(p + q + 1) >> 1 for p, q in zip(lanes(a, 16), lanes(b, 16))], 16)
+    if mn == "pmulhrsw":
+        return join([(((sx(p, 16) * sx(q, 16)) >> 14) + 1) >> 1 for p, q in zip(lanes(a, 16), lanes(b, 16))], 16)
+    if mn == "pmaddubsw":
+        d, s = lanes(a, 8), lanes(b, 8)
+        return join([max(-32768, min(32767, d[2 * i + 1] * sx(s[2 * i + 1], 8) + d[2 * i] * sx(s[2 * i], 8)))
+                     for i in range(4)], 16)
+    if mn == "pmulhuw":
+        return join([(p * q) >> 16 for p, q in zip(lanes(a, 16), lanes(b, 16))], 16)
     raise KeyError(mn)
 
 
@@ -82,12 +109,33 @@ WRONG = {
     "psadbw": ("bits 63:16 kept from DEST", lambda a, b, i: (a & ~0xFFFF & M64) | rule("psadbw", a, b)),
     "pshufw": ("field order reversed", lambda a, b, i: join([lanes(b, 16)[(i >> (2 * (3 - j))) & 3] for j in range(4)], 16)),
 }
+# D408 §3 prediction 2's wrong rules for set B, (a)-(f).
+def _maddubs(a, b, dsigned, ssigned, sat):
+    d, s = lanes(a, 8), lanes(b, 8)
+    f = (lambda x: sx(x, 8))
+    out = []
+    for i in range(4):
+        v = sum((f(d[j]) if dsigned else d[j]) * (f(s[j]) if ssigned else s[j]) for j in (2 * i, 2 * i + 1))
+        out.append(max(-32768, min(32767, v)) if sat else v)
+    return join(out, 16)
+
+
+WRONG_B = [
+    ("pminsw", "UNSIGNED minimum", lambda a, b, i: join([min(p, q) for p, q in zip(lanes(a, 16), lanes(b, 16))], 16)),
+    ("pavgw", "rounding DOWN", lambda a, b, i: join([(p + q) >> 1 for p, q in zip(lanes(a, 16), lanes(b, 16))], 16)),
+    ("pmulhrsw", "truncating, (x*y) >> 15", lambda a, b, i: join([(sx(p, 16) * sx(q, 16)) >> 15
+                                                               for p, q in zip(lanes(a, 16), lanes(b, 16))], 16)),
+    ("pmaddubsw", "roles swapped (DEST signed, SRC unsigned)", lambda a, b, i: _maddubs(a, b, True, False, True)),
+    ("pmaddubsw", "wrapping instead of saturating", lambda a, b, i: _maddubs(a, b, False, True, False)),
+    ("pmulhuw", "SIGNED (pmulhw's rule)", lambda a, b, i: join([(sx(p, 16) * sx(q, 16)) >> 16
+                                                             for p, q in zip(lanes(a, 16), lanes(b, 16))], 16)),
+]
 WRONG_PSHUFW_DWORD = ("pshufd's dword lanes, low 64 kept",
                       lambda a, b, i: join([lanes(b, 32)[(i >> (2 * j)) & 3] if ((i >> (2 * j)) & 3) < 2 else 0
                                             for j in range(2)], 32))
 
 
-def pairs(mn, k):
+def pairs(mn, k, set_b=False):
     w = WIDTH[mn]
     out = []
     e = EDGES[w]
@@ -98,18 +146,18 @@ def pairs(mn, k):
         out.append(("edge%d" % r, a, b))
     for j, (x, y) in enumerate(UNIFORM[w]):
         out.append(("uni%d" % j, join([x] * n, w), join([y] * n, w)))
-    rnd = random.Random(407000 + k)
+    rnd = random.Random(SEED[set_b] + k)
     for j in range(6):
         out.append(("rnd%d" % j, rnd.getrandbits(64), rnd.getrandbits(64)))
     return out
 
 
-def rows():
+def rows(set_b=False):
     """(form, mnemonic, shape, dest, src, imm, expected) for every row, the control's last."""
     out = []
-    for k, mn in enumerate(MNEMONICS + ["paddw"]):
+    for k, mn in enumerate((MNEMONICS_B if set_b else MNEMONICS) + ["paddw"]):
         rnd_imm = random.Random(407900 + k)
-        for idx, (tag, a, b) in enumerate(pairs(mn, k)):
+        for idx, (tag, a, b) in enumerate(pairs(mn, k, set_b)):
             imm = (SHUF_FIXED[idx] if idx < len(SHUF_FIXED) else rnd_imm.getrandbits(8)) if mn == "pshufw" else 0
             for shape in ("rr", "rm"):
                 out.append((mn + "_" + shape + "_" + tag, mn, shape, a, b, imm, rule(mn, a, b, imm)))
@@ -118,7 +166,9 @@ def rows():
 
 def main(argv):
     P.strict_flags(__file__, argv)
-    rs = rows()
+    set_b = "--set-b" in argv
+    mns = MNEMONICS_B if set_b else MNEMONICS
+    rs = rows(set_b)
     if "--summary" in argv:
         from collections import Counter
         c = Counter((r[1], r[2]) for r in rs)
@@ -129,29 +179,40 @@ def main(argv):
         return 0
     if "--reach" in argv:
         bad = 0
-        checks = [(mn, WRONG[mn]) for mn in MNEMONICS] + [("pshufw", WRONG_PSHUFW_DWORD)]
+        checks = ([(mn, (name, f)) for mn, name, f in WRONG_B] if set_b
+                  else [(mn, WRONG[mn]) for mn in MNEMONICS] + [("pshufw", WRONG_PSHUFW_DWORD)])
+        missing = [mn for mn in mns if not any(c[0] == mn for c in checks)]
+        if missing:
+            print("reach: FAIL (no wrong rule for " + " ".join(missing) + ")")
+            return 1
         for mn, (name, f) in checks:
             hit = sum(1 for r in rs if r[1] == mn and f(r[3], r[4], r[5]) & M64 != r[6])
             tot = sum(1 for r in rs if r[1] == mn)
-            print(f"  {'✔' if hit else '⛔'} {mn:7s} {name:36s} disagrees on {hit} of {tot} rows")
+            wm, wn = (9, 42) if set_b else (7, 36)
+            print(f"  {'✔' if hit else '⛔'} {mn:{wm}s} {name:{wn}s} disagrees on {hit} of {tot} rows")
             bad += hit == 0
         print("reach: " + ("PASS" if not bad else f"FAIL ({bad} vacuous)"))
         return 1 if bad else 0
     plant = "--plant" in argv
-    print("/* GENERATED by hwprobe/mk_mmxsil_rows.py%s. Do not edit by hand. */" % (" --plant" if plant else ""))
+    flags = (" --set-b" if set_b else "") + (" --plant" if plant else "")
+    print("/* GENERATED by hwprobe/mk_mmxsil_rows.py%s. Do not edit by hand. */" % flags)
     print("typedef struct { const char *form; int op; int mem; unsigned long long dest, src; int imm; "
           "unsigned long long want; } row_t;")
-    print("enum { OP_PMAXSW, OP_PSADBW, OP_PAVGB, OP_PSHUFW, OP_PADDW };")
+    print("enum { " + ", ".join("OP_" + m.upper() for m in mns + ["paddw"]) + " };")
+    if set_b:
+        print("#define MMXSIL_SET_B 1")
     print("static const row_t ROWS[] = {")
     planted = False
     for form, mn, shape, a, b, imm, want in rs:
-        if plant and not planted and mn == "pavgb":
+        if plant and not planted and mn == PLANT_MN[set_b]:
             want ^= 1 << 63
             planted = True
         print(f'  {{"{form}", OP_{mn.upper()}, {1 if shape == "rm" else 0}, 0x{a:016x}ULL, 0x{b:016x}ULL, '
               f'0x{imm:02x}, 0x{want:016x}ULL}},')
     print("};")
     print("#define N_ROWS (sizeof ROWS / sizeof ROWS[0])")
+    if set_b:
+        return 0
     # pshufw's imm8 is an assembly-time immediate, so the selectors the rows use are dispatched by a generated switch.
     imms = sorted({r[5] for r in rs if r[1] == "pshufw"})
     print("static int run_pshufw(int mem, unsigned long long src, int imm, unsigned long long *out) {")

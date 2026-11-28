@@ -1357,6 +1357,18 @@ P2_FORMS = [
     ("cvtsi2sdq_m",     "cvtsi2sdq (%rbx), %xmm0",           "f2480f2a03",      "refuses", "executes"),
     ("cvtsi2ssl_m",     "cvtsi2ssl (%rbx), %xmm0",           "f30f2a03",        "refuses", "executes"),
     ("cvtsi2ssq_m",     "cvtsi2ssq (%rbx), %xmm0",           "f3480f2a03",      "refuses", "executes"),
+    # ⭐⭐ D407 / D408 — THE MMX FORMS THE SILICON REFEREE TOOK, ASKED BY EXECUTION. inst-listing.lisp at the pin names no
+    #    handler (`'NIL`) for their NP forms; a catalogue reading is a hypothesis (D330), so each is declared `refuses` in
+    #    both arms and measured here. D407 refereed pmaxsw/psadbw/pavgb by silicon on the catalogue alone (pshufw has its
+    #    own row above); D408 §1 owed this measurement before its five were refereed. Bytes from clang -arch x86_64.
+    ("pmaxsw_mmx",     "pmaxsw %mm1, %mm0",       "0feec1",       "refuses",  "refuses"),
+    ("psadbw_mmx",     "psadbw %mm1, %mm0",       "0ff6c1",       "refuses",  "refuses"),
+    ("pavgb_mmx",      "pavgb %mm1, %mm0",        "0fe0c1",       "refuses",  "refuses"),
+    ("pminsw_mmx",     "pminsw %mm1, %mm0",       "0feac1",       "refuses",  "refuses"),
+    ("pavgw_mmx",      "pavgw %mm1, %mm0",        "0fe3c1",       "refuses",  "refuses"),
+    ("pmulhrsw_mmx",   "pmulhrsw %mm1, %mm0",     "0f380bc1",     "refuses",  "refuses"),
+    ("pmaddubsw_mmx",  "pmaddubsw %mm1, %mm0",    "0f3804c1",     "refuses",  "refuses"),
+    ("pmulhuw_mmx",    "pmulhuw %mm1, %mm0",      "0fe4c1",       "refuses",  "refuses"),
     # ⭐ THE CONTROLS, one in each direction, in BOTH arms.
     ("CONTROL:mov",    "movl %ecx, (%rbx)",       "890b",         "executes", "executes"),
     ("CONTROL:movnti", "movntil %ecx, (%rbx)",    "0fc30b",       "refuses",  "refuses"),

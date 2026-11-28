@@ -115,6 +115,11 @@ else printf "  ⛔ FAIL hwprobe/mk_vexsill_anchors --check\n"; rc=1; fi
 # D394: wave G's pins (the VEX scalar floating-point forms, one unit).
 if python3 hwprobe/mk_vexsilm_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_vexsilm_anchors --check\n"
 else printf "  ⛔ FAIL hwprobe/mk_vexsilm_anchors --check\n"; rc=1; fi
+# D407/D408: the MMX silicon pins (Tests/AnchorsMmxSil.lean, set A; Tests/AnchorsMmxSilB.lean, set B). Ran nowhere until D408.
+if python3 hwprobe/mk_mmxsil_anchors.py --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_mmxsil_anchors --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_mmxsil_anchors --check\n"; rc=1; fi
+if python3 hwprobe/mk_mmxsil_anchors.py --set-b --check >/dev/null 2>&1; then printf "  ok   hwprobe/mk_mmxsil_anchors --set-b --check\n"
+else printf "  ⛔ FAIL hwprobe/mk_mmxsil_anchors --set-b --check\n"; rc=1; fi
 # ⛔⛔ ADDED 2026-09-20 (paris): `mk_anchors --check` proves Tests/Anchors.lean matches the
 #   GENERATOR byte for byte. It proves NOTHING about whether the generator's PINNED set is still
 #   CORRECT -- PINNED is DECLARED, and its reach half is measured by a command nothing ran.

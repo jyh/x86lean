@@ -1112,6 +1112,29 @@ jobs:
           test "$rc" = 0
           grep -E '^VERDICT rule: [0-9]+ of [0-9]+ rows agree' mmxsil.out
 
+      # ⭐⭐ D408 — set B (pminsw pavgw pmulhrsw pmaddubsw pmulhuw at %mm), the same probe built with -DSETB. The plant flips
+      # bit 63 of one pavgw expectation and must report exactly one disagreement (rc 1); paddw controls must hold (else rc 2).
+      - name: D408 MMX silicon twins, set B (controls, plant, verdict)
+        if: ${{ !cancelled() }}
+        working-directory: hwprobe
+        run: |
+          python3 mk_mmxsil_rows.py --set-b --reach
+          python3 mk_mmxsil_rows.py --set-b > mmxsil_rows_b.h
+          python3 mk_mmxsil_rows.py --set-b --plant > mmxsil_rows_b_plant.h
+          cc -O1 -Wall -DSETB -o mmxsil_probe_b mmxsil_probe.c
+          cc -O1 -Wall -DSETB -DPLANT -o mmxsil_probe_b_plant mmxsil_probe.c
+          set +e
+          ./mmxsil_probe_b_plant > mmxsil_b_plant.out; rc_plant=$?
+          ./mmxsil_probe_b > mmxsil_b.out; rc=$?
+          set -e
+          cat mmxsil_b_plant.out
+          cat mmxsil_b.out
+          echo "mmxsil set B plant rc=$rc_plant (want 1) · probe rc=$rc (want 0)"
+          test "$rc_plant" = 1
+          grep -q '^VERDICT disagree: 1 of ' mmxsil_b_plant.out
+          test "$rc" = 0
+          grep -E '^VERDICT rule: [0-9]+ of [0-9]+ rows agree' mmxsil_b.out
+
       - name: Bit-string rows, full listing (artifact)
         if: always()
         uses: actions/upload-artifact@v4
